@@ -2515,7 +2515,8 @@ function _saem_log_closed_form_plan(requested_mode::Symbol,
                                     resid_var_param,
                                     hmm_emission_params::NamedTuple,
                                     has_custom_closed_form::Bool,
-                                    base_free_names::Vector{Symbol})
+                                    base_free_names::Vector{Symbol},
+                                    q2_base_free_names::Vector{Symbol})
     cf_syms = Symbol[]
     for v in values(re_cov_params);     _saem_collect_target_symbols!(cf_syms, v); end
     for v in values(re_mean_params);    _saem_collect_target_symbols!(cf_syms, v); end
@@ -2528,11 +2529,17 @@ function _saem_log_closed_form_plan(requested_mode::Symbol,
     if has_custom_closed_form
         union!(cf_set, base_free_names)   # custom closed-form handles everything
     end
+    q2_set = Set(q2_base_free_names)
     numeric_params = [n for n in base_free_names if !(n in cf_set)]
+    q1_numeric = [n for n in numeric_params if n ∉ q2_set]
+    q2_numeric  = [n for n in numeric_params if n ∈ q2_set]
     if isempty(numeric_params)
         @info "SAEM: all parameters handled by closed-form M-step; numeric optimizer inactive."
     else
-        @info "SAEM: numerically optimized parameters: $(numeric_params)"
+        groups = String[]
+        !isempty(q1_numeric) && push!(groups, string(q1_numeric))
+        !isempty(q2_numeric)  && push!(groups, string(q2_numeric) * " (Q2-only)")
+        @info "SAEM: numerically optimized parameters: $(join(groups, "  "))"
     end
     return nothing
 end
@@ -2733,16 +2740,15 @@ function _fit_model(dm::DataModel, method::SAEM, args...;
         end
     end
     has_custom_closed_form = method.saem.suffstats !== nothing && method.saem.mstep_closed_form !== nothing
-    _saem_log_closed_form_plan(method.saem.builtin_stats, builtin_stats_mode, builtin_cf_elig,
-                               re_cov_params, re_mean_params, resid_var_param, hmm_emission_params,
-                               has_custom_closed_form, base_free_names)
-    re_family_map = _saem_re_family_map(dm)
-
     # Detect Q2-only free parameters (appear only in RE distributions, never in obs-side blocks).
     # These are optimised in a cheap separate M-step that skips ODE evaluation entirely.
     q2_base_free_names = let p = _partition_q1_q2_names(dm.model, base_free_names)
         p.q2
     end
+    _saem_log_closed_form_plan(method.saem.builtin_stats, builtin_stats_mode, builtin_cf_elig,
+                               re_cov_params, re_mean_params, resid_var_param, hmm_emission_params,
+                               has_custom_closed_form, base_free_names, q2_base_free_names)
+    re_family_map = _saem_re_family_map(dm)
 
     # anneal_to_fixed validation
     anneal_initial_sds = _saem_validate_anneal(method.saem.anneal_to_fixed,
