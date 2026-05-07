@@ -2513,14 +2513,16 @@ mutable struct _LaplaceObjCache{T, G}
     has_grad::Bool
 end
 
-@inline function _laplace_obj_cache_set_obj!(cache::_LaplaceObjCache, θ, obj)
+@inline function _laplace_obj_cache_set_obj!(cache::_LaplaceObjCache{T}, θ, obj) where T
+    eltype(θ) === T || return nothing
     cache.θ = copy(θ)
     cache.obj = obj
     cache.has_grad = false
     return nothing
 end
 
-@inline function _laplace_obj_cache_set_obj_grad!(cache::_LaplaceObjCache, θ, obj, grad)
+@inline function _laplace_obj_cache_set_obj_grad!(cache::_LaplaceObjCache{T}, θ, obj, grad) where T
+    eltype(θ) === T || return nothing
     cache.θ = copy(θ)
     cache.obj = obj
     cache.grad = grad
@@ -2528,7 +2530,8 @@ end
     return nothing
 end
 
-@inline function _laplace_obj_cache_lookup(cache::_LaplaceObjCache, θ, theta_tol)
+@inline function _laplace_obj_cache_lookup(cache::_LaplaceObjCache{T}, θ, theta_tol) where T
+    eltype(θ) === T || return nothing
     cache.θ === nothing && return nothing
     cache.has_grad || return nothing
     maxdiff = _maxabsdiff(θ, cache.θ)
@@ -2538,7 +2541,8 @@ end
     return nothing
 end
 
-@inline function _laplace_obj_cache_lookup_obj(cache::_LaplaceObjCache, θ, theta_tol)
+@inline function _laplace_obj_cache_lookup_obj(cache::_LaplaceObjCache{T}, θ, theta_tol) where T
+    eltype(θ) === T || return nothing
     cache.θ === nothing && return nothing
     maxdiff = _maxabsdiff(θ, cache.θ)
     if isfinite(maxdiff) && maxdiff <= theta_tol
