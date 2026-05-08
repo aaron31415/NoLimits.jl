@@ -1200,13 +1200,24 @@ function _laplace_compute_bstar_batch!(cache::_LaplaceCache,
     end
     use_mcmc = mcmc_candidates !== nothing && size(mcmc_candidates, 2) > 0
     if g_best_norm > multistart.grad_tol && multistart.k > 0 && (multistart.n > 0 || use_mcmc)
-        n = use_mcmc ? size(mcmc_candidates, 2) : multistart.n
+        n_mcmc_stored = use_mcmc ? size(mcmc_candidates, 2) : 0
+        n = use_mcmc ? max(multistart.n, n_mcmc_stored) : multistart.n
         k = multistart.k
         max_rounds = use_mcmc ? 1 : max(1, multistart.max_rounds)
         for round in 1:max_rounds
             k = min(k, n)
-            b0s = use_mcmc ? [mcmc_candidates[:, i] for i in 1:n] :
-                  _laplace_sample_b0s(dm, info, θ_val, const_cache, ll_cache, rng, n, multistart.sampling)
+            if use_mcmc
+                mcmc_b0s = [mcmc_candidates[:, i] for i in 1:n_mcmc_stored]
+                n_lhs = max(0, multistart.n - n_mcmc_stored)
+                lhs_b0s = n_lhs > 0 ?
+                    _laplace_sample_b0s(dm, info, θ_val, const_cache, ll_cache, rng, n_lhs, multistart.sampling) :
+                    Vector{Vector{eltype(θ_val)}}()
+                b0s = vcat(mcmc_b0s, lhs_b0s)
+                n = length(b0s)
+                k = min(k, n)
+            else
+                b0s = _laplace_sample_b0s(dm, info, θ_val, const_cache, ll_cache, rng, n, multistart.sampling)
+            end
             vals = Vector{Tuple{Float64, Vector{eltype(θ_val)}}}(undef, n)
             for s in 1:n
                 b0 = b0s[s]
@@ -2505,4 +2516,14 @@ function _laplace_floatize(θ::ComponentArray)
     eltype(θ) === Float64 && return θ
     vals = map(_laplace_value, θ)
     return ComponentArray(Float64.(vals), getaxes(θ))
+end
+
+function _with_eb_modes(result::LaplaceResult, eb_modes)
+    return LaplaceResult(result.solution, result.objective, result.iterations,
+                         result.raw, result.notes, eb_modes)
+end
+
+function _with_eb_modes(result::LaplaceMAPResult, eb_modes)
+    return LaplaceMAPResult(result.solution, result.objective, result.iterations,
+                            result.raw, result.notes, eb_modes)
 end

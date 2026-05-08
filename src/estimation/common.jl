@@ -815,11 +815,13 @@ function get_random_effects(res::FitResult;
 end
 
 """
-    reestimate_ebes(dm::DataModel, res::FitResult; kwargs...) -> NamedTuple
-    reestimate_ebes(res::FitResult; kwargs...) -> NamedTuple
+    reestimate_ebes(dm::DataModel, res::FitResult; kwargs...) -> FitResult
+    reestimate_ebes(res::FitResult; kwargs...) -> FitResult
 
 Re-estimate empirical Bayes estimates (EBEs) from a fitted model, ignoring any EBEs
-stored in the result. Returns the same `NamedTuple` of `DataFrame`s as `get_random_effects`.
+stored in the result. Returns a new `FitResult` with `eb_modes` replaced by the
+freshly-optimised modes. Use `get_random_effects` on the returned result to obtain the
+corresponding `NamedTuple` of `DataFrame`s.
 
 Supported methods: `Laplace`, `LaplaceMAP`, `MCEM`, `SAEM`.
 
@@ -847,13 +849,12 @@ Supported methods: `Laplace`, `LaplaceMAP`, `MCEM`, `SAEM`.
 - `ebe_rescue_grad_tol`: gradient tolerance for the rescue pass (default: matches `ebe_grad_tol`).
 - `ebe_rescue_multistart_sampling::Symbol`: sampling for rescue (default: `:lhs`).
 - `constants_re::NamedTuple`: fix specific RE levels at given values (natural scale).
-- `individuals`: `nothing` (all) or a vector of primary IDs; only batches containing
-  at least one listed individual are optimised. Co-batch individuals are always included.
+- `individuals`: `nothing` (all) or a vector of primary IDs. When provided, only batches
+  containing at least one listed individual are re-optimised; the remaining batches retain
+  the `eb_modes` already stored in `res`. Co-batch individuals are always re-optimised.
 - `ode_args::Tuple`, `ode_kwargs::NamedTuple`: forwarded to the ODE solver.
 - `serialization::EnsembleAlgorithm`: parallelisation (default: `EnsembleSerial()`).
 - `rng::AbstractRNG`: random number generator.
-- `flatten::Bool`: expand vector REs to individual columns (default: `true`).
-- `include_constants::Bool`: include constant RE levels in output (default: `true`).
 - `progress::Bool`: show progress bar (default: `false`).
 """
 function reestimate_ebes(dm::DataModel,
@@ -880,8 +881,6 @@ function reestimate_ebes(dm::DataModel,
                          ode_kwargs::NamedTuple=NamedTuple(),
                          serialization::SciMLBase.EnsembleAlgorithm=EnsembleSerial(),
                          rng::AbstractRNG=Random.default_rng(),
-                         flatten::Bool=true,
-                         include_constants::Bool=true,
                          progress::Bool=false)
     supported = res.result isa LaplaceResult || res.result isa LaplaceMAPResult ||
                 res.result isa MCEMResult || res.result isa SAEMResult
@@ -910,20 +909,34 @@ function reestimate_ebes(dm::DataModel,
     bstars, batch_infos = _compute_bstars(dm, θu, constants_re, ll_cache, ebe, rng;
                                           rescue=ebe_rescue, progress=progress,
                                           mcmc_candidates_by_batch=mcmc_candidates)
-    if individuals !== nothing
-        ind_indices = Set(dm.id_index[id] for id in individuals if haskey(dm.id_index, id))
-        keep = [any(i ∈ ind_indices for i in bi.inds) for bi in batch_infos]
-        batch_infos = batch_infos[keep]
-        bstars = bstars[keep]
+    new_eb_modes = if individuals !== nothing
+        existing = res.result.eb_modes
+        if existing !== nothing && length(existing) == length(bstars)
+            ind_indices = Set(dm.id_index[id] for id in individuals if haskey(dm.id_index, id))
+            keep = [any(i ∈ ind_indices for i in bi.inds) for bi in batch_infos]
+            merged = copy(existing)
+            for (bi, should_replace) in enumerate(keep)
+                should_replace && (merged[bi] = bstars[bi])
+            end
+            merged
+        else
+            bstars
+        end
+    else
+        bstars
     end
-    return _re_dataframes_from_bstars(dm, batch_infos, bstars; constants_re=constants_re,
-                                      flatten=flatten, include_constants=include_constants)
+    return _with_result(res, _with_eb_modes(res.result, new_eb_modes))
 end
 
 function reestimate_ebes(res::FitResult; kwargs...)
     dm = res.data_model
     dm === nothing && error("This fit result does not store a DataModel; call reestimate_ebes(dm, res) instead.")
     return reestimate_ebes(dm, res; kwargs...)
+end
+
+function _with_result(res::FitResult, new_result)
+    return FitResult(res.method, new_result, res.summary, res.diagnostics,
+                     res.data_model, res.fit_args, res.fit_kwargs)
 end
 
 """
