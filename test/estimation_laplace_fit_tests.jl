@@ -544,30 +544,35 @@ end
 
     # Laplace with stored dm
     res = fit_model(dm, NoLimits.Laplace(; optim_kwargs=(maxiters=3,)))
-    re = reestimate_ebes(res)
+    res_new = reestimate_ebes(res)
+    re = get_random_effects(res_new)
     @test re isa NamedTuple
     @test haskey(re, :η)
     @test nrow(re.η) == 3
 
     # Explicit dm (simulates store_data_model=false)
     res_nostore = fit_model(dm, NoLimits.Laplace(; optim_kwargs=(maxiters=3,)); store_data_model=false)
-    re2 = reestimate_ebes(dm, res_nostore)
+    res_new2 = reestimate_ebes(dm, res_nostore)
+    re2 = get_random_effects(dm, res_new2)
     @test nrow(re2.η) == 3
 
-    # individuals subset
-    re_sub = reestimate_ebes(res; individuals=[1, 2])
-    @test nrow(re_sub.η) == 2
+    # individuals subset — all 3 individuals remain in result, only 2 are recomputed
+    res_sub = reestimate_ebes(res; individuals=[1, 2])
+    re_sub = get_random_effects(res_sub)
+    @test nrow(re_sub.η) == 3
 
     # Loaded result via save_fit/load_fit
     path = tempname() * ".jld2"
     save_fit(path, res)
     res_loaded = load_fit(path; dm=dm)
-    re_loaded = reestimate_ebes(dm, res_loaded)
+    res_new_loaded = reestimate_ebes(dm, res_loaded)
+    re_loaded = get_random_effects(dm, res_new_loaded)
     @test nrow(re_loaded.η) == 3
 
     # SAEM
     res_saem = fit_model(dm, NoLimits.SAEM(; maxiters=2, q_store_max=2))
-    re_saem = reestimate_ebes(res_saem)
+    res_saem_new = reestimate_ebes(res_saem)
+    re_saem = get_random_effects(res_saem_new)
     @test re_saem isa NamedTuple
     @test haskey(re_saem, :η)
     @test nrow(re_saem.η) == 3
