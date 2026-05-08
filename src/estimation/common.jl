@@ -8,6 +8,7 @@ export fit_model
 export get_summary
 export get_params
 export get_random_effects
+export reestimate_ebes
 export get_diagnostics
 export get_result
 export get_method
@@ -634,6 +635,27 @@ function _eta_from_eb(dm::DataModel,
     return η_vec
 end
 
+function _compute_mcmc_candidates(dm::DataModel,
+                                  batch_infos::Vector,
+                                  const_cache,
+                                  θu::ComponentArray,
+                                  ll_cache,
+                                  sampler,
+                                  n_samples::Int,
+                                  n_adapt::Int,
+                                  rng::AbstractRNG)
+    re_names = get_re_names(dm.model.random.random)
+    ll_local = ll_cache isa AbstractVector ? ll_cache[1] : ll_cache
+    turing_kwargs = (n_samples=n_samples, n_adapt=n_adapt, progress=false)
+    return map(batch_infos) do info
+        info.n_b == 0 && return Matrix{Float64}(undef, 0, 0)
+        samples, _, _ = _mcem_sample_batch(dm, info, θu, const_cache, ll_local,
+                                           sampler, turing_kwargs, rng,
+                                           re_names, false, nothing)
+        samples
+    end
+end
+
 function _compute_bstars(dm::DataModel,
                          θu::ComponentArray,
                          constants_re::NamedTuple,
@@ -642,7 +664,8 @@ function _compute_bstars(dm::DataModel,
                          rng::AbstractRNG;
                          rescue::Union{Nothing, EBERescueOptions}=nothing,
                          progress::Bool=false,
-                         progress_desc::AbstractString="Final EBE")
+                         progress_desc::AbstractString="Final EBE",
+                         mcmc_candidates_by_batch::Union{Nothing, Vector}=nothing)
     ebe = _resolve_ebe_options(ebe, dm)
     rescue = _resolve_ebe_rescue_options(rescue, ebe.grad_tol, dm)
     _, batch_infos, const_cache = _build_laplace_batch_infos(dm, constants_re)
@@ -687,7 +710,8 @@ function _compute_bstars(dm::DataModel,
                                  rng=rng,
                                  serialization=ebe_serialization,
                                  progress=progress,
-                                 progress_desc="$(progress_desc) (pass 1)")
+                                 progress_desc="$(progress_desc) (pass 1)",
+                                 mcmc_candidates_by_batch=mcmc_candidates_by_batch)
 
     if rescue !== nothing && rescue.enabled && n_batches > 0
         norms_before = _batch_grad_norms()
@@ -788,6 +812,118 @@ function get_random_effects(res::FitResult;
     dm = res.data_model
     dm === nothing && error("This fit result does not store a DataModel; call get_random_effects(dm, res) instead.")
     return get_random_effects(dm, res; constants_re=constants_re, flatten=flatten, include_constants=include_constants)
+end
+
+"""
+    reestimate_ebes(dm::DataModel, res::FitResult; kwargs...) -> NamedTuple
+    reestimate_ebes(res::FitResult; kwargs...) -> NamedTuple
+
+Re-estimate empirical Bayes estimates (EBEs) from a fitted model, ignoring any EBEs
+stored in the result. Returns the same `NamedTuple` of `DataFrame`s as `get_random_effects`.
+
+Supported methods: `Laplace`, `LaplaceMAP`, `MCEM`, `SAEM`.
+
+# Keyword Arguments
+- `ebe_optimizer`: inner optimiser for EBE mode-finding (default: `LBFGS` with backtracking).
+- `ebe_optim_kwargs::NamedTuple`: extra kwargs forwarded to `Optimization.solve`.
+- `ebe_adtype`: automatic differentiation type (default: `AutoForwardDiff()`).
+- `ebe_grad_tol`: gradient convergence tolerance (default: `:auto`).
+- `ebe_multistart_n::Int`: number of multistart candidates (default: `50`).
+- `ebe_multistart_k::Int`: k-means clusters for multistart initialisation (default: `1`).
+- `ebe_multistart_max_rounds::Int`: maximum multistart refinement rounds (default: `5`).
+- `ebe_multistart_sampling::Symbol`: candidate sampling strategy — `:lhs`, `:random`, or `:mcmc`
+  (default: `:lhs`). With `:mcmc`, `ebe_multistart_n` conditional posterior samples are drawn
+  via MCMC and used as starting points; `ebe_mcmc_sampler` and `ebe_mcmc_n_adapt` control
+  the sampler and burn-in length.
+- `ebe_mcmc_sampler`: MCMC sampler for conditional posterior sampling (default: `SaemixMH()`).
+  Only used when `ebe_multistart_sampling=:mcmc`.
+- `ebe_mcmc_n_adapt::Int`: number of MCMC burn-in steps before collecting candidates
+  (default: `50`). Only used when `ebe_multistart_sampling=:mcmc`.
+- `ebe_rescue_on_high_grad::Bool`: run a rescue pass (LHS) when any EBE mode has a high
+  gradient norm (default: `false`).
+- `ebe_rescue_multistart_n::Int`: multistart candidates for the rescue pass (default: `128`).
+- `ebe_rescue_multistart_k::Int`: k-means clusters for rescue (default: `32`).
+- `ebe_rescue_max_rounds::Int`: refinement rounds for rescue (default: `8`).
+- `ebe_rescue_grad_tol`: gradient tolerance for the rescue pass (default: matches `ebe_grad_tol`).
+- `ebe_rescue_multistart_sampling::Symbol`: sampling for rescue (default: `:lhs`).
+- `constants_re::NamedTuple`: fix specific RE levels at given values (natural scale).
+- `individuals`: `nothing` (all) or a vector of primary IDs; only batches containing
+  at least one listed individual are optimised. Co-batch individuals are always included.
+- `ode_args::Tuple`, `ode_kwargs::NamedTuple`: forwarded to the ODE solver.
+- `serialization::EnsembleAlgorithm`: parallelisation (default: `EnsembleSerial()`).
+- `rng::AbstractRNG`: random number generator.
+- `flatten::Bool`: expand vector REs to individual columns (default: `true`).
+- `include_constants::Bool`: include constant RE levels in output (default: `true`).
+- `progress::Bool`: show progress bar (default: `false`).
+"""
+function reestimate_ebes(dm::DataModel,
+                         res::FitResult;
+                         ebe_optimizer=OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking(maxstep=1.0)),
+                         ebe_optim_kwargs::NamedTuple=NamedTuple(),
+                         ebe_adtype=Optimization.AutoForwardDiff(),
+                         ebe_grad_tol=:auto,
+                         ebe_multistart_n::Int=50,
+                         ebe_multistart_k::Int=1,
+                         ebe_multistart_max_rounds::Int=5,
+                         ebe_multistart_sampling::Symbol=:lhs,
+                         ebe_mcmc_sampler=SaemixMH(),
+                         ebe_mcmc_n_adapt::Int=50,
+                         ebe_rescue_on_high_grad::Bool=false,
+                         ebe_rescue_multistart_n::Int=128,
+                         ebe_rescue_multistart_k::Int=32,
+                         ebe_rescue_max_rounds::Int=8,
+                         ebe_rescue_grad_tol=ebe_grad_tol,
+                         ebe_rescue_multistart_sampling::Symbol=:lhs,
+                         constants_re::NamedTuple=NamedTuple(),
+                         individuals=nothing,
+                         ode_args::Tuple=(),
+                         ode_kwargs::NamedTuple=NamedTuple(),
+                         serialization::SciMLBase.EnsembleAlgorithm=EnsembleSerial(),
+                         rng::AbstractRNG=Random.default_rng(),
+                         flatten::Bool=true,
+                         include_constants::Bool=true,
+                         progress::Bool=false)
+    supported = res.result isa LaplaceResult || res.result isa LaplaceMAPResult ||
+                res.result isa MCEMResult || res.result isa SAEMResult
+    supported || error("reestimate_ebes is not supported for this fitting method.")
+    sampling_sym = ebe_multistart_sampling == :mcmc ? :lhs : ebe_multistart_sampling
+    ebe = EBEOptions(ebe_optimizer, ebe_optim_kwargs, ebe_adtype, ebe_grad_tol,
+                     ebe_multistart_n, ebe_multistart_k, ebe_multistart_max_rounds,
+                     sampling_sym)
+    ebe_rescue = EBERescueOptions(ebe_rescue_on_high_grad, ebe_rescue_multistart_n,
+                                  ebe_rescue_multistart_k, ebe_rescue_max_rounds,
+                                  ebe_rescue_grad_tol, ebe_rescue_multistart_sampling)
+    θu = get_params(res; scale=:untransformed)
+    constants_re = _res_constants_re(res, constants_re)
+    if res.result isa SAEMResult
+        constants_re = _saem_anneal_constants_re(dm, θu, _saem_anneal_names(res), constants_re)
+    end
+    ll_cache = build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs,
+                              serialization=serialization, force_saveat=true)
+    mcmc_candidates = nothing
+    if ebe_multistart_sampling == :mcmc
+        _, batch_infos_all, const_cache_all = _build_laplace_batch_infos(dm, constants_re)
+        mcmc_candidates = _compute_mcmc_candidates(dm, batch_infos_all, const_cache_all, θu,
+                                                   ll_cache, ebe_mcmc_sampler,
+                                                   ebe_multistart_n, ebe_mcmc_n_adapt, rng)
+    end
+    bstars, batch_infos = _compute_bstars(dm, θu, constants_re, ll_cache, ebe, rng;
+                                          rescue=ebe_rescue, progress=progress,
+                                          mcmc_candidates_by_batch=mcmc_candidates)
+    if individuals !== nothing
+        ind_indices = Set(dm.id_index[id] for id in individuals if haskey(dm.id_index, id))
+        keep = [any(i ∈ ind_indices for i in bi.inds) for bi in batch_infos]
+        batch_infos = batch_infos[keep]
+        bstars = bstars[keep]
+    end
+    return _re_dataframes_from_bstars(dm, batch_infos, bstars; constants_re=constants_re,
+                                      flatten=flatten, include_constants=include_constants)
+end
+
+function reestimate_ebes(res::FitResult; kwargs...)
+    dm = res.data_model
+    dm === nothing && error("This fit result does not store a DataModel; call reestimate_ebes(dm, res) instead.")
+    return reestimate_ebes(dm, res; kwargs...)
 end
 
 """

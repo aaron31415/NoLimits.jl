@@ -1119,7 +1119,8 @@ function _laplace_compute_bstar_batch!(cache::_LaplaceCache,
                                        adtype=Optimization.AutoForwardDiff(),
                                        grad_tol=1e-6,
                                        multistart=LaplaceMultistartOptions(0, 0, grad_tol, 5, :lhs),
-                                       rng::AbstractRNG=Random.default_rng())
+                                       rng::AbstractRNG=Random.default_rng(),
+                                       mcmc_candidates::Union{Nothing, AbstractMatrix}=nothing)
     nb = info.n_b
     if nb == 0
         b_slot = cache.bstar_cache.b_star[bi]
@@ -1197,13 +1198,15 @@ function _laplace_compute_bstar_batch!(cache::_LaplaceCache,
         _laplace_store_bstar!(cache, bi, b_best)
         return nothing
     end
-    if g_best_norm > multistart.grad_tol && multistart.n > 0 && multistart.k > 0
-        n = multistart.n
+    use_mcmc = mcmc_candidates !== nothing && size(mcmc_candidates, 2) > 0
+    if g_best_norm > multistart.grad_tol && multistart.k > 0 && (multistart.n > 0 || use_mcmc)
+        n = use_mcmc ? size(mcmc_candidates, 2) : multistart.n
         k = multistart.k
-        max_rounds = max(1, multistart.max_rounds)
+        max_rounds = use_mcmc ? 1 : max(1, multistart.max_rounds)
         for round in 1:max_rounds
             k = min(k, n)
-            b0s = _laplace_sample_b0s(dm, info, θ_val, const_cache, ll_cache, rng, n, multistart.sampling)
+            b0s = use_mcmc ? [mcmc_candidates[:, i] for i in 1:n] :
+                  _laplace_sample_b0s(dm, info, θ_val, const_cache, ll_cache, rng, n, multistart.sampling)
             vals = Vector{Tuple{Float64, Vector{eltype(θ_val)}}}(undef, n)
             for s in 1:n
                 b0 = b0s[s]
@@ -1253,6 +1256,7 @@ function _laplace_compute_bstar_batch!(cache::_LaplaceCache,
             if g_best_norm <= multistart.grad_tol
                 break
             end
+            use_mcmc && break
             n *= 2
             k = min(k * 2, n)
         end
@@ -1279,7 +1283,8 @@ function _laplace_get_bstar!(cache::_LaplaceCache,
                              rng::AbstractRNG=Random.default_rng(),
                              serialization::SciMLBase.EnsembleAlgorithm=EnsembleThreads(),
                              progress::Bool=false,
-                             progress_desc::AbstractString="EBE")
+                             progress_desc::AbstractString="EBE",
+                             mcmc_candidates_by_batch::Union{Nothing, Vector}=nothing)
     θ_vec = θ
     if cache.θ_cache !== nothing && length(cache.θ_cache) == length(θ_vec)
         maxdiff = _maxabsdiff(θ_vec, cache.θ_cache)
@@ -1307,7 +1312,8 @@ function _laplace_get_bstar!(cache::_LaplaceCache,
                                           adtype=adtype,
                                           grad_tol=grad_tol,
                                           multistart=multistart,
-                                          rng=batch_rngs[bi])
+                                          rng=batch_rngs[bi],
+                                          mcmc_candidates=mcmc_candidates_by_batch === nothing ? nothing : mcmc_candidates_by_batch[bi])
             ProgressMeter.next!(p)
         end
     else
@@ -1319,7 +1325,8 @@ function _laplace_get_bstar!(cache::_LaplaceCache,
                                           adtype=adtype,
                                           grad_tol=grad_tol,
                                           multistart=multistart,
-                                          rng=batch_rngs[bi])
+                                          rng=batch_rngs[bi],
+                                          mcmc_candidates=mcmc_candidates_by_batch === nothing ? nothing : mcmc_candidates_by_batch[bi])
             ProgressMeter.next!(p)
         end
     end
