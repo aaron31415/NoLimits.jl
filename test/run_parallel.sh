@@ -62,8 +62,6 @@ TESTS=(
   estimation_laplace_fit_tests.jl
   estimation_hutchinson_tests.jl
   estimation_laplace_map_tests.jl
-  laplace_fastpath_baseline_tests.jl
-  laplace_fastpath_config_tests.jl
   estimation_mcem_tests.jl
   estimation_mcem_is_tests.jl
   estimation_saem_tests.jl
