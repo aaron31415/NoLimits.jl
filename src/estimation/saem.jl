@@ -1037,10 +1037,24 @@ function _saem_parse_re_gaussian_mapping(dist_expr, fixed_set::Set{Symbol})
     return nothing
 end
 
+@inline function _saem_censored_inner_dist_expr(ex::Expr)
+    for arg in @view ex.args[2:end]
+        arg isa Expr && arg.head in (:parameters, :kw) && continue
+        return arg
+    end
+    return nothing
+end
+
 function _saem_parse_outcome_builtin_target(dist_expr, fixed_set::Set{Symbol})
     cname = _saem_call_name(dist_expr)
     cname === nothing && return nothing
     dist_expr isa Expr || return nothing
+
+    if cname == :censored
+        inner = _saem_censored_inner_dist_expr(dist_expr)
+        inner === nothing && return nothing
+        return _saem_parse_outcome_builtin_target(inner, fixed_set)
+    end
 
     if cname == :Normal
         length(dist_expr.args) == 3 || return nothing
