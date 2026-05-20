@@ -194,6 +194,19 @@ get_multistart_best_index
 get_multistart_best
 ```
 
+### Cross-Validation
+
+```@docs
+CVSpec
+CVFoldResult
+CVResult
+cross_validate
+fit_cv
+get_fold_results
+get_obs_scores
+get_spec
+```
+
 ### Fit Summaries
 
 ```@docs

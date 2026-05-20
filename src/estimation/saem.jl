@@ -71,6 +71,8 @@ struct SAEMOptions{S, K, U, W, V, P, F1, F2, F3, B, M, R, C, RM, EO, EK, EA, EG,
     var_lb_value::Float64
     max_estep_retries::Int
     retry_mcmc_steps::Int
+    store_obsLL::Bool
+    obsLL_every::Int
 end
 
 struct _SAEMQCache{T}
@@ -466,7 +468,9 @@ SAEM(; optimizer=OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking(
      auto_var_lb::Bool=true,
      var_lb_value::Float64=1e-5,
      max_estep_retries::Int=3,
-     retry_mcmc_steps::Int=1) = begin
+     retry_mcmc_steps::Int=1,
+     store_obsLL::Bool=false,
+     obsLL_every::Int=1) = begin
     q_store_max >= 1 ||
         error("SAEM: q_store_max must be ≥ 1. Got: $q_store_max")
     0 <= q_store_min <= q_store_max ||
@@ -480,6 +484,8 @@ SAEM(; optimizer=OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking(
         error("SAEM: max_estep_retries must be ≥ 0. Got: $max_estep_retries")
     retry_mcmc_steps >= 1 ||
         error("SAEM: retry_mcmc_steps must be ≥ 1. Got: $retry_mcmc_steps")
+    obsLL_every >= 1 ||
+        error("SAEM: obsLL_every must be ≥ 1. Got: $obsLL_every")
     resolved_t0 = isnothing(t0) ? (maxiters ÷ 2) : t0
     ebe_rescue = EBERescueOptions(ebe_rescue_on_high_grad, ebe_rescue_multistart_n, ebe_rescue_multistart_k, ebe_rescue_max_rounds, ebe_rescue_grad_tol, ebe_rescue_multistart_sampling)
     resolved_mcmc_steps = isnothing(mcmc_steps) ? (sampler isa SaemixMH ? 1 : 80) : mcmc_steps
@@ -496,7 +502,8 @@ SAEM(; optimizer=OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking(
                        sa_schedule, sa_burnin_iters, sa_phase1_iters, sa_phase2_kappa, sa_schedule_fn,
                        n_chains, auto_small_n_chains, small_n_chain_target,
                        sa_anneal_targets, sa_anneal_schedule, sa_anneal_iters, sa_anneal_alpha, sa_anneal_fn,
-                       auto_var_lb, var_lb_value, max_estep_retries, retry_mcmc_steps)
+                       auto_var_lb, var_lb_value, max_estep_retries, retry_mcmc_steps,
+                       store_obsLL, obsLL_every)
     SAEM(optimizer, optim_kwargs, adtype, saem, lb, ub)
 end
 
@@ -536,6 +543,7 @@ mutable struct _SAEMDiagnostics{T}
     schedule_phase::Vector{Symbol}
     n_chains_used::Vector{Int}
     anneal_active::Vector{Bool}
+    obsLL_hist::Vector{T}
 end
 
 @inline function _saem_normalize_builtin_stats_mode(mode)
@@ -2839,7 +2847,8 @@ function _fit_model(dm::DataModel, method::SAEM, args...;
                                Vector{Vector{Int}}(),
                                Vector{Symbol}(),
                                Vector{Int}(),
-                               Vector{Bool}())
+                               Vector{Bool}(),
+                               Vector{T0}())
 
     q_cache = _init_saem_q_cache(T0, length(batch_infos), serialization)
 
@@ -3357,6 +3366,9 @@ function _fit_model(dm::DataModel, method::SAEM, args...;
         push!(diag.anneal_active, anneal_was_active)
 
         obsLL_new = T0(_saem_obsLL(dm, batch_infos, θu_new, const_cache, ll_cache, b_current))
+        if method.saem.store_obsLL && iter % method.saem.obsLL_every == 0
+            push!(diag.obsLL_hist, obsLL_new)
+        end
         if method.saem.verbose
             @info "SAEM iteration" iter=iter γ=γ Q=Q_new obsLL=obsLL_new dθ_abs=dθ_abs dθ_rel=dθ_rel dQ_abs=dQ_abs dQ_rel=dQ_rel
         end
@@ -3415,7 +3427,8 @@ function _fit_model(dm::DataModel, method::SAEM, args...;
                                   gamma=diag.gamma,
                                   schedule_phase=diag.schedule_phase,
                                   n_chains_used=diag.n_chains_used,
-                                  anneal_active=diag.anneal_active),
+                                  anneal_active=diag.anneal_active,
+                                  obsLL_hist=diag.obsLL_hist),
                                  notes)
     ebe = EBEOptions(method.saem.ebe_optimizer, method.saem.ebe_optim_kwargs, method.saem.ebe_adtype,
                      method.saem.ebe_grad_tol, method.saem.ebe_multistart_n, method.saem.ebe_multistart_k,

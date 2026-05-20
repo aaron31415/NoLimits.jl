@@ -903,13 +903,12 @@ end
 
 # Laplace-approximation path: bstars come from the EB modes, conditional
 # covariance is (-H)^{-1}. Used for Laplace, LaplaceMAP, GHQuadrature(MAP).
-function _sample_re_laplace_path(dm::DataModel, res::FitResult, constants_re::NamedTuple,
-                                  bstars, batch_infos, θu, const_cache, ll_cache;
-                                  n_samples::Int, rng::AbstractRNG, flatten::Bool,
-                                  include_constants::Bool, jitter::Real)
-    ll_cache_local = ll_cache isa Vector ? ll_cache[1] : ll_cache
+# Returns raw bstars_per_sample (Vector{Vector{Any}}) without the DataFrame conversion.
+# Used directly by fit_cv for CV evaluation.
+function _sample_laplace_bstars_raw(dm::DataModel, batch_infos, bstars, θu, const_cache,
+                                     ll_cache_local;
+                                     n_samples::Int, rng::AbstractRNG, jitter::Real=1e-8)
     n_batches = length(batch_infos)
-
     chols = Vector{Any}(undef, n_batches)
     for (bi, info) in enumerate(batch_infos)
         if info.n_b == 0
@@ -926,7 +925,6 @@ function _sample_re_laplace_path(dm::DataModel, res::FitResult, constants_re::Na
                   "negative Hessian is not positive definite even with jitter.")
         chols[bi] = chol
     end
-
     bstars_per_sample = Vector{Vector{Any}}(undef, n_samples)
     for s in 1:n_samples
         sampled = Vector{Any}(undef, n_batches)
@@ -942,6 +940,17 @@ function _sample_re_laplace_path(dm::DataModel, res::FitResult, constants_re::Na
         end
         bstars_per_sample[s] = sampled
     end
+    return bstars_per_sample
+end
+
+function _sample_re_laplace_path(dm::DataModel, res::FitResult, constants_re::NamedTuple,
+                                  bstars, batch_infos, θu, const_cache, ll_cache;
+                                  n_samples::Int, rng::AbstractRNG, flatten::Bool,
+                                  include_constants::Bool, jitter::Real)
+    ll_cache_local = ll_cache isa Vector ? ll_cache[1] : ll_cache
+    bstars_per_sample = _sample_laplace_bstars_raw(dm, batch_infos, bstars, θu, const_cache,
+                                                    ll_cache_local;
+                                                    n_samples=n_samples, rng=rng, jitter=jitter)
     return _bstars_to_re_df(dm, batch_infos, bstars_per_sample,
                             constants_re, flatten, include_constants)
 end
@@ -950,35 +959,26 @@ end
 # the same MCMC kernel that drives the E-step (Turing sampler for MCEM,
 # SaemixMH or Turing for SAEM). Each call to _mcem_sample_batch advances
 # the chain by one sweep and we record the state after every sweep.
-function _sample_re_mcmc_path(dm::DataModel, res::FitResult, constants_re::NamedTuple,
-                               bstars, batch_infos, θu, const_cache, ll_cache,
-                               sampler, base_turing_kwargs;
-                               n_samples::Int, n_adapt::Int, rng::AbstractRNG,
-                               warm_start::Bool, flatten::Bool, include_constants::Bool)
-    ll_cache_local = ll_cache isa Vector ? ll_cache[1] : ll_cache
-    re_names = get_re_names(dm.model.random.random)
+# Returns raw bstars_per_sample (Vector{Vector{Any}}) without the DataFrame conversion.
+# Used directly by fit_cv for CV evaluation.
+function _sample_mcmc_bstars_raw(dm::DataModel, batch_infos, bstars, θu, const_cache,
+                                   ll_cache_local, re_names, sampler, base_turing_kwargs;
+                                   n_samples::Int, n_adapt::Int, rng::AbstractRNG,
+                                   warm_start::Bool)
     n_batches = length(batch_infos)
-
-    # Per-sweep kwargs: 1 sample per call so we can record every step.
     tkwargs = merge(base_turing_kwargs, (n_samples=1, n_adapt=n_adapt))
     haskey(tkwargs, :progress) || (tkwargs = merge(tkwargs, (progress=false,)))
     haskey(tkwargs, :verbose)  || (tkwargs = merge(tkwargs, (verbose=false,)))
-
-    # Per-batch RNGs to keep results reproducible without inter-batch correlations.
     batch_rngs = _spawn_child_rngs(rng, n_batches)
-
-    # Seed each chain at the EB mode so samples are useful immediately.
     last_params = Vector{Any}(undef, n_batches)
     for bi in 1:n_batches
         info = batch_infos[bi]
         last_params[bi] = info.n_b == 0 ? nothing :
             _b_to_last_params(bstars[bi], info, re_names)
     end
-
     bstars_per_sample = Vector{Vector{Any}}(undef, n_samples)
     for s in 1:n_samples
         sampled = Vector{Any}(undef, n_batches)
-        # Only the first sweep performs adaptation; subsequent sweeps reuse the chain.
         sweep_kwargs = s == 1 ? tkwargs : merge(tkwargs, (n_adapt=0,))
         for bi in 1:n_batches
             info = batch_infos[bi]
@@ -994,6 +994,21 @@ function _sample_re_mcmc_path(dm::DataModel, res::FitResult, constants_re::Named
         end
         bstars_per_sample[s] = sampled
     end
+    return bstars_per_sample
+end
+
+function _sample_re_mcmc_path(dm::DataModel, res::FitResult, constants_re::NamedTuple,
+                               bstars, batch_infos, θu, const_cache, ll_cache,
+                               sampler, base_turing_kwargs;
+                               n_samples::Int, n_adapt::Int, rng::AbstractRNG,
+                               warm_start::Bool, flatten::Bool, include_constants::Bool)
+    ll_cache_local = ll_cache isa Vector ? ll_cache[1] : ll_cache
+    re_names = get_re_names(dm.model.random.random)
+    bstars_per_sample = _sample_mcmc_bstars_raw(dm, batch_infos, bstars, θu, const_cache,
+                                                  ll_cache_local, re_names, sampler,
+                                                  base_turing_kwargs;
+                                                  n_samples=n_samples, n_adapt=n_adapt,
+                                                  rng=rng, warm_start=warm_start)
     return _bstars_to_re_df(dm, batch_infos, bstars_per_sample,
                             constants_re, flatten, include_constants)
 end

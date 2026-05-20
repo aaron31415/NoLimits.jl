@@ -36,6 +36,7 @@ The choice of method depends on whether the model includes random effects and on
 | Mixed-effects | `Laplace`, `LaplaceMAP`, `GHQuadrature`, `GHQuadratureMAP`, `MCEM`, `SAEM`, `MCMC` | Require random effects in the model |
 | Fixed-effects only | `MLE`, `MAP`, `MCMC`, `VI` | `MLE` is likelihood-only; `MAP` adds priors; `MCMC`/`VI` are Bayesian |
 | Cross-method | `Multistart` | Wrapper that runs repeated fits from different starting values |
+| Model comparison | `cross_validate` + `fit_cv` | Observation-wise or subject-wise k-fold CV; supports EBE and Monte Carlo RE prediction |
 
 ## Common Fit Keywords
 
