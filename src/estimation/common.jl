@@ -579,12 +579,11 @@ function _re_dataframes_from_bstars(dm::DataModel,
 
         if flatten
             names = flatten_re_names(re, zeros(dim))
-            cols = Dict{Symbol, Any}()
-            cols[col] = rows
+            df = DataFrame(col => rows)
             for j in 1:length(names)
-                cols[names[j]] = [vals_flat[i][j] for i in 1:length(vals_flat)]
+                df[!, names[j]] = [vals_flat[i][j] for i in 1:length(vals_flat)]
             end
-            push!(out_pairs, re => DataFrame(cols))
+            push!(out_pairs, re => df)
         else
             push!(out_pairs, re => DataFrame(col => rows, :value => [v[1] for v in vals_flat]))
         end
