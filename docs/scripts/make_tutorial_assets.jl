@@ -68,7 +68,7 @@ function tutorial1()
 
         @fixedEffects begin
             phi1     = RealNumber(30.0,  prior=LogNormal(log(30.0), 0.30), calculate_se=true)
-            log_vmax = RealNumber(10.0,  prior=Normal(5.00, 0.35),          calculate_se=true)
+            log_vmax = RealNumber(5.0,   prior=Normal(5.00, 0.35),          calculate_se=true)
             phi3     = RealNumber(700.0, prior=LogNormal(log(700.0), 0.30), calculate_se=true)
             omega    = RealNumber(0.3, scale=:log, prior=LogNormal(log(0.155), 0.35), calculate_se=true)
             sigma    = RealNumber(0.3, scale=:log, prior=LogNormal(log(0.113), 0.30), calculate_se=true)

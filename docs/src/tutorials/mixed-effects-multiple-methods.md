@@ -74,7 +74,7 @@ model = @Model begin
 
     @fixedEffects begin
         phi1     = RealNumber(30.0,  prior=LogNormal(log(30.0), 0.30), calculate_se=true)
-        log_vmax = RealNumber(10.0,  prior=Normal(5.00, 0.35),          calculate_se=true)
+        log_vmax = RealNumber(5.0,   prior=Normal(5.00, 0.35),          calculate_se=true)
         phi3     = RealNumber(700.0, prior=LogNormal(log(700.0), 0.30), calculate_se=true)
         omega    = RealNumber(0.3, scale=:log, prior=LogNormal(log(0.155), 0.35), calculate_se=true)
         sigma    = RealNumber(0.3, scale=:log, prior=LogNormal(log(0.113), 0.30), calculate_se=true)
@@ -176,7 +176,9 @@ You will then configure four estimation methods. Each represents a fundamentally
 
 - **MCMC** (Markov chain Monte Carlo) samples the full joint posterior over both fixed and random effects. Rather than returning a single "best" parameter estimate, it produces a collection of plausible parameter sets that together characterize uncertainty. This provides the richest picture of parameter uncertainty -- including asymmetric or multimodal posteriors -- but is the most computationally expensive and requires careful convergence assessment.
 
-The configuration values below are chosen to balance runtime and stability for this tutorial; in a research setting, you would typically increase iteration counts, sample sizes, and warmup periods. SAEM is run with its default settings (`NoLimits.SAEM()`), which provides a useful reference point for how the out-of-the-box configuration behaves relative to the other methods.
+The configuration values below are chosen to balance runtime and stability for this tutorial; in a research setting, you would typically increase iteration counts, sample sizes, and warmup periods. SAEM is run entirely with its default settings (`NoLimits.SAEM()`), which is a deliberate point of this tutorial: with sensible starting values, the out-of-the-box configuration converges to the same solution as the carefully tuned estimators, with no method-specific tuning required.
+
+One detail deserves emphasis here, because it matters for every estimator and especially for the stochastic ones. The initial value of `log_vmax` is set to `5.0` -- close to the log of a plausible asymptote for these trees (`exp(5.0) ≈ 148`). Stochastic-approximation methods like SAEM draw the random effects from the *current* parameter values at each iteration, so a starting point far from the data (for example `log_vmax = 10.0`, implying an asymptote near `22000`) can trap the sampler in a degenerate region of the likelihood and prevent convergence, even when the gradient-based methods would eventually escape it. Choosing starting values on the right order of magnitude is one of the most effective and least appreciated ways to make mixed-effects estimation robust.
 
 ```julia
 dm = DataModel(model, df; primary_id=:Tree, time_col=:age)
@@ -313,18 +315,18 @@ Overview
   method                              : laplace
   inference                           : frequentist
   scale                               : natural
-  objective                           : 150.4425
-  iterations                          : 60
+  objective                           : 140.191
+  iterations                          : 41
   parameters shown (reported / total) : 5 / 5
 
 Parameter estimates
   parameter      Estimate
   -----------------------
-  phi1            31.2678
-  log_vmax         5.0348
-  phi3           639.2259
-  omega          4.204e-8
-  sigma            0.1803
+  phi1            31.2235
+  log_vmax         5.0347
+  phi3           639.7141
+  omega            0.1669
+  sigma            0.1126
 
 Outcome data coverage
   outcome             n_obs   n_missing
@@ -335,7 +337,7 @@ Outcome data coverage
 Empirical Bayes random effects summary (across RE levels)
   random effect       n          mean            sd           q25        median           q75
   ---------------------------------------------------------------------------
-  vmax_i              5      153.6613     7.264e-12      153.6613      153.6613      153.6613
+  vmax_i              5      155.3009       24.9109      134.1697      147.4651      182.2564
 ```
 
 ## Step 5: Compare Objective Values (Laplace, MCEM, SAEM)
@@ -354,7 +356,7 @@ objectives
 
 <!-- injected:t1-obj -->
 ```text
-(laplace = 150.4424815167825, mcem = -157.37519805265947, saem = -183.4978985314107)
+(laplace = 140.19104954818783, mcem = -157.31394771620114, saem = -154.8177352877204)
 ```
 
 The signs and magnitudes differ because each method defines its objective differently:
@@ -442,7 +444,7 @@ p_fit_saem
 <!-- injected:t1-pfitsaem -->
 ![SAEM (default settings) fitted trajectories for the first two trees.](figures/t1/p_fit_saem.png)
 
-With its default settings, SAEM has not fully converged on this dataset within the default iteration budget: its estimated growth midpoint drifts beyond the observed age range, so the fitted curve stays comparatively flat through the middle of the trajectory and rises only at the end. This is the expected behaviour of an out-of-the-box configuration on a small dataset with a sharply nonlinear growth curve, and it illustrates an important practical point. Stochastic-approximation methods often need more iterations, a tuned step-size schedule, or more samples per iteration to match the optimization-based and fully Bayesian estimators. The other three methods, which are configured with task-appropriate settings here, agree closely.
+With its default settings and sensible starting values, SAEM converges to the same solution as the other estimators: its fitted trajectories are visually indistinguishable from the Laplace, MCEM, and MCMC fits, tracking the saturating growth curve cleanly through the observed age range. This is the payoff of the starting-value discussion in Step 3 -- once the sampler begins in a sensible region of parameter space, the out-of-the-box stochastic-approximation configuration recovers the population parameters without any method-specific tuning. The recovered estimates (`phi3 ≈ 639`, `log_vmax ≈ 5.04`, `omega ≈ 0.16`) match the gradient-based and fully Bayesian methods to within stochastic noise.
 
 MCMC fit plot (with posterior predictive bands):
 
@@ -606,18 +608,18 @@ Overview
   source_method                       : laplace
   inference                           : frequentist
   scale                               : natural
-  objective                           : 150.4425
+  objective                           : 140.191
   interval level                      : 0.95
   parameters shown (reported / total) : 5 / 5
 
 Parameter uncertainty summary
   parameter      Estimate    Std. Error      CI Lower      CI Upper
   ---------------------------------------------------
-  phi1            31.2678        2.7905        25.978       36.6135
-  log_vmax         5.0348        0.0327        4.9656        5.0908
-  phi3           639.2259       22.7177      596.4957      683.9189
-  omega          4.204e-8      1.617e-7      3.328e-9      4.549e-7
-  sigma            0.1803        0.0208        0.1431        0.2221
+  phi1            31.2235        1.6549       27.8176       34.4232
+  log_vmax         5.0347        0.0793        4.8815        5.1832
+  phi3           639.7141       15.7902      608.8016      669.4466
+  omega            0.1669        0.0613        0.0906        0.3218
+  sigma            0.1126        0.0148        0.0858        0.1418
 
 Outcome data coverage
   outcome             n_obs   n_missing
@@ -628,7 +630,7 @@ Outcome data coverage
 Empirical Bayes random effects summary (across RE levels)
   random effect       n          mean            sd           q25        median           q75
   ---------------------------------------------------------------------------
-  vmax_i              5      153.6613     7.264e-12      153.6613      153.6613      153.6613
+  vmax_i              5      155.3009       24.9109      134.1697      147.4651      182.2564
 ```
 
 Laplace UQ distribution:
