@@ -71,6 +71,31 @@ fit_summary = NoLimits.summarize(res_vi)
 fit_summary
 ```
 
+```
+FitResultSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  method                              : vi
+  inference                           : bayesian
+  scale                               : natural
+  objective                           : -0.7632
+  iterations                          : missing
+  parameters shown (reported / total) : 3 / 3
+
+Parameter estimates
+  parameter      Estimate
+  -----------------------
+  a               -0.0085
+  b                0.3152
+  sigma            0.1681
+
+Outcome data coverage
+  outcome       n_obs   n_missing
+  -------------------------------
+  y                 8           0
+  TOTAL             8           0
+```
+
 ## Step 5: Sample Posterior Draws from the Variational Posterior
 
 ```julia
@@ -82,6 +107,10 @@ draws_named = sample_posterior(
 )
 
 size(draws_named.draws), first(draws_named.names, 3)
+```
+
+```
+((200, 3), [:a, :b, :sigma])
 ```
 
 ## Step 6: Compute UQ Intervals from VI Draws
@@ -99,6 +128,32 @@ uq_vi = compute_uq(
 
 uq_summary = NoLimits.summarize(res_vi, uq_vi)
 uq_summary
+```
+
+```
+UQResultSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  backend                             : chain
+  source_method                       : vi
+  inference                           : bayesian
+  scale                               : natural
+  objective                           : -0.7632
+  interval level                      : 0.95
+  parameters shown (reported / total) : 3 / 3
+
+Parameter uncertainty summary
+  parameter      Estimate     CrI Lower     CrI Upper
+  -------------------------------------
+  a               -0.0112       -0.1137        0.0907
+  b                 0.312        0.1709        0.4618
+  sigma            0.1746        0.1164        0.2696
+
+Outcome data coverage
+  outcome       n_obs   n_missing
+  -------------------------------
+  y                 8           0
+  TOTAL             8           0
 ```
 
 ## Step 7: Posterior-Based Plotting
@@ -130,11 +185,15 @@ Fit plot:
 p_fit_vi
 ```
 
+![Variational-inference fits with posterior predictive bands for the first two individuals.](figures/fe2/p_fit_vi.png)
+
 Observation distribution plot:
 
 ```julia
 p_obs_vi
 ```
+
+![Posterior predictive observation distribution at the first observation of the first individual.](figures/fe2/p_obs_vi.png)
 
 ## Summary
 

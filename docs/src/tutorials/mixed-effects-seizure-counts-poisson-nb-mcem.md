@@ -60,6 +60,24 @@ df = build_epilepsy_long_df(epil_df)
 first(df, 10)
 ```
 
+<!-- injected:t5-dfhead -->
+```text
+10×12 DataFrame
+ Row │ Subject  Period  Trt       Base   Age    seizures  trt_active  base_log  age_log  period_f  period_centered  trt_period_centered
+     │ Int64    Int64   String15  Int64  Int64  Int64     Float64     Float64   Float64  Float64   Float64          Float64
+─────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   1 │       1       1  placebo      11     31         5         0.0   2.48491  3.46574       1.0              0.0                  0.0
+   2 │       1       2  placebo      11     31         3         0.0   2.48491  3.46574       2.0              1.0                  0.0
+   3 │       1       3  placebo      11     31         3         0.0   2.48491  3.46574       3.0              2.0                  0.0
+   4 │       1       4  placebo      11     31         3         0.0   2.48491  3.46574       4.0              3.0                  0.0
+   5 │       2       1  placebo      11     30         3         0.0   2.48491  3.43399       1.0              0.0                  0.0
+   6 │       2       2  placebo      11     30         5         0.0   2.48491  3.43399       2.0              1.0                  0.0
+   7 │       2       3  placebo      11     30         3         0.0   2.48491  3.43399       3.0              2.0                  0.0
+   8 │       2       4  placebo      11     30         3         0.0   2.48491  3.43399       4.0              3.0                  0.0
+   9 │       3       1  placebo       6     25         2         0.0   1.94591  3.2581        1.0              0.0                  0.0
+  10 │       3       2  placebo       6     25         4         0.0   1.94591  3.2581        2.0              1.0                  0.0
+```
+
 ## Step 2: Poisson Mixed-Effects Model
 
 In this step, you will define the Poisson mixed-effects model. The core idea is a log-linear predictor: the log of the expected seizure rate is modeled as a linear combination of covariates plus a subject-level random intercept. The random effect `eta` captures unmeasured between-subject heterogeneity in baseline seizure propensity. Because `eta` appears inside the exponential that maps the log-rate to the Poisson intensity parameter `lambda`, the model is nonlinear in the random effects -- a key reason MCEM is preferred over simpler estimation methods such as the Laplace approximation.
@@ -101,6 +119,66 @@ end
 NoLimits.summarize(model_poisson)
 ```
 
+<!-- injected:t5-modelp -->
+```text
+ModelSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  model type                          : non-ODE
+  fixed-effect blocks                 : 3
+  fixed-effect scalar values          : 7
+  random effects                      : 1
+  random-effect grouping columns      : 1
+  covariates (declared)               : 2
+  formulas (deterministic / outcomes) : 2 / 1
+  requires DE accessors               : false
+
+Structure blocks
+  helpers              : true
+  fixed effects        : true
+  random effects       : true
+  covariates           : true
+  preDE                : false
+  DifferentialEquation : false
+  initialDE            : false
+
+Covariate classes
+  varying  : 2
+  constant : 0
+  dynamic  : 0
+
+Fixed-effects declarations
+  name   type        size  se  prior      scale       bounds                              details
+  ------------------------------------------------------------------------------------------------------------
+  beta0  RealNumber     1  yes  Priorless  identity    finite lower 0/1, finite upper 0/1  -
+  beta   RealVector     5  yes  Priorless  identityx5  finite lower 0/5, finite upper 0/5  -
+  omega  RealNumber     1  yes  Priorless  log         finite lower 1/1, finite upper 0/1  -
+
+Random-effects declarations
+  name  group    dist  
+  -----------------------
+  eta   Subject  Normal
+
+Covariate declarations
+  name      kind             columns                   constant_on           interpolation
+  -------------------------------------------------------------------------------------------------
+  period_f  Covariate        period_f                  -                     -
+  x         CovariateVector  base_log, age_log, trt_active, period_centered, trt_period_centered  -                     -
+
+Formulas
+  deterministic names : log_rate, lambda
+  outcome names       : seizures
+  required DE states  : (none)
+  required DE signals : (none)
+  declared DE states  : (none)
+  declared DE signals : (none)
+Outcome distribution types
+  seizures => Poisson
+
+Helper functions
+  names : safe_exp, linpred
+```
+
 ### Build `DataModel` and Configure `MCEM`
 
 Next, you will bind the model to the data by constructing a `DataModel`. This step validates that all required columns are present and correctly typed, groups observations by subject, and prepares the internal data structures for estimation.
@@ -123,6 +201,80 @@ serialization = SciMLBase.EnsembleThreads()
 NoLimits.summarize(dm_poisson)
 ```
 
+<!-- injected:t5-dmp -->
+```text
+DataModelSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  model type                 : non-ODE
+  event-aware                : false
+  individuals                : 59
+  rows (total / obs / event) : 236 / 236 / 0
+  fixed effects (top-level)  : 3
+  outcomes                   : 1
+  covariates (declared)      : 2
+  random effects             : 1
+
+Covariate classes
+  varying  : 2
+  constant : 0
+  dynamic  : 0
+
+Outcome distribution types
+  seizures => Poisson
+
+Random-effect distribution types
+  eta => Normal
+
+Individual design diagnostics
+  individuals with one observation              : 0
+  global observed time range                    : 1.0 to 4.0
+  unique observed time points                   : 4
+  duplicate (ID, time) observation rows         : 0
+  monotonic-time violations (observation order) : 0
+
+Observations per individual
+  metric       n          mean            sd           min           q25        median           q75           max
+  ----------------------------------------------------------------------------------------------------------------
+  count       59           4.0           0.0           4.0           4.0           4.0           4.0           4.0
+
+Time span per individual
+  metric       n          mean            sd           min           q25        median           q75           max
+  ----------------------------------------------------------------------------------------------------------------
+  span        59           3.0           0.0           3.0           3.0           3.0           3.0           3.0
+
+Median sampling interval per individual
+  metric          n          mean            sd           min           q25        median           q75           max
+  -------------------------------------------------------------------------------------------------------------------
+  median_dt      59           1.0           0.0           1.0           1.0           1.0           1.0           1.0
+
+Outcome descriptive statistics (observation rows)
+  Variable       n          mean            sd           min           q25        median           q75           max
+  ------------------------------------------------------------------------------------------------------------------
+  seizures     236        8.2627       12.3302           0.0          2.75           4.0           9.0         102.0
+
+Declared covariates
+  name      kind             columns
+  -----------------------------------------------
+  period_f  Covariate        period_f
+  x         CovariateVector  base_log, age_log, trt_active, period_centered, trt_period_centered
+
+Covariate descriptive statistics (observation rows)
+  Variable                    n          mean            sd           min           q25        median           q75           max
+  -------------------------------------------------------------------------------------------------------------------------------
+  period_f.period_f         236           2.5         1.118           1.0          1.75           2.5          3.25           4.0
+  x.base_log                236        3.2071        0.7117        1.9459        2.5649        3.1355        3.7377        5.0239
+  x.age_log                 236        3.3561        0.2141        2.9444        3.1781        3.3673        3.4965        3.7612
+  x.trt_active              236        0.5254        0.4994           0.0           0.0           1.0           1.0           1.0
+  x.period_centered         236           1.5         1.118           0.0          0.75           1.5          2.25           3.0
+  x.trt_period_centered     236        0.7881        1.1036           0.0           0.0           0.0           2.0           3.0
+
+Per-random-effect summary
+  random effect  group    dist      levels  rows/level min        median           max
+  ----------------------------------------------------------------------------------
+  eta            Subject  Normal        59             4.0           4.0           4.0
+```
+
 ### Fit, Summarize, Plot, and UQ (Poisson)
 
 You are now ready to fit the Poisson model. The `fit_model` call runs the full MCEM loop: at each iteration, it samples random effects conditional on the current fixed-effects estimates, then updates the fixed effects by maximizing the Monte Carlo approximation to the marginal likelihood. After fitting, you will inspect a summary of the estimated parameters.
@@ -136,6 +288,41 @@ res_poisson = fit_model(
 )
 
 NoLimits.summarize(res_poisson)
+```
+
+<!-- injected:t5-resp -->
+```text
+FitResultSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  method                              : mcem
+  inference                           : frequentist
+  scale                               : natural
+  objective                           : -677.3374
+  iterations                          : 4
+  parameters shown (reported / total) : 7 / 7
+
+Parameter estimates
+  parameter      Estimate
+  -----------------------
+  beta0            0.0735
+  beta_1            0.486
+  beta_2          -0.0509
+  beta_3            -0.23
+  beta_4          -0.0428
+  beta_5          -0.0315
+  omega            0.8001
+
+Outcome data coverage
+  outcome        n_obs   n_missing
+  --------------------------------
+  seizures         236           0
+  TOTAL            236           0
+
+Empirical Bayes random effects summary (across RE levels)
+  random effect       n          mean            sd           q25        median           q75
+  ---------------------------------------------------------------------------
+  eta                59        0.3584         0.664        0.0325        0.2522        0.6785
 ```
 
 To assess how well the model captures individual seizure trajectories, you will now plot fitted values against observed data for the first two subjects. The observation-distribution diagnostic reveals the full predictive distribution at selected time points -- a particularly informative view for count data, where the shape of the distribution (not just its mean) carries clinical significance.
@@ -160,11 +347,17 @@ p_obs_poisson = plot_observation_distributions(
 p_fit_poisson
 ```
 
+<!-- injected:t5-pfitp -->
+![Fitted Poisson seizure-rate trajectories for the first two subjects.](figures/t5/p_fit_poisson.png)
+
 Display the observation-distribution plot to examine the predicted probability mass function at individual time points.
 
 ```julia
 p_obs_poisson
 ```
+
+<!-- injected:t5-pobsp -->
+![Predicted Poisson probability mass at the first two observations of the first subject.](figures/t5/p_obs_poisson.png)
 
 Next, you will compute Wald-based confidence intervals for the fixed-effects parameters. The Wald method uses the curvature of the log-likelihood at the optimum to approximate the sampling distribution of each parameter estimate, yielding standard errors and 95% confidence intervals without requiring additional model fits.
 
@@ -179,10 +372,71 @@ uq_poisson = compute_uq(
 NoLimits.summarize(uq_poisson)
 ```
 
+<!-- injected:t5-uqp -->
+```text
+UQResultSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  backend                             : wald
+  source_method                       : mcem
+  inference                           : frequentist
+  scale                               : natural
+  objective                           : -
+  interval level                      : 0.95
+  parameters shown (reported / total) : 7 / 7
+
+Parameter uncertainty summary
+  parameter      Estimate    Std. Error      CI Lower      CI Upper
+  ---------------------------------------------------
+  beta0            0.0735        0.4484       -1.0183        0.7948
+  beta_1            0.486        0.3987       -0.4354        1.1709
+  beta_2          -0.0509        0.3985       -0.7342        0.8715
+  beta_3            -0.23        0.2453       -0.5901        0.3111
+  beta_4          -0.0428        0.0266       -0.0917        0.0152
+  beta_5          -0.0315        0.0389       -0.1082        0.0424
+  omega            0.8001        0.4821        0.3741        2.4773
+```
+
 For a consolidated view, combine the parameter estimates and their uncertainty into a single summary table -- the format most convenient for reporting in manuscripts and presentations.
 
 ```julia
 NoLimits.summarize(res_poisson, uq_poisson)
+```
+
+<!-- injected:t5-resuqp -->
+```text
+UQResultSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  backend                             : wald
+  source_method                       : mcem
+  inference                           : frequentist
+  scale                               : natural
+  objective                           : -677.3374
+  interval level                      : 0.95
+  parameters shown (reported / total) : 7 / 7
+
+Parameter uncertainty summary
+  parameter      Estimate    Std. Error      CI Lower      CI Upper
+  ---------------------------------------------------
+  beta0            0.0735        0.4484       -1.0183        0.7948
+  beta_1            0.486        0.3987       -0.4354        1.1709
+  beta_2          -0.0509        0.3985       -0.7342        0.8715
+  beta_3            -0.23        0.2453       -0.5901        0.3111
+  beta_4          -0.0428        0.0266       -0.0917        0.0152
+  beta_5          -0.0315        0.0389       -0.1082        0.0424
+  omega            0.8001        0.4821        0.3741        2.4773
+
+Outcome data coverage
+  outcome        n_obs   n_missing
+  --------------------------------
+  seizures         236           0
+  TOTAL            236           0
+
+Empirical Bayes random effects summary (across RE levels)
+  random effect       n          mean            sd           q25        median           q75
+  ---------------------------------------------------------------------------
+  eta                59        0.3584         0.664        0.0325        0.2522        0.6785
 ```
 
 Finally, visualize the approximate sampling distributions of the fixed-effects parameters implied by the Wald approximation.
@@ -190,6 +444,9 @@ Finally, visualize the approximate sampling distributions of the fixed-effects p
 ```julia
 plot_uq_distributions(uq_poisson)
 ```
+
+<!-- injected:t5-puqp -->
+![Wald approximate parameter distributions for the Poisson model.](figures/t5/p_uq_poisson.png)
 
 ## Step 3: Negative Binomial Mixed-Effects Model
 
@@ -235,6 +492,67 @@ end
 NoLimits.summarize(model_nb)
 ```
 
+<!-- injected:t5-modelnb -->
+```text
+ModelSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  model type                          : non-ODE
+  fixed-effect blocks                 : 4
+  fixed-effect scalar values          : 8
+  random effects                      : 1
+  random-effect grouping columns      : 1
+  covariates (declared)               : 2
+  formulas (deterministic / outcomes) : 4 / 1
+  requires DE accessors               : false
+
+Structure blocks
+  helpers              : true
+  fixed effects        : true
+  random effects       : true
+  covariates           : true
+  preDE                : false
+  DifferentialEquation : false
+  initialDE            : false
+
+Covariate classes
+  varying  : 2
+  constant : 0
+  dynamic  : 0
+
+Fixed-effects declarations
+  name   type        size  se  prior      scale       bounds                              details
+  ------------------------------------------------------------------------------------------------------------
+  beta0  RealNumber     1  yes  Priorless  identity    finite lower 0/1, finite upper 0/1  -
+  beta   RealVector     5  yes  Priorless  identityx5  finite lower 0/5, finite upper 0/5  -
+  omega  RealNumber     1  yes  Priorless  log         finite lower 1/1, finite upper 0/1  -
+  log_r  RealNumber     1  yes  Priorless  identity    finite lower 0/1, finite upper 0/1  -
+
+Random-effects declarations
+  name  group    dist  
+  -----------------------
+  eta   Subject  Normal
+
+Covariate declarations
+  name      kind             columns                   constant_on           interpolation
+  -------------------------------------------------------------------------------------------------
+  period_f  Covariate        period_f                  -                     -
+  x         CovariateVector  base_log, age_log, trt_active, period_centered, trt_period_centered  -                     -
+
+Formulas
+  deterministic names : log_rate, lambda, r, p
+  outcome names       : seizures
+  required DE states  : (none)
+  required DE signals : (none)
+  declared DE states  : (none)
+  declared DE signals : (none)
+Outcome distribution types
+  seizures => NegativeBinomial
+
+Helper functions
+  names : safe_exp, linpred
+```
+
 ### Build `DataModel`, Fit, Summarize, Plot, and UQ (Negative Binomial)
 
 You will now follow the same workflow as for the Poisson model: construct the `DataModel`, fit with identical MCEM settings, and inspect the results. Using the same algorithm configuration for both models ensures that any differences in fit quality reflect genuine differences in model adequacy rather than tuning artifacts.
@@ -251,6 +569,42 @@ res_nb = fit_model(
 
 NoLimits.summarize(dm_nb)
 NoLimits.summarize(res_nb)
+```
+
+<!-- injected:t5-resnb -->
+```text
+FitResultSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  method                              : mcem
+  inference                           : frequentist
+  scale                               : natural
+  objective                           : -644.3865
+  iterations                          : 4
+  parameters shown (reported / total) : 8 / 8
+
+Parameter estimates
+  parameter      Estimate
+  -----------------------
+  beta0           -1.6782
+  beta_1           0.7117
+  beta_2           0.2867
+  beta_3          -0.2126
+  beta_4          -0.0467
+  beta_5          -0.0162
+  omega            0.6723
+  log_r            2.0591
+
+Outcome data coverage
+  outcome        n_obs   n_missing
+  --------------------------------
+  seizures         236           0
+  TOTAL            236           0
+
+Empirical Bayes random effects summary (across RE levels)
+  random effect       n          mean            sd           q25        median           q75
+  ---------------------------------------------------------------------------
+  eta                59          0.23        0.5312       -0.0403         0.225        0.4592
 ```
 
 Generate the same fitted-trajectory and observation-distribution diagnostics as before. Comparing these plots side-by-side with the Poisson versions will reveal whether the Negative Binomial's wider predictive intervals better capture the observed variability in seizure counts.
@@ -275,11 +629,17 @@ p_obs_nb = plot_observation_distributions(
 p_fit_nb
 ```
 
+<!-- injected:t5-pfitnb -->
+![Fitted Negative Binomial seizure-rate trajectories for the first two subjects.](figures/t5/p_fit_nb.png)
+
 Display the Negative Binomial observation-distribution plot for direct comparison with the Poisson version above. Pay attention to the width of the predicted probability mass -- the Negative Binomial should assign more probability to extreme counts.
 
 ```julia
 p_obs_nb
 ```
+
+<!-- injected:t5-pobsnb -->
+![Predicted Negative Binomial probability mass at the first two observations of the first subject.](figures/t5/p_obs_nb.png)
 
 Compute Wald-based uncertainty for the Negative Binomial model and produce both standalone and combined summary tables, following the same procedure as for the Poisson fit.
 
@@ -295,11 +655,51 @@ NoLimits.summarize(uq_nb)
 NoLimits.summarize(res_nb, uq_nb)
 ```
 
+<!-- injected:t5-resuqnb -->
+```text
+UQResultSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  backend                             : wald
+  source_method                       : mcem
+  inference                           : frequentist
+  scale                               : natural
+  objective                           : -644.3865
+  interval level                      : 0.95
+  parameters shown (reported / total) : 8 / 8
+
+Parameter uncertainty summary
+  parameter      Estimate    Std. Error      CI Lower      CI Upper
+  ---------------------------------------------------
+  beta0           -1.6782        1.8586       -5.7139        1.8811
+  beta_1           0.7117        0.1841        0.3967        1.0668
+  beta_2           0.2867        0.4903       -0.7524        1.2554
+  beta_3          -0.2126        0.2095          -0.7        0.1046
+  beta_4          -0.0467        0.0448       -0.1386        0.0213
+  beta_5          -0.0162        0.0695       -0.1276        0.1205
+  omega            0.6723        0.1454        0.4743        0.9971
+  log_r            2.0591        0.2506        1.5563        2.5683
+
+Outcome data coverage
+  outcome        n_obs   n_missing
+  --------------------------------
+  seizures         236           0
+  TOTAL            236           0
+
+Empirical Bayes random effects summary (across RE levels)
+  random effect       n          mean            sd           q25        median           q75
+  ---------------------------------------------------------------------------
+  eta                59          0.23        0.5312       -0.0403         0.225        0.4592
+```
+
 The uncertainty distribution plots for the Negative Binomial model now include the dispersion parameter `log_r` -- a parameter with no counterpart in the Poisson model, whose magnitude directly quantifies the degree of overdispersion in the data.
 
 ```julia
 plot_uq_distributions(uq_nb)
 ```
+
+<!-- injected:t5-puqnb -->
+![Wald approximate parameter distributions for the Negative Binomial model, including the dispersion parameter.](figures/t5/p_uq_nb.png)
 
 ## Step 4: Comparing Poisson and Negative Binomial Objectives
 
@@ -310,6 +710,11 @@ As a final diagnostic, you will compare the objective function values (negative 
     poisson_objective = NoLimits.get_objective(res_poisson),
     nb_objective = NoLimits.get_objective(res_nb),
 )
+```
+
+<!-- injected:t5-obj -->
+```text
+(poisson_objective = -677.3374001650726, nb_objective = -644.3865261530952)
 ```
 
 Keep in mind that these two objective values arise from different likelihood families. They provide a useful heuristic comparison, but definitive model selection requires the formal tools mentioned above.

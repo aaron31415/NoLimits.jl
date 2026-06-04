@@ -54,6 +54,11 @@ sort!(df, [:ID, :Time])
 )
 ```
 
+<!-- injected:t6-data -->
+```text
+(n_rows = 300, n_subjects = 50, n_censored = 131)
+```
+
 ## Step 2: Define the Nonlinear Left-Censored Mixed-Effects Model
 
 In this step, you will define the structural model for viral load dynamics. The bi-exponential decay function captures two biologically distinct phases: the rapid initial clearance of free virus from the plasma, and the slower decline driven by the loss of productively infected cells. On the original scale, the model for subject $i$ at time $t$ is:
@@ -74,17 +79,17 @@ model = @Model begin
     end
 
     @fixedEffects begin
-        beta_A = RealNumber(5.5, calculate_se=true)
-        beta_B = RealNumber(4.2, calculate_se=true)
-        beta_k1 = RealNumber(-1.6, calculate_se=true)
-        beta_k2 = RealNumber(-3.5, calculate_se=true)
+        beta_A = RealNumber(9.9, calculate_se=true)
+        beta_B = RealNumber(5.0, calculate_se=true)
+        beta_k1 = RealNumber(-1.9, calculate_se=true)
+        beta_k2 = RealNumber(-5.3, calculate_se=true)
 
-        omega_A = RealNumber(0.20, scale=:log, calculate_se=true)
-        omega_B = RealNumber(0.20, scale=:log, calculate_se=true)
-        omega_k1 = RealNumber(0.20, scale=:log, calculate_se=true)
-        omega_k2 = RealNumber(0.20, scale=:log, calculate_se=true)
+        omega_A = RealNumber(0.40, scale=:log, calculate_se=true)
+        omega_B = RealNumber(0.40, scale=:log, calculate_se=true)
+        omega_k1 = RealNumber(0.40, scale=:log, calculate_se=true)
+        omega_k2 = RealNumber(0.40, scale=:log, calculate_se=true)
 
-        sigma = RealNumber(0.18, scale=:log, calculate_se=true)
+        sigma = RealNumber(0.25, scale=:log, calculate_se=true)
     end
 
     @randomEffects begin
@@ -105,6 +110,74 @@ end
 NoLimits.summarize(model)
 ```
 
+<!-- injected:t6-model -->
+```text
+ModelSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  model type                          : non-ODE
+  fixed-effect blocks                 : 9
+  fixed-effect scalar values          : 9
+  random effects                      : 4
+  random-effect grouping columns      : 1
+  covariates (declared)               : 1
+  formulas (deterministic / outcomes) : 2 / 1
+  requires DE accessors               : false
+
+Structure blocks
+  helpers              : false
+  fixed effects        : true
+  random effects       : true
+  covariates           : true
+  preDE                : false
+  DifferentialEquation : false
+  initialDE            : false
+
+Covariate classes
+  varying  : 1
+  constant : 0
+  dynamic  : 0
+
+Fixed-effects declarations
+  name      type        size  se  prior      scale     bounds                              details
+  -------------------------------------------------------------------------------------------------------------
+  beta_A    RealNumber     1  yes  Priorless  identity  finite lower 0/1, finite upper 0/1  -
+  beta_B    RealNumber     1  yes  Priorless  identity  finite lower 0/1, finite upper 0/1  -
+  beta_k1   RealNumber     1  yes  Priorless  identity  finite lower 0/1, finite upper 0/1  -
+  beta_k2   RealNumber     1  yes  Priorless  identity  finite lower 0/1, finite upper 0/1  -
+  omega_A   RealNumber     1  yes  Priorless  log       finite lower 1/1, finite upper 0/1  -
+  omega_B   RealNumber     1  yes  Priorless  log       finite lower 1/1, finite upper 0/1  -
+  omega_k1  RealNumber     1  yes  Priorless  log       finite lower 1/1, finite upper 0/1  -
+  omega_k2  RealNumber     1  yes  Priorless  log       finite lower 1/1, finite upper 0/1  -
+  sigma     RealNumber     1  yes  Priorless  log       finite lower 1/1, finite upper 0/1  -
+
+Random-effects declarations
+  name  group  dist     
+  ------------------------
+  A_i   ID     LogNormal
+  B_i   ID     LogNormal
+  k1_i  ID     LogNormal
+  k2_i  ID     LogNormal
+
+Covariate declarations
+  name  kind       columns                   constant_on           interpolation
+  ---------------------------------------------------------------------------------------
+  Time  Covariate  Time                      -                     -
+
+Formulas
+  deterministic names : V_i, mu
+  outcome names       : Log_VL
+  required DE states  : (none)
+  required DE signals : (none)
+  declared DE states  : (none)
+  declared DE signals : (none)
+Outcome distribution types
+  Log_VL => censored
+
+Helper functions
+  names : (none)
+```
+
 ## Step 3: Build `DataModel` and Configure `Laplace`
 
 In this step, you will bind the model to the dataset by constructing a `DataModel`. This validates that all required columns are present and correctly typed, groups observations by subject, and assembles the internal data structures needed for estimation.
@@ -115,8 +188,8 @@ Next, you will configure the Laplace approximation. This method approximates the
 dm = DataModel(model, df; primary_id=:ID, time_col=:Time)
 
 laplace_method = NoLimits.Laplace(;
-    optim_kwargs=(maxiters=250,),
-    inner_kwargs=(maxiters=100,),
+    optim_kwargs=(maxiters=400,),
+    inner_kwargs=(maxiters=150,),
     multistart_n=0,
     multistart_k=0,
 )
@@ -124,6 +197,80 @@ laplace_method = NoLimits.Laplace(;
 serialization = SciMLBase.EnsembleThreads()
 
 NoLimits.summarize(dm)
+```
+
+<!-- injected:t6-dm -->
+```text
+DataModelSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  model type                 : non-ODE
+  event-aware                : false
+  individuals                : 50
+  rows (total / obs / event) : 300 / 300 / 0
+  fixed effects (top-level)  : 9
+  outcomes                   : 1
+  covariates (declared)      : 1
+  random effects             : 4
+
+Covariate classes
+  varying  : 1
+  constant : 0
+  dynamic  : 0
+
+Outcome distribution types
+  Log_VL => censored
+
+Random-effect distribution types
+  A_i  => LogNormal
+  B_i  => LogNormal
+  k1_i => LogNormal
+  k2_i => LogNormal
+
+Individual design diagnostics
+  individuals with one observation              : 0
+  global observed time range                    : 0.0 to 168.0
+  unique observed time points                   : 6
+  duplicate (ID, time) observation rows         : 0
+  monotonic-time violations (observation order) : 0
+
+Observations per individual
+  metric       n          mean            sd           min           q25        median           q75           max
+  ----------------------------------------------------------------------------------------------------------------
+  count       50           6.0           0.0           6.0           6.0           6.0           6.0           6.0
+
+Time span per individual
+  metric       n          mean            sd           min           q25        median           q75           max
+  ----------------------------------------------------------------------------------------------------------------
+  span        50         168.0           0.0         168.0         168.0         168.0         168.0         168.0
+
+Median sampling interval per individual
+  metric          n          mean            sd           min           q25        median           q75           max
+  -------------------------------------------------------------------------------------------------------------------
+  median_dt      50          28.0           0.0          28.0          28.0          28.0          28.0          28.0
+
+Outcome descriptive statistics (observation rows)
+  Variable       n          mean            sd           min           q25        median           q75           max
+  ------------------------------------------------------------------------------------------------------------------
+  Log_VL       300         2.378        1.0243           1.7           1.7         1.885        2.6525          6.28
+
+Declared covariates
+  name  kind       columns
+  -------------------------------------
+  Time  Covariate  Time
+
+Covariate descriptive statistics (observation rows)
+  Variable        n          mean            sd           min           q25        median           q75           max
+  -------------------------------------------------------------------------------------------------------------------
+  Time.Time     300       74.6667       55.2167           0.0          28.0          70.0         112.0         168.0
+
+Per-random-effect summary
+  random effect  group  dist         levels  rows/level min        median           max
+  -----------------------------------------------------------------------------------
+  A_i            ID     LogNormal        50             6.0           6.0           6.0
+  B_i            ID     LogNormal        50             6.0           6.0           6.0
+  k1_i           ID     LogNormal        50             6.0           6.0           6.0
+  k2_i           ID     LogNormal        50             6.0           6.0           6.0
 ```
 
 ## Step 4: Fit and Inspect Core Summary
@@ -139,6 +286,46 @@ res = fit_model(
 )
 
 NoLimits.summarize(res)
+```
+
+<!-- injected:t6-res -->
+```text
+FitResultSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  method                              : laplace
+  inference                           : frequentist
+  scale                               : natural
+  objective                           : 270.5745
+  iterations                          : 39
+  parameters shown (reported / total) : 9 / 9
+
+Parameter estimates
+  parameter      Estimate
+  -----------------------
+  beta_A           8.5294
+  beta_B          -8.0105
+  beta_k1         -2.7631
+  beta_k2         -9.6889
+  omega_A         7.76e-7
+  omega_B          0.0752
+  omega_k1         0.2876
+  omega_k2         0.1184
+  sigma             0.744
+
+Outcome data coverage
+  outcome       n_obs   n_missing
+  -------------------------------
+  Log_VL          300           0
+  TOTAL           300           0
+
+Empirical Bayes random effects summary (across RE levels)
+  random effect       n          mean            sd           q25        median           q75
+  ---------------------------------------------------------------------------
+  A_i                50     5061.1887      6.255e-9     5061.1887     5061.1887     5061.1887
+  B_i                50     0.0003301     1.902e-11     0.0003301     0.0003301     0.0003301
+  k1_i               50        0.0658        0.0162        0.0512        0.0647        0.0822
+  k2_i               50       6.11e-5     1.178e-13       6.11e-5       6.11e-5       6.11e-5
 ```
 
 ## Step 5: Fitted Trajectories (First 2 Individuals)
@@ -158,6 +345,9 @@ p_fit = plot_fits(
 p_fit
 ```
 
+<!-- injected:t6-pfit -->
+![Fitted bi-exponential viral-load trajectories for the first two subjects (Laplace).](figures/t6/p_fit.png)
+
 ## Step 6: Observation Distribution Diagnostic (First Individual)
 
 This diagnostic reveals the full predictive distribution at selected time points for a single subject. For uncensored observations, you will see a Normal density centered on the predicted log10 viral load. For censored observations, the distribution is truncated at the detection limit, with the probability mass below 1.7 collapsed into a point mass. Examining these distributions is a useful way to verify that the censored likelihood is behaving as intended and that the model assigns appropriate probability to the below-limit region.
@@ -172,6 +362,9 @@ p_obs = plot_observation_distributions(
 
 p_obs
 ```
+
+<!-- injected:t6-pobs -->
+![Predicted observation distributions at the first two observations of the first subject, including the left-censored region.](figures/t6/p_obs.png)
 
 ## Step 7: Wald Uncertainty Quantification
 
@@ -188,10 +381,78 @@ uq = compute_uq(
 NoLimits.summarize(uq)
 ```
 
+<!-- injected:t6-uq -->
+```text
+UQResultSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  backend                             : wald
+  source_method                       : laplace
+  inference                           : frequentist
+  scale                               : natural
+  objective                           : -
+  interval level                      : 0.95
+  parameters shown (reported / total) : 9 / 9
+
+Parameter uncertainty summary
+  parameter      Estimate    Std. Error      CI Lower      CI Upper
+  ---------------------------------------------------
+  beta_A           8.5294        0.0081        8.5141        8.5463
+  beta_B          -8.0105        0.2293       -8.4471        -7.558
+  beta_k1         -2.7631        0.0656       -2.9009       -2.6349
+  beta_k2         -9.6889        0.0929       -9.8624       -9.4989
+  omega_A         7.76e-7      4.903e-7      3.164e-7      2.029e-6
+  omega_B          0.0752        0.0649        0.0234        0.2617
+  omega_k1         0.2876        0.0711        0.1814        0.4658
+  omega_k2         0.1184        0.0434        0.0643        0.2328
+  sigma             0.744        0.0233        0.6989        0.7904
+```
+
 For a consolidated report combining point estimates and their uncertainty, pass both the fit result and the uncertainty object to `summarize`. This tabular format is convenient for inclusion in manuscripts and supplementary materials.
 
 ```julia
 NoLimits.summarize(res, uq)
+```
+
+<!-- injected:t6-resuq -->
+```text
+UQResultSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  backend                             : wald
+  source_method                       : laplace
+  inference                           : frequentist
+  scale                               : natural
+  objective                           : 270.5745
+  interval level                      : 0.95
+  parameters shown (reported / total) : 9 / 9
+
+Parameter uncertainty summary
+  parameter      Estimate    Std. Error      CI Lower      CI Upper
+  ---------------------------------------------------
+  beta_A           8.5294        0.0081        8.5141        8.5463
+  beta_B          -8.0105        0.2293       -8.4471        -7.558
+  beta_k1         -2.7631        0.0656       -2.9009       -2.6349
+  beta_k2         -9.6889        0.0929       -9.8624       -9.4989
+  omega_A         7.76e-7      4.903e-7      3.164e-7      2.029e-6
+  omega_B          0.0752        0.0649        0.0234        0.2617
+  omega_k1         0.2876        0.0711        0.1814        0.4658
+  omega_k2         0.1184        0.0434        0.0643        0.2328
+  sigma             0.744        0.0233        0.6989        0.7904
+
+Outcome data coverage
+  outcome       n_obs   n_missing
+  -------------------------------
+  Log_VL          300           0
+  TOTAL           300           0
+
+Empirical Bayes random effects summary (across RE levels)
+  random effect       n          mean            sd           q25        median           q75
+  ---------------------------------------------------------------------------
+  A_i                50     5061.1887      6.255e-9     5061.1887     5061.1887     5061.1887
+  B_i                50     0.0003301     1.902e-11     0.0003301     0.0003301     0.0003301
+  k1_i               50        0.0658        0.0162        0.0512        0.0647        0.0822
+  k2_i               50       6.11e-5     1.178e-13       6.11e-5       6.11e-5       6.11e-5
 ```
 
 Finally, you can visualize the implied sampling distributions of the fixed-effects parameters on the natural (untransformed) scale. Parameters estimated on the log scale (the `omega` and `sigma` parameters) are back-transformed before plotting, so the density plots reflect the scale on which these quantities are scientifically interpretable.
@@ -200,8 +461,12 @@ Finally, you can visualize the implied sampling distributions of the fixed-effec
 plot_uq_distributions(uq; scale=:natural, plot_type=:density, show_legend=false)
 ```
 
+<!-- injected:t6-puq -->
+![Wald approximate parameter distributions on the natural scale.](figures/t6/p_uq.png)
+
 ## Interpretation Notes
 
 - **Nonlinearity and the Laplace approximation.** The model is nonlinear in its random effects because subject-level `LogNormal` parameters (`A_i`, `B_i`, `k1_i`, `k2_i`) appear inside a bi-exponential trajectory. This nonlinearity is precisely what necessitates the Laplace approximation rather than a simpler linear mixed-effects approach.
 - **Why the censored likelihood matters.** Left-censored rows contribute through the cumulative Normal probability of falling below 1.7, not through a standard density evaluated at the pinned recorded value. This distinction is critical for unbiased estimation whenever detection limits are present.
+- **The slow phase is only weakly identified here.** With a large fraction of observations censored at the detection limit, the data carry little information about the slow second exponential, so its amplitude estimate collapses toward zero and the fitted trajectory is effectively dominated by the fast phase. This is the data speaking rather than a defect: the observable dynamics are a single decline to the detection limit. Datasets with longer follow-up or a higher detection limit would identify both phases more sharply.
 - **A reusable template.** The workflow demonstrated here -- model definition, data binding, Laplace estimation, diagnostics, and uncertainty quantification -- serves as a baseline template for censored nonlinear mixed-effects analyses in NoLimits. For datasets with higher censoring fractions or more complex censoring patterns (e.g., interval censoring), the same `censored(...)` syntax generalizes naturally.

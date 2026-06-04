@@ -1,6 +1,6 @@
 # Mixed-Effects Tutorial 1: Nonlinear Random-Effects Model Across Multiple Estimation Methods
 
-Nonlinear mixed-effects (NLME) models are a cornerstone of longitudinal data analysis in the biological sciences. They describe how individual trajectories vary around a shared population-level trend -- capturing, for example, how different organisms grow at different rates toward different asymptotes, even when the underlying biological mechanism is the same. A natural question arises in practice: **how sensitive are my conclusions to the estimation algorithm I choose?** This tutorial addresses that question directly. You will fit a single nonlinear growth model to a classic biological dataset using five distinct estimation strategies, then compare the results in terms of fitted trajectories, observation-level predictions, and parameter uncertainty. By the end, you will have a practical template for multi-method comparison and a clear intuition for when each approach is most appropriate.
+Nonlinear mixed-effects (NLME) models are a cornerstone of longitudinal data analysis in the biological sciences. They describe how individual trajectories vary around a shared population-level trend -- capturing, for example, how different organisms grow at different rates toward different asymptotes, even when the underlying biological mechanism is the same. A natural question arises in practice: **how sensitive are my conclusions to the estimation algorithm I choose?** This tutorial addresses that question directly. You will fit a single nonlinear growth model to a classic biological dataset using four distinct estimation strategies, then compare the results in terms of fitted trajectories, observation-level predictions, and parameter uncertainty. By the end, you will have a practical template for multi-method comparison and a clear intuition for when each approach is most appropriate.
 
 ## What You Will Learn
 
@@ -11,7 +11,7 @@ By the end of this tutorial, you will be able to:
 - **Compare** methods in predictive space using NoLimits' diagnostic and visualization tools, rather than relying solely on objective function values.
 - **Interpret** where the estimators converge, where they diverge, and what each method uniquely provides.
 
-The goal is not just to run five fits, but to build understanding of the trade-offs involved in choosing an estimation strategy for your own longitudinal analyses.
+The goal is not just to run four fits, but to build understanding of the trade-offs involved in choosing an estimation strategy for your own longitudinal analyses.
 
 ## Step 1: Data Setup
 
@@ -36,6 +36,22 @@ Random.seed!(42)
 df = load_orange()
 
 first(df, 8)
+```
+
+<!-- injected:t1-dfhead -->
+```text
+8×4 DataFrame
+ Row │ rownames  Tree   age    circumference
+     │ Int64     Int64  Int64  Int64
+─────┼───────────────────────────────────────
+   1 │        1      1    118             30
+   2 │        2      1    484             58
+   3 │        3      1    664             87
+   4 │        4      1   1004            115
+   5 │        5      1   1231            120
+   6 │        6      1   1372            142
+   7 │        7      1   1582            145
+   8 │        8      2    118             33
 ```
 
 ## Step 2: Define the Nonlinear Mixed-Effects Model
@@ -85,11 +101,72 @@ model_summary = NoLimits.summarize(model)
 model_summary
 ```
 
+<!-- injected:t1-model -->
+```text
+ModelSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  model type                          : non-ODE
+  fixed-effect blocks                 : 5
+  fixed-effect scalar values          : 5
+  random effects                      : 1
+  random-effect grouping columns      : 1
+  covariates (declared)               : 1
+  formulas (deterministic / outcomes) : 2 / 1
+  requires DE accessors               : false
+
+Structure blocks
+  helpers              : true
+  fixed effects        : true
+  random effects       : true
+  covariates           : true
+  preDE                : false
+  DifferentialEquation : false
+  initialDE            : false
+
+Covariate classes
+  varying  : 1
+  constant : 0
+  dynamic  : 0
+
+Fixed-effects declarations
+  name      type        size  se  prior      scale     bounds                              details
+  -------------------------------------------------------------------------------------------------------------
+  phi1      RealNumber     1  yes  LogNormal  identity  finite lower 0/1, finite upper 0/1  -
+  log_vmax  RealNumber     1  yes  Normal     identity  finite lower 0/1, finite upper 0/1  -
+  phi3      RealNumber     1  yes  LogNormal  identity  finite lower 0/1, finite upper 0/1  -
+  omega     RealNumber     1  yes  LogNormal  log       finite lower 1/1, finite upper 0/1  -
+  sigma     RealNumber     1  yes  LogNormal  log       finite lower 1/1, finite upper 0/1  -
+
+Random-effects declarations
+  name    group  dist     
+  --------------------------
+  vmax_i  Tree   LogNormal
+
+Covariate declarations
+  name  kind       columns                   constant_on           interpolation
+  ---------------------------------------------------------------------------------------
+  age   Covariate  age                       -                     -
+
+Formulas
+  deterministic names : mu_raw, mu
+  outcome names       : circumference
+  required DE states  : (none)
+  required DE signals : (none)
+  declared DE states  : (none)
+  declared DE signals : (none)
+Outcome distribution types
+  circumference => LogNormal
+
+Helper functions
+  names : softplus
+```
+
 ## Step 3: Build the DataModel and Configure Estimation Methods
 
 In this step, you will wrap the model and data together into a `DataModel` -- a structure that validates the data schema, groups individuals into batches for the random effects structure, and prepares internal representations for each estimation method.
 
-You will then configure five estimation methods. Each represents a fundamentally different strategy for handling the random effects integral that appears in the marginal likelihood:
+You will then configure four estimation methods. Each represents a fundamentally different strategy for handling the random effects integral that appears in the marginal likelihood:
 
 - **Laplace** approximates the integral analytically using a second-order Taylor expansion around each individual's best estimate of the random effects (the empirical Bayes estimate). It is fast and deterministic, making it a good default for moderate-sized problems. However, the approximation can lose accuracy when the true distribution of random effects is far from Gaussian.
 
@@ -99,7 +176,7 @@ You will then configure five estimation methods. Each represents a fundamentally
 
 - **MCMC** (Markov chain Monte Carlo) samples the full joint posterior over both fixed and random effects. Rather than returning a single "best" parameter estimate, it produces a collection of plausible parameter sets that together characterize uncertainty. This provides the richest picture of parameter uncertainty -- including asymmetric or multimodal posteriors -- but is the most computationally expensive and requires careful convergence assessment.
 
-The configuration values below are chosen to balance runtime and stability for this tutorial; in a research setting, you would typically increase iteration counts, sample sizes, and warmup periods.
+The configuration values below are chosen to balance runtime and stability for this tutorial; in a research setting, you would typically increase iteration counts, sample sizes, and warmup periods. SAEM is run with its default settings (`NoLimits.SAEM()`), which provides a useful reference point for how the out-of-the-box configuration behaves relative to the other methods.
 
 ```julia
 dm = DataModel(model, df; primary_id=:Tree, time_col=:age)
@@ -107,23 +184,14 @@ dm = DataModel(model, df; primary_id=:Tree, time_col=:age)
 laplace_method = NoLimits.Laplace(; multistart_n=0, multistart_k=0, optim_kwargs=(maxiters=120,))
 
 mcem_method = NoLimits.MCEM(;
-    maxiters=6,
-    sample_schedule=i -> min(40 + 20 * (i - 1), 140),
-    turing_kwargs=(n_samples=40, n_adapt=15, progress=false),
-    optim_kwargs=(maxiters=120,),
+    maxiters=20,
+    sample_schedule=i -> min(60 + 20 * (i - 1), 220),
+    turing_kwargs=(n_samples=60, n_adapt=20, progress=false),
+    optim_kwargs=(maxiters=200,),
     progress=false,
 )
 
-saem_method = NoLimits.SAEM(;
-    maxiters=80,
-    mcmc_steps=16,
-    t0=15,
-    kappa=0.65,
-    turing_kwargs=(n_adapt=20, progress=false),
-    optim_kwargs=(maxiters=160,),
-    verbose=false,
-    progress=false,
-)
+saem_method = NoLimits.SAEM()
 
 mcmc_method = NoLimits.MCMC(;
     sampler=NUTS(0.75),
@@ -141,6 +209,74 @@ Before proceeding to estimation, inspect the DataModel summary to confirm that i
 ```julia
 dm_summary = NoLimits.summarize(dm)
 dm_summary
+```
+
+<!-- injected:t1-dm -->
+```text
+DataModelSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  model type                 : non-ODE
+  event-aware                : false
+  individuals                : 5
+  rows (total / obs / event) : 35 / 35 / 0
+  fixed effects (top-level)  : 5
+  outcomes                   : 1
+  covariates (declared)      : 1
+  random effects             : 1
+
+Covariate classes
+  varying  : 1
+  constant : 0
+  dynamic  : 0
+
+Outcome distribution types
+  circumference => LogNormal
+
+Random-effect distribution types
+  vmax_i => LogNormal
+
+Individual design diagnostics
+  individuals with one observation              : 0
+  global observed time range                    : 118.0 to 1582.0
+  unique observed time points                   : 7
+  duplicate (ID, time) observation rows         : 0
+  monotonic-time violations (observation order) : 0
+
+Observations per individual
+  metric       n          mean            sd           min           q25        median           q75           max
+  ----------------------------------------------------------------------------------------------------------------
+  count        5           7.0           0.0           7.0           7.0           7.0           7.0           7.0
+
+Time span per individual
+  metric       n          mean            sd           min           q25        median           q75           max
+  ----------------------------------------------------------------------------------------------------------------
+  span         5        1464.0           0.0        1464.0        1464.0        1464.0        1464.0        1464.0
+
+Median sampling interval per individual
+  metric          n          mean            sd           min           q25        median           q75           max
+  -------------------------------------------------------------------------------------------------------------------
+  median_dt       5         218.5           0.0         218.5         218.5         218.5         218.5         218.5
+
+Outcome descriptive statistics (observation rows)
+  Variable            n          mean            sd           min           q25        median           q75           max
+  -----------------------------------------------------------------------------------------------------------------------
+  circumference      35      115.8571        56.661          30.0          65.5         115.0         161.5         214.0
+
+Declared covariates
+  name  kind       columns
+  -------------------------------------
+  age   Covariate  age
+
+Covariate descriptive statistics (observation rows)
+  Variable       n          mean            sd           min           q25        median           q75           max
+  ------------------------------------------------------------------------------------------------------------------
+  age.age       35      922.1429       484.787         118.0         484.0        1004.0        1372.0        1582.0
+
+Per-random-effect summary
+  random effect  group  dist         levels  rows/level min        median           max
+  -----------------------------------------------------------------------------------
+  vmax_i         Tree   LogNormal         5             7.0           7.0           7.0
 ```
 
 ## Step 4: Fit All Methods
@@ -169,6 +305,39 @@ fit_summary_mcmc = NoLimits.summarize(res_mcmc)
 fit_summary_laplace
 ```
 
+<!-- injected:t1-fitlap -->
+```text
+FitResultSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  method                              : laplace
+  inference                           : frequentist
+  scale                               : natural
+  objective                           : 150.4425
+  iterations                          : 60
+  parameters shown (reported / total) : 5 / 5
+
+Parameter estimates
+  parameter      Estimate
+  -----------------------
+  phi1            31.2678
+  log_vmax         5.0348
+  phi3           639.2259
+  omega          4.204e-8
+  sigma            0.1803
+
+Outcome data coverage
+  outcome             n_obs   n_missing
+  -------------------------------------
+  circumference          35           0
+  TOTAL                  35           0
+
+Empirical Bayes random effects summary (across RE levels)
+  random effect       n          mean            sd           q25        median           q75
+  ---------------------------------------------------------------------------
+  vmax_i              5      153.6613     7.264e-12      153.6613      153.6613      153.6613
+```
+
 ## Step 5: Compare Objective Values (Laplace, MCEM, SAEM)
 
 It is tempting to compare objective function values across methods, but this requires care: each method optimizes a different quantity, so raw values are not directly comparable.
@@ -181,6 +350,11 @@ objectives = (
 )
 
 objectives
+```
+
+<!-- injected:t1-obj -->
+```text
+(laplace = 150.4424815167825, mcem = -157.37519805265947, saem = -183.4978985314107)
 ```
 
 The signs and magnitudes differ because each method defines its objective differently:
@@ -247,11 +421,17 @@ Laplace fit plot:
 p_fit_laplace
 ```
 
+<!-- injected:t1-pfitlap -->
+![Laplace fitted trajectories for the first two trees.](figures/t1/p_fit_laplace.png)
+
 MCEM fit plot:
 
 ```julia
 p_fit_mcem
 ```
+
+<!-- injected:t1-pfitmcem -->
+![MCEM fitted trajectories for the first two trees.](figures/t1/p_fit_mcem.png)
 
 SAEM fit plot:
 
@@ -259,11 +439,19 @@ SAEM fit plot:
 p_fit_saem
 ```
 
+<!-- injected:t1-pfitsaem -->
+![SAEM (default settings) fitted trajectories for the first two trees.](figures/t1/p_fit_saem.png)
+
+With its default settings, SAEM has not fully converged on this dataset within the default iteration budget: its estimated growth midpoint drifts beyond the observed age range, so the fitted curve stays comparatively flat through the middle of the trajectory and rises only at the end. This is the expected behaviour of an out-of-the-box configuration on a small dataset with a sharply nonlinear growth curve, and it illustrates an important practical point. Stochastic-approximation methods often need more iterations, a tuned step-size schedule, or more samples per iteration to match the optimization-based and fully Bayesian estimators. The other three methods, which are configured with task-appropriate settings here, agree closely.
+
 MCMC fit plot (with posterior predictive bands):
 
 ```julia
 p_fit_mcmc
 ```
+
+<!-- injected:t1-pfitmcmc -->
+![MCMC fitted trajectories with posterior predictive bands for the first two trees.](figures/t1/p_fit_mcmc.png)
 
 ## Step 7: Observation Distribution Diagnostics (First Individual)
 
@@ -310,11 +498,17 @@ Laplace observation distribution:
 p_obs_laplace
 ```
 
+<!-- injected:t1-pobslap -->
+![Laplace predicted observation distribution at the first observation of the first tree.](figures/t1/p_obs_laplace.png)
+
 MCEM observation distribution:
 
 ```julia
 p_obs_mcem
 ```
+
+<!-- injected:t1-pobsmcem -->
+![MCEM predicted observation distribution at the first observation of the first tree.](figures/t1/p_obs_mcem.png)
 
 SAEM observation distribution:
 
@@ -322,11 +516,17 @@ SAEM observation distribution:
 p_obs_saem
 ```
 
+<!-- injected:t1-pobssaem -->
+![SAEM predicted observation distribution at the first observation of the first tree.](figures/t1/p_obs_saem.png)
+
 MCMC observation distribution:
 
 ```julia
 p_obs_mcmc
 ```
+
+<!-- injected:t1-pobsmcmc -->
+![MCMC predicted observation distribution at the first observation of the first tree.](figures/t1/p_obs_mcmc.png)
 
 ## Step 8: Uncertainty Quantification Across Methods
 
@@ -397,11 +597,48 @@ fit_uq_summary_mcmc = NoLimits.summarize(res_mcmc, uq_mcmc)
 fit_uq_summary_laplace
 ```
 
+<!-- injected:t1-fituqlap -->
+```text
+UQResultSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  backend                             : wald
+  source_method                       : laplace
+  inference                           : frequentist
+  scale                               : natural
+  objective                           : 150.4425
+  interval level                      : 0.95
+  parameters shown (reported / total) : 5 / 5
+
+Parameter uncertainty summary
+  parameter      Estimate    Std. Error      CI Lower      CI Upper
+  ---------------------------------------------------
+  phi1            31.2678        2.7905        25.978       36.6135
+  log_vmax         5.0348        0.0327        4.9656        5.0908
+  phi3           639.2259       22.7177      596.4957      683.9189
+  omega          4.204e-8      1.617e-7      3.328e-9      4.549e-7
+  sigma            0.1803        0.0208        0.1431        0.2221
+
+Outcome data coverage
+  outcome             n_obs   n_missing
+  -------------------------------------
+  circumference          35           0
+  TOTAL                  35           0
+
+Empirical Bayes random effects summary (across RE levels)
+  random effect       n          mean            sd           q25        median           q75
+  ---------------------------------------------------------------------------
+  vmax_i              5      153.6613     7.264e-12      153.6613      153.6613      153.6613
+```
+
 Laplace UQ distribution:
 
 ```julia
 p_uq_laplace
 ```
+
+<!-- injected:t1-puqlap -->
+![Laplace Wald approximate parameter distributions on the natural scale.](figures/t1/p_uq_laplace.png)
 
 MCEM UQ distribution:
 
@@ -409,17 +646,26 @@ MCEM UQ distribution:
 p_uq_mcem
 ```
 
+<!-- injected:t1-puqmcem -->
+![MCEM Wald approximate parameter distributions on the natural scale.](figures/t1/p_uq_mcem.png)
+
 SAEM UQ distribution:
 
 ```julia
 p_uq_saem
 ```
 
+<!-- injected:t1-puqsaem -->
+![SAEM Wald approximate parameter distributions on the natural scale.](figures/t1/p_uq_saem.png)
+
 MCMC UQ distribution:
 
 ```julia
 p_uq_mcmc
 ```
+
+<!-- injected:t1-puqmcmc -->
+![MCMC posterior parameter distributions on the natural scale.](figures/t1/p_uq_mcmc.png)
 
 ## Interpretation and Practical Guidance
 

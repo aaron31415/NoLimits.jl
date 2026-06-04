@@ -74,6 +74,26 @@ df = build_theoph_event_df(theoph_df)
 first(df, 12)
 ```
 
+<!-- injected:t2-dfhead -->
+```text
+12×7 DataFrame
+ Row │ id     t        AMT      EVID   CMT      RATE     y1
+     │ Int64  Float64  Float64  Int64  String?  Float64  Float64?
+─────┼──────────────────────────────────────────────────────────────
+   1 │     1     0.0   319.992      1  depot        0.0  missing
+   2 │     1     0.0     0.0        0  missing      0.0        0.74
+   3 │     1     0.25    0.0        0  missing      0.0        2.84
+   4 │     1     0.57    0.0        0  missing      0.0        6.57
+   5 │     1     1.12    0.0        0  missing      0.0       10.5
+   6 │     1     2.02    0.0        0  missing      0.0        9.66
+   7 │     1     3.82    0.0        0  missing      0.0        8.58
+   8 │     1     5.1     0.0        0  missing      0.0        8.36
+   9 │     1     7.03    0.0        0  missing      0.0        7.47
+  10 │     1     9.05    0.0        0  missing      0.0        6.89
+  11 │     1    12.12    0.0        0  missing      0.0        5.94
+  12 │     1    24.37    0.0        0  missing      0.0        3.28
+```
+
 ## Step 2: Define the ODE Mixed-Effects Model
 
 In this step, you will specify the mechanistic model. The goal is twofold: describe the ODE dynamics of the two-compartment system, and account for inter-individual variability through random effects.
@@ -158,6 +178,69 @@ model_summary = NoLimits.summarize(model)
 model_summary
 ```
 
+<!-- injected:t2-model -->
+```text
+ModelSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  model type                          : ODE
+  fixed-effect blocks                 : 7
+  fixed-effect scalar values          : 7
+  random effects                      : 1
+  random-effect grouping columns      : 1
+  covariates (declared)               : 1
+  formulas (deterministic / outcomes) : 0 / 1
+  requires DE accessors               : true
+
+Structure blocks
+  helpers              : false
+  fixed effects        : true
+  random effects       : true
+  covariates           : true
+  preDE                : true
+  DifferentialEquation : true
+  initialDE            : true
+
+Covariate classes
+  varying  : 1
+  constant : 0
+  dynamic  : 0
+
+Fixed-effects declarations
+  name       type        size  se  prior    scale     bounds                              details
+  ------------------------------------------------------------------------------------------------------------
+  tka        RealNumber     1  yes  Uniform  identity  finite lower 0/1, finite upper 0/1  -
+  tcl        RealNumber     1  yes  Uniform  identity  finite lower 0/1, finite upper 0/1  -
+  tv         RealNumber     1  yes  Uniform  identity  finite lower 0/1, finite upper 0/1  -
+  omega1     RealNumber     1  yes  Uniform  log       finite lower 1/1, finite upper 0/1  -
+  omega2     RealNumber     1  yes  Uniform  log       finite lower 1/1, finite upper 0/1  -
+  omega3     RealNumber     1  yes  Uniform  log       finite lower 1/1, finite upper 0/1  -
+  sigma_eps  RealNumber     1  yes  Uniform  log       finite lower 1/1, finite upper 0/1  -
+
+Random-effects declarations
+  name  group  dist    
+  -----------------------
+  eta   id     MvNormal
+
+Covariate declarations
+  name  kind       columns                   constant_on           interpolation
+  ---------------------------------------------------------------------------------------
+  t     Covariate  t                         -                     -
+
+Formulas
+  deterministic names : (none)
+  outcome names       : y1
+  required DE states  : center
+  required DE signals : (none)
+  declared DE states  : depot, center
+  declared DE signals : (none)
+Outcome distribution types
+  y1 => Normal
+
+Helper functions
+  names : (none)
+```
+
 ## Step 3: Build the DataModel
 
 In this step, you will connect the model to the data by constructing a `DataModel`. This constructor validates the dataset against the model's requirements --- checking that all declared covariates are present, that constant covariates are indeed constant within each group, and that event columns are well-formed. You must explicitly specify the event-related column names so that NoLimits.jl can correctly distinguish input events from observation rows during ODE integration.
@@ -183,6 +266,74 @@ Summarizing the `DataModel` gives you an overview of the number of individuals, 
 ```julia
 dm_summary = NoLimits.summarize(dm)
 dm_summary
+```
+
+<!-- injected:t2-dm -->
+```text
+DataModelSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  model type                 : ODE
+  event-aware                : true
+  individuals                : 12
+  rows (total / obs / event) : 144 / 132 / 12
+  fixed effects (top-level)  : 7
+  outcomes                   : 1
+  covariates (declared)      : 1
+  random effects             : 1
+
+Covariate classes
+  varying  : 1
+  constant : 0
+  dynamic  : 0
+
+Outcome distribution types
+  y1 => Normal
+
+Random-effect distribution types
+  eta => MvNormal
+
+Individual design diagnostics
+  individuals with one observation              : 0
+  global observed time range                    : 0.0 to 24.65
+  unique observed time points                   : 78
+  duplicate (ID, time) observation rows         : 0
+  monotonic-time violations (observation order) : 0
+
+Observations per individual
+  metric       n          mean            sd           min           q25        median           q75           max
+  ----------------------------------------------------------------------------------------------------------------
+  count       12          11.0           0.0          11.0          11.0          11.0          11.0          11.0
+
+Time span per individual
+  metric       n          mean            sd           min           q25        median           q75           max
+  ----------------------------------------------------------------------------------------------------------------
+  span        12       24.1992        0.2439          23.7         24.11        24.195        24.355         24.65
+
+Median sampling interval per individual
+  metric          n          mean            sd           min           q25        median           q75           max
+  -------------------------------------------------------------------------------------------------------------------
+  median_dt      12        1.5092        0.0277         1.445        1.4975        1.5075        1.5312          1.55
+
+Outcome descriptive statistics (observation rows)
+  Variable       n          mean            sd           min           q25        median           q75           max
+  ------------------------------------------------------------------------------------------------------------------
+  y1           132        4.9605        2.8564           0.0        2.8775         5.275          7.14          11.4
+
+Declared covariates
+  name  kind       columns
+  -------------------------------------
+  t     Covariate  t
+
+Covariate descriptive statistics (observation rows)
+  Variable       n          mean            sd           min           q25        median           q75           max
+  ------------------------------------------------------------------------------------------------------------------
+  t.t          132        5.8946        6.8997           0.0         0.595          3.53           9.0         24.65
+
+Per-random-effect summary
+  random effect  group  dist        levels  rows/level min        median           max
+  ----------------------------------------------------------------------------------
+  eta            id     MvNormal        12            11.0          11.0          11.0
 ```
 
 ## Step 4: Configure MCEM
@@ -230,6 +381,11 @@ fit_summary = (
 fit_summary
 ```
 
+<!-- injected:t2-obj -->
+```text
+(objective = -145.52093283427416,)
+```
+
 ### FitResult Summary
 
 The structured summary provides a convenient overview of convergence status, iteration counts, and method-specific diagnostics.
@@ -237,6 +393,43 @@ The structured summary provides a convenient overview of convergence status, ite
 ```julia
 fit_result_summary = NoLimits.summarize(res_mcem)
 fit_result_summary
+```
+
+<!-- injected:t2-fitres -->
+```text
+FitResultSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  method                              : mcem
+  inference                           : frequentist
+  scale                               : natural
+  objective                           : -145.5209
+  iterations                          : 12
+  parameters shown (reported / total) : 7 / 7
+
+Parameter estimates
+  parameter      Estimate
+  -----------------------
+  tka              0.4688
+  tcl              1.0085
+  tv               3.4531
+  omega1           0.3972
+  omega2           0.0719
+  omega3           0.0177
+  sigma_eps        0.6987
+
+Outcome data coverage
+  outcome       n_obs   n_missing
+  -------------------------------
+  y1              132          12
+  TOTAL           132          12
+
+Empirical Bayes random effects summary (across RE levels)
+  random effect  component       n          mean            sd           q25        median           q75
+  --------------------------------------------------------------------------------------------------
+  eta            eta_1          12       -0.0186        0.5949       -0.4342       -0.1124        0.2337
+  eta            eta_2          12        0.0077         0.245       -0.1305        0.0413        0.1574
+  eta            eta_3          12       -0.0023        0.1153       -0.0969        0.0076        0.0668
 ```
 
 You can also extract the estimated fixed-effect parameters on their natural (untransformed) scale. The population-level log-scale parameters (`tka`, `tcl`, `tv`) can be exponentiated to recover typical-individual values, and `sigma_eps` represents the residual observation noise.
@@ -249,6 +442,11 @@ params = NoLimits.get_params(res_mcem; scale=:untransformed)
     tv=params.tv,
     sigma_eps=params.sigma_eps,
 )
+```
+
+<!-- injected:t2-params -->
+```text
+(tka = 0.46883216585378884, tcl = 1.008534014759881, tv = 3.4531404125311163, sigma_eps = 0.698706352652697)
 ```
 
 ## Step 6: Visualize Fitted Trajectories
@@ -268,6 +466,9 @@ p_fit_mcem = plot_fits(
 p_fit_mcem
 ```
 
+<!-- injected:t2-pfit -->
+![Fitted two-compartment trajectories for the first two individuals (MCEM).](figures/t2/p_fit_mcem.png)
+
 ## Step 7: Assess the Observation Distribution
 
 Beyond trajectory-level checks, it is valuable to examine how well the model's predicted observation distribution matches the data at individual time points. In this step, `plot_observation_distributions` visualizes the predictive distribution for a given individual and observation row, letting you assess whether the assumed error model (here, a normal distribution with standard deviation `sigma_eps`) is well-calibrated.
@@ -282,6 +483,9 @@ p_obs_mcem = plot_observation_distributions(
 
 p_obs_mcem
 ```
+
+<!-- injected:t2-pobs -->
+![Predicted observation distribution at the first observation of the first individual (MCEM).](figures/t2/p_obs_mcem.png)
 
 ## Step 8: Quantify Parameter Uncertainty
 
@@ -311,6 +515,9 @@ p_uq_mcem = plot_uq_distributions(
 p_uq_mcem
 ```
 
+<!-- injected:t2-puq -->
+![Wald approximate parameter distributions on the natural scale (MCEM).](figures/t2/p_uq_mcem.png)
+
 ### UQ Summaries
 
 Finally, the numerical summaries consolidate point estimates and confidence intervals into a single table --- a format suitable for reporting results in publications or for systematic comparison across candidate models.
@@ -320,6 +527,44 @@ uq_summary_mcem = NoLimits.summarize(uq_mcem)
 fit_uq_summary_mcem = NoLimits.summarize(res_mcem, uq_mcem)
 
 fit_uq_summary_mcem
+```
+
+<!-- injected:t2-fituq -->
+```text
+UQResultSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  backend                             : wald
+  source_method                       : mcem
+  inference                           : frequentist
+  scale                               : natural
+  objective                           : -145.5209
+  interval level                      : 0.95
+  parameters shown (reported / total) : 7 / 7
+
+Parameter uncertainty summary
+  parameter      Estimate    Std. Error      CI Lower      CI Upper
+  ---------------------------------------------------
+  tka              0.4688        0.1969        0.0789        0.8438
+  tcl              1.0085         0.095        0.8168        1.1879
+  tv               3.4531        0.0483        3.3588        3.5432
+  omega1           0.3972         0.216        0.1739         0.954
+  omega2           0.0719        0.0421        0.0309        0.1865
+  omega3           0.0177         0.014        0.0058        0.0579
+  sigma_eps        0.6987        0.0491        0.6166        0.7926
+
+Outcome data coverage
+  outcome       n_obs   n_missing
+  -------------------------------
+  y1              132          12
+  TOTAL           132          12
+
+Empirical Bayes random effects summary (across RE levels)
+  random effect  component       n          mean            sd           q25        median           q75
+  --------------------------------------------------------------------------------------------------
+  eta            eta_1          12       -0.0186        0.5949       -0.4342       -0.1124        0.2337
+  eta            eta_2          12        0.0077         0.245       -0.1305        0.0413        0.1574
+  eta            eta_3          12       -0.0023        0.1153       -0.0969        0.0076        0.0668
 ```
 
 ## Practical Guidance

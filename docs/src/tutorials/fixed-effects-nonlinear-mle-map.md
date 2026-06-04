@@ -35,6 +35,22 @@ df = load_orange()
 first(df, 8)
 ```
 
+<!-- injected:fe1-dfhead -->
+```text
+8×4 DataFrame
+ Row │ rownames  Tree   age    circumference
+     │ Int64     Int64  Int64  Int64
+─────┼───────────────────────────────────────
+   1 │        1      1    118             30
+   2 │        2      1    484             58
+   3 │        3      1    664             87
+   4 │        4      1   1004            115
+   5 │        5      1   1231            120
+   6 │        6      1   1372            142
+   7 │        7      1   1582            145
+   8 │        8      2    118             33
+```
+
 Each row records one measurement occasion. The `Tree` column identifies the individual, `age` gives the tree's age in days since planting, and `circumference` is the trunk circumference in millimetres. Because every tree is measured at the same set of ages, this is a balanced design -- convenient for illustration, though NoLimits.jl handles unbalanced data equally well.
 
 ## Step 2: Define a Nonlinear Fixed-Effects Model
@@ -57,10 +73,10 @@ model = @Model begin
     end
 
     @fixedEffects begin
-        a = RealNumber(100.0, prior=Normal(100.0, 30.0), calculate_se=true)
-        k = RealNumber(0.01, prior=Normal(0.01, 0.01), calculate_se=true)
-        t0 = RealNumber(500.0, prior=Normal(500.0, 200.0), calculate_se=true)
-        σ = RealNumber(5.0, scale=:log, prior=LogNormal(1.0, 0.5), calculate_se=true)
+        a = RealNumber(200.0, prior=Normal(200.0, 50.0), calculate_se=true)
+        k = RealNumber(0.005, prior=Normal(0.005, 0.005), calculate_se=true)
+        t0 = RealNumber(700.0, prior=Normal(700.0, 200.0), calculate_se=true)
+        σ = RealNumber(25.0, scale=:log, prior=LogNormal(log(25.0), 0.5), calculate_se=true)
     end
 
     @formulas begin
@@ -81,15 +97,73 @@ model_summary = NoLimits.summarize(model)
 model_summary
 ```
 
+<!-- injected:fe1-model -->
+```text
+ModelSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  model type                          : non-ODE
+  fixed-effect blocks                 : 4
+  fixed-effect scalar values          : 4
+  random effects                      : 0
+  random-effect grouping columns      : 0
+  covariates (declared)               : 1
+  formulas (deterministic / outcomes) : 1 / 1
+  requires DE accessors               : false
+
+Structure blocks
+  helpers              : false
+  fixed effects        : true
+  random effects       : false
+  covariates           : true
+  preDE                : false
+  DifferentialEquation : false
+  initialDE            : false
+
+Covariate classes
+  varying  : 1
+  constant : 0
+  dynamic  : 0
+
+Fixed-effects declarations
+  name  type        size  se  prior      scale     bounds                              details
+  ---------------------------------------------------------------------------------------------------------
+  a     RealNumber     1  yes  Normal     identity  finite lower 0/1, finite upper 0/1  -
+  k     RealNumber     1  yes  Normal     identity  finite lower 0/1, finite upper 0/1  -
+  t0    RealNumber     1  yes  Normal     identity  finite lower 0/1, finite upper 0/1  -
+  σ     RealNumber     1  yes  LogNormal  log       finite lower 1/1, finite upper 0/1  -
+
+Random-effects declarations
+  (none)
+
+Covariate declarations
+  name  kind       columns                   constant_on           interpolation
+  ---------------------------------------------------------------------------------------
+  age   Covariate  age                       -                     -
+
+Formulas
+  deterministic names : μ
+  outcome names       : circumference
+  required DE states  : (none)
+  required DE signals : (none)
+  declared DE states  : (none)
+  declared DE signals : (none)
+Outcome distribution types
+  circumference => Normal
+
+Helper functions
+  names : (none)
+```
+
 ## Step 3: Build the DataModel and Configure Estimation
 
-With the model and data in hand, you will now pair them into a `DataModel` -- the central object that validates the data against the model specification and prepares the internal structures needed for estimation. In the same step, you will configure the two estimation methods (MLE and MAP), specifying a maximum of 150 optimiser iterations for each.
+With the model and data in hand, you will now pair them into a `DataModel` -- the central object that validates the data against the model specification and prepares the internal structures needed for estimation. In the same step, you will configure the two estimation methods (MLE and MAP), specifying a maximum of 500 optimiser iterations for each.
 
 ```julia
 dm = DataModel(model, df; primary_id=:Tree, time_col=:age)
 
-mle_method = NoLimits.MLE(; optim_kwargs=(maxiters=150,))
-map_method = NoLimits.MAP(; optim_kwargs=(maxiters=150,))
+mle_method = NoLimits.MLE(; optim_kwargs=(maxiters=500,))
+map_method = NoLimits.MAP(; optim_kwargs=(maxiters=500,))
 
 serialization = SciMLBase.EnsembleThreads()
 ```
@@ -103,6 +177,69 @@ It is worth verifying that the data were parsed correctly. The summary should co
 ```julia
 dm_summary = NoLimits.summarize(dm)
 dm_summary
+```
+
+<!-- injected:fe1-dm -->
+```text
+DataModelSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  model type                 : non-ODE
+  event-aware                : false
+  individuals                : 5
+  rows (total / obs / event) : 35 / 35 / 0
+  fixed effects (top-level)  : 4
+  outcomes                   : 1
+  covariates (declared)      : 1
+  random effects             : 0
+
+Covariate classes
+  varying  : 1
+  constant : 0
+  dynamic  : 0
+
+Outcome distribution types
+  circumference => Normal
+
+Random-effect distribution types
+  (none)
+
+Individual design diagnostics
+  individuals with one observation              : 0
+  global observed time range                    : 118.0 to 1582.0
+  unique observed time points                   : 7
+  duplicate (ID, time) observation rows         : 0
+  monotonic-time violations (observation order) : 0
+
+Observations per individual
+  metric       n          mean            sd           min           q25        median           q75           max
+  ----------------------------------------------------------------------------------------------------------------
+  count        5           7.0           0.0           7.0           7.0           7.0           7.0           7.0
+
+Time span per individual
+  metric       n          mean            sd           min           q25        median           q75           max
+  ----------------------------------------------------------------------------------------------------------------
+  span         5        1464.0           0.0        1464.0        1464.0        1464.0        1464.0        1464.0
+
+Median sampling interval per individual
+  metric          n          mean            sd           min           q25        median           q75           max
+  -------------------------------------------------------------------------------------------------------------------
+  median_dt       5         218.5           0.0         218.5         218.5         218.5         218.5         218.5
+
+Outcome descriptive statistics (observation rows)
+  Variable            n          mean            sd           min           q25        median           q75           max
+  -----------------------------------------------------------------------------------------------------------------------
+  circumference      35      115.8571        56.661          30.0          65.5         115.0         161.5         214.0
+
+Declared covariates
+  name  kind       columns
+  -------------------------------------
+  age   Covariate  age
+
+Covariate descriptive statistics (observation rows)
+  Variable       n          mean            sd           min           q25        median           q75           max
+  ------------------------------------------------------------------------------------------------------------------
+  age.age       35      922.1429       484.787         118.0         484.0        1004.0        1372.0        1582.0
 ```
 
 ## Step 4: Fit with MLE and MAP
@@ -119,6 +256,11 @@ res_map = fit_model(dm, map_method; serialization=serialization, rng=Random.Xosh
 )
 ```
 
+<!-- injected:fe1-obj -->
+```text
+(objective_mle = 158.39871272191726, objective_map = 168.53669404545346)
+```
+
 The returned objective values are negative log-likelihoods (for MLE) or negative log-posteriors (for MAP), so lower values indicate a better fit. Because the MAP objective includes additional prior penalty terms, its numerical value is not directly comparable to the MLE objective; what matters at this stage is that each method converged successfully.
 
 To verify convergence and examine standard errors, you can request a detailed fit summary. This reports convergence status, the final objective value, and standard errors for all parameters whose `calculate_se` flag was set to `true`.
@@ -128,6 +270,33 @@ fit_summary_mle = NoLimits.summarize(res_mle)
 fit_summary_map = NoLimits.summarize(res_map)
 
 fit_summary_mle
+```
+
+<!-- injected:fe1-fitmle -->
+```text
+FitResultSummary
+════════════════════════════════════════════════════════════════════════════════════════════════
+Overview
+  method                              : mle
+  inference                           : frequentist
+  scale                               : natural
+  objective                           : 158.3987
+  iterations                          : 65
+  parameters shown (reported / total) : 4 / 4
+
+Parameter estimates
+  parameter      Estimate
+  -----------------------
+  a              192.6876
+  k                0.0028
+  t0             728.7564
+  σ                22.348
+
+Outcome data coverage
+  outcome             n_obs   n_missing
+  -------------------------------------
+  circumference          35           0
+  TOTAL                  35           0
 ```
 
 ## Step 5: Compare Parameter Estimates
@@ -142,6 +311,11 @@ With both fits complete, you can now extract the estimated parameters on the ori
     mle=θ_mle,
     map=θ_map,
 )
+```
+
+<!-- injected:fe1-params -->
+```text
+(mle = (a = 192.68759194333077, k = 0.002828584933848338, t0 = 728.7563833068424, σ = 22.348047859224817), map = (a = 191.87573045497976, k = 0.0028588792012332553, t0 = 724.0263172189675, σ = 22.18411244352174))
 ```
 
 Because this dataset is relatively small (35 observations total), the priors exert a noticeable pull on the MAP estimates. In particular, parameters whose likelihood surface is flat -- such as the asymptote `a`, which is only weakly constrained when few trees have approached their maximum size -- will be drawn toward the prior mean under MAP but left at the pure likelihood optimum under MLE. As sample size grows, the likelihood dominates and the two methods converge to the same values. This behaviour serves as a useful diagnostic: large MLE--MAP discrepancies flag parameters that the data alone cannot pin down precisely.
@@ -178,6 +352,9 @@ MLE fit plot:
 p_fit_mle
 ```
 
+<!-- injected:fe1-pfitmle -->
+![Fitted population logistic trajectories under MLE for the first two trees.](figures/fe1/p_fit_mle.png)
+
 Because there are no random effects in this model, every tree is predicted by the same population-level curve. Deviations between the curve and individual data points therefore reflect both measurement noise and genuine between-tree variability that the current model does not capture. If these residual patterns appear systematic -- for example, if one tree consistently lies above the curve while another lies below -- that is a strong signal that random effects should be introduced (see the mixed-effects tutorials).
 
 MAP fit plot:
@@ -185,6 +362,9 @@ MAP fit plot:
 ```julia
 p_fit_map
 ```
+
+<!-- injected:fe1-pfitmap -->
+![Fitted population logistic trajectories under MAP for the first two trees.](figures/fe1/p_fit_map.png)
 
 The MAP trajectories may appear nearly identical to the MLE trajectories or show subtle shifts, depending on how informative the priors are relative to the data. Comparing the two plots is a quick visual assessment of prior influence.
 
@@ -214,11 +394,17 @@ MLE observation-distribution plot:
 p_obs_mle
 ```
 
+<!-- injected:fe1-pobsmle -->
+![Predicted observation distribution at the first observation of the first tree (MLE).](figures/fe1/p_obs_mle.png)
+
 MAP observation-distribution plot:
 
 ```julia
 p_obs_map
 ```
+
+<!-- injected:fe1-pobsmap -->
+![Predicted observation distribution at the first observation of the first tree (MAP).](figures/fe1/p_obs_map.png)
 
 If an observed value sits far in the tail of the predicted distribution, this may indicate model misspecification -- for instance, a residual error distribution that is too narrow, or a structural model that systematically over- or under-predicts at certain ages.
 
