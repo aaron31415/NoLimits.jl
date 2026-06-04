@@ -126,6 +126,12 @@ function tutorial1()
     )
     txt(slug, "objectives", objectives)
 
+    param_comparison = compare_parameters(
+        res_laplace, res_mcem, res_saem, res_mcmc;
+        labels=["Laplace", "MCEM", "SAEM", "MCMC"],
+    )
+    txt(slug, "param_comparison", param_comparison)
+
     inds = collect(1:min(2, length(dm.individuals)))
 
     plot_fits(res_laplace; observable=:circumference, individuals_idx=inds, ncols=2,

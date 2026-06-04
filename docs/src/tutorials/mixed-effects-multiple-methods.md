@@ -283,7 +283,7 @@ Per-random-effect summary
 
 ## Step 4: Fit All Methods
 
-With the model, data, and methods configured, you will now fit the same DataModel with all five estimators. Each call to `fit_model` returns a `FitResult` object that stores the estimated parameters, convergence diagnostics, and a reference to the DataModel for downstream analysis.
+With the model, data, and methods configured, you will now fit the same DataModel with all four estimators. Each call to `fit_model` returns a `FitResult` object that stores the estimated parameters, convergence diagnostics, and a reference to the DataModel for downstream analysis.
 
 Each method receives a different random seed to ensure reproducibility while allowing independent stochastic behavior across methods.
 
@@ -366,7 +366,48 @@ The signs and magnitudes differ because each method defines its objective differ
 
 Because these quantities differ by construction, raw values are not directly comparable across methods. Within a single method family, however, objective values can be compared meaningfully -- for example, when evaluating different starting points or model specifications with the same estimator.
 
-## Step 6: Fitted Trajectories for the First Two Individuals
+## Step 6: Compare Parameter Estimates Side by Side
+
+While objective values are not comparable across methods, the *parameter estimates* are -- and lining them up in a single table is the quickest way to see whether the four estimators agree on the population structure. NoLimits provides `compare_parameters` for exactly this purpose. It accepts any number of `FitResult` objects, matches parameters by name across models, and reports them on a common scale (`:natural` by default). Parameters present in only some models are shown as `-` in the columns where they are absent.
+
+For the optimization-based methods (Laplace, MCEM, SAEM) the reported value is the point estimate at the optimum. For MCMC, which returns a full posterior rather than a single point, the column reports the **posterior median** of each parameter (computed per component from the post-warmup draws), giving a robust central summary that lines up directly with the point estimates from the other methods.
+
+```julia
+param_comparison = compare_parameters(
+    res_laplace, res_mcem, res_saem, res_mcmc;
+    labels = ["Laplace", "MCEM", "SAEM", "MCMC"],
+)
+
+param_comparison
+```
+
+<!-- injected:t1-paramcompare -->
+```text
+ParameterComparison
+===================================================
+  parameter   Laplace      MCEM      SAEM      MCMC
+---------------------------------------------------
+  phi1        31.2235   31.2533   31.1846   31.1333
+  log_vmax     5.0347    5.0374     5.035    5.0359
+  phi3       639.7141  640.6214  639.2453   640.858
+  omega        0.1669    0.1696    0.1615    0.1737
+  sigma        0.1126    0.1124    0.1054    0.1185
+```
+
+The agreement is striking: all four methods recover the same initial size (`phi1 ≈ 31`), the same log-asymptote (`log_vmax ≈ 5.04`, i.e. an asymptotic circumference near `155`), the same growth midpoint (`phi3 ≈ 640`), and the same between-tree and residual variability (`omega ≈ 0.16`, `sigma ≈ 0.11`). The small differences between columns are well within the stochastic noise of the Monte Carlo methods. This is the multi-method comparison distilled to a single view -- when the estimates line up this cleanly, you can be confident your conclusions are not an artifact of the estimation algorithm.
+
+As an alternative to the `labels` keyword, you can pass `label => fit` pairs directly:
+
+```julia
+compare_parameters(
+    "Laplace" => res_laplace,
+    "MCEM"    => res_mcem,
+    "SAEM"    => res_saem,
+    "MCMC"    => res_mcmc,
+)
+```
+
+## Step 7: Fitted Trajectories for the First Two Individuals
 
 The most informative way to compare methods is in predictive space: do the fitted trajectories agree when overlaid on the observed data? In this step, you will generate fit plots for the first two trees under each method. For MCMC, you will additionally overlay posterior predictive quantile bands (5th and 95th percentiles), which provide a visual summary of prediction uncertainty that accounts for both parameter and random-effect uncertainty.
 
@@ -455,7 +496,7 @@ p_fit_mcmc
 <!-- injected:t1-pfitmcmc -->
 ![MCMC fitted trajectories with posterior predictive bands for the first two trees.](figures/t1/p_fit_mcmc.png)
 
-## Step 7: Observation Distribution Diagnostics (First Individual)
+## Step 8: Observation Distribution Diagnostics (First Individual)
 
 Beyond trajectory-level agreement, you can examine how well each method captures the observation-level distribution. The plots below compare the observed circumference value for the first observation of the first tree against the model-implied observation distribution at that data point. If the model is well-specified, the observed value should fall in a region of reasonable density under the predicted distribution.
 
@@ -530,7 +571,7 @@ p_obs_mcmc
 <!-- injected:t1-pobsmcmc -->
 ![MCMC predicted observation distribution at the first observation of the first tree.](figures/t1/p_obs_mcmc.png)
 
-## Step 8: Uncertainty Quantification Across Methods
+## Step 9: Uncertainty Quantification Across Methods
 
 A key reason to compare methods is to understand how they characterize parameter uncertainty. The optimization-based methods (Laplace, MCEM, SAEM) return point estimates; you can obtain approximate uncertainty via Wald-type confidence intervals, which are derived from the curvature of the objective function at the optimum. Intuitively, a sharply peaked objective implies tight uncertainty, while a flat objective implies wide intervals. MCMC, by contrast, produces exact posterior draws enabling distribution-based uncertainty summaries.
 
