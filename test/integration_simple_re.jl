@@ -162,9 +162,11 @@ end
     ebe   = NoLimits._LaplaceCache(nothing, bstar, grad,
                                    NoLimits._init_laplace_ad_cache(n),
                                    NoLimits._init_laplace_hess_cache(Tθ, n))
+    # Inner EBE solve must converge for the analytic (envelope-theorem) gradient
+    # to match finite differences; maxiters=2 leaves b* unconverged.
     inner = NoLimits.LaplaceInnerOptions(
         OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking()),
-        (maxiters=2,), Optimization.AutoForwardDiff(), 1e-6)
+        (maxiters=200,), Optimization.AutoForwardDiff(), 1e-6)
     hess  = NoLimits.LaplaceHessianOptions(1e-6, 6, 10.0, false, 0.0, true, false, 0)
     co    = NoLimits.LaplaceCacheOptions(0.0)
     ms    = NoLimits.LaplaceMultistartOptions(0, 0, 1e-6, 5, :lhs)
