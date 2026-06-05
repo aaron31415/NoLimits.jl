@@ -156,7 +156,7 @@ function _axis_label(label)
     elseif low == "id"
         return "ID"
     end
-    words = split(s, ' ')
+    words = Base.split(s, ' ')
     words = [isempty(w) ? w : uppercasefirst(w) for w in words]
     return join(words, " ")
 end

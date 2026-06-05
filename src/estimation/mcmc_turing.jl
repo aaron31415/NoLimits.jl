@@ -446,6 +446,10 @@ function _fit_model(dm::DataModel, method::MCMC, args...;
     end
 
     _set_turing_adbackend!(method.adtype)
+    # Turing >=0.45 defaults to FlexiChains; keep the historical MCMCChains.Chains return
+    # type (consumed by get_chain, UQ, summaries, serialization, plotting). A user can still
+    # opt into a different chain type via turing_kwargs.
+    haskey(turing_kwargs, :chain_type) || (turing_kwargs = merge(turing_kwargs, (chain_type=MCMCChains.Chains,)))
     chain = Turing.sample(rng, model, sampler, n_samples; adapt=n_adapt, turing_kwargs...)
 
     obs = dm.df[:, dm.config.obs_cols]

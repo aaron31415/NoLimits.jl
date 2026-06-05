@@ -63,7 +63,13 @@ get_vi_state(res::VIResult) = res.state
 @inline _as_namedtuple(x) = x isa NamedTuple ? x : NamedTuple(x)
 
 function _vi_unpack_output(out)
-    out isa Tuple || error("Unexpected VI output: expected tuple from Turing.vi.")
+    # Turing >=0.45 returns a `VIResult` struct (fields `q`, `info`, `state`, `ldf`);
+    # older versions returned a 3-tuple `(q, info, state)`. Handle both.
+    if !(out isa Tuple)
+        (hasproperty(out, :q) && hasproperty(out, :info) && hasproperty(out, :state)) ||
+            error("Unexpected VI output type $(typeof(out)); expected a VIResult struct or a 3-tuple from Turing.vi.")
+        return (getproperty(out, :q), getproperty(out, :info), getproperty(out, :state))
+    end
     length(out) == 3 || error("Unexpected VI output tuple length $(length(out)); expected 3.")
     q, b, c = out
     b_is_info = b isa AbstractVector && (isempty(b) || first(b) isa NamedTuple)
@@ -110,47 +116,21 @@ function _vi_converged(info, max_iter::Int; window::Int=20, rtol::Float64=1e-3, 
 end
 
 function _vi_coord_names(varinfo)
+    # DynamicPPL >=0.41 removed `syms`, the `varinfo.metadata` layout, and `varinfo[vn]`.
+    # Build per-coordinate names from `keys(varinfo)` (the VarNames, in VarInfo order)
+    # expanded by each variable's internal (flattened) length — matching the flat order
+    # AdvancedVI uses for the variational parameters.
     names = Symbol[]
-    syms = DynamicPPL.syms(varinfo)
-    for s in syms
-        md = getfield(varinfo.metadata, s)
-        vns = md.vns
-        vals_len = length(md.vals)
-        vns_len = length(vns)
-        if vns_len == 0
-            for i in 1:vals_len
-                push!(names, Symbol(string(s), "[", i, "]"))
-            end
-            continue
-        end
-        if vns_len == vals_len
-            append!(names, Symbol.(string.(vns)))
-            continue
-        end
-        if vns_len == 1
-            base = string(vns[1])
-            for i in 1:vals_len
+    for vn in keys(varinfo)
+        val = DynamicPPL.getindex_internal(varinfo, vn)
+        n = length(val)
+        if n == 1
+            push!(names, Symbol(string(vn)))
+        else
+            base = string(vn)
+            for i in 1:n
                 push!(names, Symbol(base, "[", i, "]"))
             end
-            continue
-        end
-        if vals_len % vns_len == 0
-            per = div(vals_len, vns_len)
-            for vn in vns
-                base = string(vn)
-                if per == 1
-                    push!(names, Symbol(base))
-                else
-                    for j in 1:per
-                        push!(names, Symbol(base, "[", j, "]"))
-                    end
-                end
-            end
-            continue
-        end
-        base = string(s)
-        for i in 1:vals_len
-            push!(names, Symbol(base, "[", i, "]"))
         end
     end
     return names
@@ -260,12 +240,13 @@ function _fit_model(dm::DataModel, method::VI, args...;
                                  convergence_window=0,
                                  convergence_rtol=0.0,
                                  convergence_atol=0.0))
+    # Turing >=0.45: `vi(rng, model, family, max_iter)` takes the variational FAMILY as the
+    # third argument — a function `(rng, ldf) -> q` (e.g. `q_meanfield_gaussian`). `vi` builds
+    # a correctly linked `LogDensityFunction` internally and calls the family on it; the old
+    # API of pre-constructing `q` from the model was removed. Pass the family function (a
+    # user-supplied `q_init` is honoured as-is).
     if q_init === nothing
-        if family == :meanfield
-            q_init = Turing.q_meanfield_gaussian(rng, model)
-        else
-            q_init = Turing.q_fullrank_gaussian(rng, model)
-        end
+        q_init = family == :meanfield ? Turing.q_meanfield_gaussian : Turing.q_fullrank_gaussian
     end
 
     _set_turing_adbackend!(adtype)

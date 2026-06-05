@@ -1,5 +1,6 @@
 using Test
 using NoLimits
+using MCMCChains
 using DataFrames
 using Distributions
 using ForwardDiff

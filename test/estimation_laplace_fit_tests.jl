@@ -131,7 +131,7 @@ end
         obj, _, _ = NoLimits._laplace_objective_and_grad(dm, batch_infos, θ, const_cache, ll_cache, ebe_cache;
                                                                  inner=NoLimits.LaplaceInnerOptions(
                                                                      OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking()),
-                                                                 (maxiters=2,),
+                                                                 (maxiters=50,),
                                                                  Optimization.AutoForwardDiff(),
                                                                  1e-6),
                                                                  hessian=NoLimits.LaplaceHessianOptions(1e-6, 6, 10.0, false, 0.0, true, false, 0),
@@ -146,7 +146,7 @@ end
         _, g, _ = NoLimits._laplace_objective_and_grad(dm, batch_infos, θ, const_cache, ll_cache, ebe_cache;
                                                               inner=NoLimits.LaplaceInnerOptions(
                                                                   OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking()),
-                                                                  (maxiters=2,),
+                                                                  (maxiters=50,),
                                                                   Optimization.AutoForwardDiff(),
                                                                   1e-6),
                                                               hessian=NoLimits.LaplaceHessianOptions(1e-6, 6, 10.0, false, 0.0, true, false, 0),
@@ -212,7 +212,7 @@ end
         obj, _, _ = NoLimits._laplace_objective_and_grad(dm, batch_infos, θ, const_cache, ll_cache, ebe_cache;
                                                                  inner=NoLimits.LaplaceInnerOptions(
                                                                      OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking()),
-                                                                 (maxiters=2,),
+                                                                 (maxiters=50,),
                                                                  Optimization.AutoForwardDiff(),
                                                                  1e-6),
                                                                  hessian=NoLimits.LaplaceHessianOptions(1e-6, 6, 10.0, false, 0.0, true, false, 0),
@@ -227,7 +227,7 @@ end
         _, g, _ = NoLimits._laplace_objective_and_grad(dm, batch_infos, θ, const_cache, ll_cache, ebe_cache;
                                                               inner=NoLimits.LaplaceInnerOptions(
                                                                   OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking()),
-                                                                  (maxiters=2,),
+                                                                  (maxiters=50,),
                                                                   Optimization.AutoForwardDiff(),
                                                                   1e-6),
                                                               hessian=NoLimits.LaplaceHessianOptions(1e-6, 6, 10.0, false, 0.0, true, false, 0),

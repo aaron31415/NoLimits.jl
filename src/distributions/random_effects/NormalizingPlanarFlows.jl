@@ -177,6 +177,23 @@ Distributions.rand(rng::AbstractRNG, d::NormalizingPlanarFlow, dims::Dims...) = 
 # Use the underlying transformed distribution's bijector for HMC/NUTS.
 Bijectors.bijector(d::NormalizingPlanarFlow) = Bijectors.bijector(d.base)
 
+# DynamicPPL >=0.41 vectorises a variable's link via `Bijectors.VectorBijectors.to_linked_vec(dist)`
+# on the tilde path. Delegate to the underlying transformed distribution (consistent with the
+# bijector delegation above). Guarded so the package still loads on Bijectors < 0.16, which has
+# no `VectorBijectors` submodule (and whose DynamicPPL never calls this).
+@static if isdefined(Bijectors, :VectorBijectors)
+    # `to_linked_vec` / `linked_vec_length` have no generic continuous-multivariate fallback,
+    # so delegate them to the wrapped transformed distribution. (`vec_length`/`to_vec`/`from_vec`
+    # already resolve via the `MultivariateDistribution` fallback, since `NormalizingPlanarFlow`
+    # is a `ContinuousMultivariateDistribution`.)
+    Bijectors.VectorBijectors.to_linked_vec(d::NormalizingPlanarFlow) =
+        Bijectors.VectorBijectors.to_linked_vec(d.base)
+    Bijectors.VectorBijectors.from_linked_vec(d::NormalizingPlanarFlow) =
+        Bijectors.VectorBijectors.from_linked_vec(d.base)
+    Bijectors.VectorBijectors.linked_vec_length(d::NormalizingPlanarFlow) =
+        Bijectors.VectorBijectors.linked_vec_length(d.base)
+end
+
 # Estimate covariance via sampling — used only for MH step-size initialisation,
 # so an empirical approximation is sufficient.
 Statistics.cov(d::NormalizingPlanarFlow; n_samples::Int=2000) =
