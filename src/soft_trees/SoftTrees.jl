@@ -138,20 +138,61 @@ function destructure_params(params::SoftTreeParams)
     return Optimisers.destructure(params)
 end
 
+"""
+    softtree_params_from_flat(θ::AbstractVector, tree::SoftTree) -> SoftTreeParams
+
+Rebuild a [`SoftTreeParams`](@ref) from a flat parameter vector laid out as
+`[vec(node_weights); node_biases; vec(leaf_values)]` — the order produced by
+`Optimisers.destructure`. Unlike the `Restructure` closure, this is a plain
+positional reconstruction without `Functors.fmap`/`IdDict` machinery, keeping it
+type-stable and Enzyme-compatible (Enzyme forward mode has no derivative rule for
+the `jl_eqtable_get` IdDict lookups inside `fmap`).
+"""
+function softtree_params_from_flat(θ::AbstractVector, tree::SoftTree)
+    n_internal = 2^tree.depth - 1
+    n_leaves = 2^tree.depth
+    nw_len = n_internal * tree.input_dim
+    node_weights = reshape(θ[1:nw_len], n_internal, tree.input_dim)
+    node_biases = θ[nw_len .+ (1:n_internal)]
+    leaf_values = reshape(θ[(nw_len + n_internal) .+ (1:(tree.n_output * n_leaves))],
+                          tree.n_output, n_leaves)
+    return SoftTreeParams(node_weights, node_biases, leaf_values)
+end
+
 @inline _sigmoid(x) = Base.inv(one(x) + exp(-x))
 
+# Scalar-accumulation row/column products. Deliberately BLAS-free: Enzyme forward
+# mode has no rule for BLAS calls under runtime activity ("Runtime Activity not yet
+# implemented for Forward-Mode BLAS calls" for `dot`/`gemv`), and at SoftTree sizes
+# plain loops are at least as fast as BLAS dispatch anyway.
+@inline function _st_rowdot(W::AbstractMatrix, i::Integer, x::AbstractVector)
+    s = zero(promote_type(eltype(W), eltype(x)))
+    for j in eachindex(x)
+        s += W[i, j] * x[j]
+    end
+    return s
+end
+
+@inline function _st_leafdot(V::AbstractMatrix, o::Integer, p::AbstractVector)
+    s = zero(promote_type(eltype(V), eltype(p)))
+    for j in eachindex(p)
+        s += V[o, j] * p[j]
+    end
+    return s
+end
+
 function (tree::SoftTree)(x::AbstractVector{<:Real}, params::SoftTreeParams)
-    # Pure implementation for AD friendliness (Zygote-compatible).
+    # Pure implementation for AD friendliness (ForwardDiff/Enzyme/Zygote-compatible).
     length(x) == tree.input_dim || error("Invalid input length. Expected $(tree.input_dim); got $(length(x)).")
     T = promote_type(eltype(params.node_weights), eltype(x))
     probs = [one(T)]
     for level in 0:(tree.depth - 1)
         start_idx = 2^level
         end_idx = 2^(level + 1) - 1
-        pvec = [_sigmoid(dot(view(params.node_weights, i, :), x) + params.node_biases[i]) for i in start_idx:end_idx]
+        pvec = [_sigmoid(_st_rowdot(params.node_weights, i, x) + params.node_biases[i]) for i in start_idx:end_idx]
         probs = vcat(probs .* pvec, probs .* (one(T) .- pvec))
     end
-    return params.leaf_values * probs
+    return [_st_leafdot(params.leaf_values, o, probs) for o in 1:size(params.leaf_values, 1)]
 end
 
 function (tree::SoftTree)(x::AbstractVector{<:Real}, params::SoftTreeParams, ::Val{:inplace})

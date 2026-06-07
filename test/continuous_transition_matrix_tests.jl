@@ -29,7 +29,7 @@ end
         @test p.name == :unnamed
         @test p.scale == :lograterows
         @test p.prior isa Priorless
-        @test p.calculate_se == false
+        @test p.calculate_se == true
         @test size(p.value) == (3, 3)
         # Off-diagonals preserved
         @test isapprox(p.value[1, 2], 0.3; atol=1e-14)

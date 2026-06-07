@@ -958,6 +958,22 @@ function _laplace_logf_batch(dm::DataModel, batch_info::_LaplaceBatchInfo, θ::C
     end
 end
 
+# Type-stable logpdf for one RE picked out of the dists NamedTuple by name.
+# `getproperty(dists, re)` with a runtime Symbol makes the subsequent `logpdf` a
+# dynamic call, which routes Enzyme through its runtime-activity rules — and those
+# have no forward-mode implementation for the BLAS/LAPACK kernels inside e.g.
+# MvNormal's logpdf (`trtrs`: "Runtime Activity not yet implemented for
+# Forward-Mode BLAS calls"). Recursive tuple peeling keeps every logpdf call
+# statically dispatched; recursion depth = number of REs (small).
+function _logpdf_re_static(ks::Tuple, ds::Tuple, re::Symbol, v, ::Type{T}) where {T}
+    if first(ks) === re
+        return convert(T, logpdf(first(ds), v))
+    end
+    return _logpdf_re_static(Base.tail(ks), Base.tail(ds), re, v, T)
+end
+_logpdf_re_static(::Tuple{}, ::Tuple{}, re::Symbol, v, ::Type{T}) where {T} =
+    throw(ArgumentError("Random effect $(re) not found in distributions NamedTuple."))
+
 function _laplace_logf_batch_impl(dm::DataModel,
                              batch_info::_LaplaceBatchInfo,
                              θ::ComponentArray,
@@ -982,13 +998,14 @@ function _laplace_logf_batch_impl(dm::DataModel,
             rep_idx = info.reps[li]
             const_cov = dm.individuals[rep_idx].const_cov
             dists = dists_builder(θ_re, const_cov, model_funs, helpers)
-            dist = getproperty(dists, re)
-            if has_anneal && haskey(anneal_sds, re)
-                dist = _saem_apply_anneal_dist(dist, getfield(anneal_sds, re))
-            end
             v = _re_value_from_b(info, level_id, b)
             v === nothing && continue
-            lp = logpdf(dist, v)
+            lp = if has_anneal && haskey(anneal_sds, re)
+                dist = _saem_apply_anneal_dist(getproperty(dists, re), getfield(anneal_sds, re))
+                convert(T_ll, logpdf(dist, v))
+            else
+                _logpdf_re_static(keys(dists), values(dists), re, v, T_ll)
+            end
             isfinite(lp) || return -Inf
             ll += lp
         end

@@ -137,24 +137,48 @@ function NormalizingPlanarFlow(n_input::Int, n_layers::Int; init= x -> sqrt( (1/
 end
 
 """
+    _planar_chain_from_flat(θ::AbstractVector, d::Int)
+
+Rebuild the planar-layer chain from a flat parameter vector laid out as
+`[w(d); u(d); b(1)]` per layer, layers in chain order — the order produced by
+`Optimisers.destructure(fchain([PlanarLayer(d, init), ...]))`. Unlike the
+`Restructure` closure, this is a plain positional reconstruction without
+`Functors.fmap`/`IdDict` machinery, keeping it type-stable and Enzyme-compatible
+(Enzyme forward mode has no derivative rule for the `jl_eqtable_get` IdDict
+lookups inside `fmap`).
+"""
+function _planar_chain_from_flat(θ::AbstractVector, d::Int)
+    npl = 2 * d + 1
+    n_layers, rem = divrem(length(θ), npl)
+    rem == 0 || throw(ArgumentError("NPF flat parameter length $(length(θ)) is not a multiple of 2*d + 1 = $(npl) (d = $(d))."))
+    layers = map(1:n_layers) do k
+        off = (k - 1) * npl
+        PlanarLayer(θ[off .+ (1:d)], θ[(off + d) .+ (1:d)], θ[(off + 2 * d) .+ (1:1)])
+    end
+    return fchain(layers)
+end
+
+"""
     NormalizingPlanarFlow(θ::AbstractVector, rebuild::Optimisers.Restructure,
                           q0::ContinuousDistribution)
 
 Construct a normalizing planar flow from flattened parameters.
 
 This constructor is used internally by the model macro to create flows from
-optimized parameter values.
+optimized parameter values. The bijector is rebuilt positionally from `θ` via
+[`_planar_chain_from_flat`](@ref); `rebuild` is only stored on the resulting
+object (its `fmap`-based reconstruction breaks Enzyme forward mode).
 
 # Arguments
 - `θ` - Flattened flow parameters (weights and biases)
-- `rebuild` - Optimisers.Restructure function to reconstruct flow
+- `rebuild` - Optimisers.Restructure for the flow (stored, not used to rebuild)
 - `q0` - Base distribution
 
 # Returns
 A `NormalizingPlanarFlow` with the specified parameters.
 """
 function NormalizingPlanarFlow(θ::AbstractVector, rebuild::Optimisers.Restructure, q0::ContinuousDistribution)
-    bij = rebuild(θ)
+    bij = _planar_chain_from_flat(θ, length(q0))
     trans = transformed(q0, bij)
     NormalizingPlanarFlow(trans, rebuild)
 

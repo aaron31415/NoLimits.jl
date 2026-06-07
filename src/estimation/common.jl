@@ -1698,20 +1698,36 @@ end
     return cache.saveat_cache[idx]
 end
 
-# Function barrier for the per-individual ODE solve. `ind.saveat` and `ind.callbacks`
-# come out of the abstractly-typed `Individual` storage, so building the solve-kwargs
-# NamedTuple at the call site makes it dynamically typed — which keeps the Bool method
-# of `_ode_normalize_verbose` (a genuine type union) reachable and breaks Enzyme's
-# forward mode. Behind the barrier `saveat_use`/`cb` are concrete, the kwargs NamedTuple
-# is concrete, and the Bool branch is statically dead.
-function _ll_ode_solve(cache::_LLCache, prob, cb, saveat_use)
-    solve_kwargs = saveat_use === nothing ?
-        _ode_solve_kwargs(cache.solver_cfg.kwargs, cache.ode_kwargs, (dense=true,)) :
-        _ode_solve_kwargs(cache.solver_cfg.kwargs, cache.ode_kwargs,
-                          (saveat=saveat_use, save_everystep=false, dense=false))
-    return cb === nothing ?
-        solve(prob, cache.alg, cache.ode_args...; solve_kwargs...) :
-        solve(prob, cache.alg, cache.ode_args...; solve_kwargs..., callback=cb)
+# Per-individual solver options (`saveat`/`save_everystep`/`dense` and `callback`)
+# are baked into the cached problem TEMPLATE's kwargs instead of the solve call:
+# a rooted object (saveat Vector, callback) inside the solve-kwargs NamedTuple trips
+# Enzyme's reverse rule-argument classification, which either asserts
+# (`roots_activep != activep`) or — in deeper call contexts — silently corrupts the
+# adjoint gradient by ~1%. With the options on the problem, the per-call solve
+# kwargs stay scalar-only and the rule classifies correctly. All of these options
+# are evaluation-constant per individual, so template caching remains sound; call
+# kwargs still take precedence over problem kwargs, so `ode_kwargs` overrides keep
+# working (overriding `saveat` through `ode_kwargs` reintroduces the rooted-kwargs
+# hazard for Enzyme reverse, but is unchanged for FD/forward use).
+#
+# These are function barriers for the same reason as before: `ind.saveat` /
+# `ind.callbacks` come out of the abstractly-typed `Individual` storage, so the
+# kwargs NamedTuples must be built behind a dispatch boundary to stay concrete
+# (keeps the Bool method of `_ode_normalize_verbose` statically dead).
+@inline function _ll_prob_kwargs(cb, saveat_use)
+    base = saveat_use === nothing ? (dense = true,) :
+           (saveat = saveat_use, save_everystep = false, dense = false)
+    return cb === nothing ? base : merge(base, (callback = cb,))
+end
+
+function _ll_build_prob_template(f!_use, u0, tspan, p_flat, cb, saveat_use)
+    kw = _ll_prob_kwargs(cb, saveat_use)
+    return ODEProblem{true, SciMLBase.FullSpecialize}(f!_use, u0, tspan, p_flat; kw...)
+end
+
+function _ll_ode_solve_baked(cache::_LLCache, prob)
+    solve_kwargs = _ode_solve_kwargs(cache.solver_cfg.kwargs, cache.ode_kwargs, NamedTuple())
+    return solve(prob, cache.alg, cache.ode_args...; solve_kwargs...)
 end
 
 function _loglikelihood_individual(dm::DataModel, idx::Int, θ, η_ind, cache::_LLCache)
@@ -1746,20 +1762,31 @@ function _loglikelihood_individual(dm::DataModel, idx::Int, θ, η_ind, cache::_
             cb = ind.callbacks.callback
             infusion_rates = ind.callbacks.infusion_rates
         end
-        f!_use = _with_infusion(get_de_f!(model.de.de), infusion_rates)
+        # Solve parameters travel as a flat numeric Vector (DERHSFlat adapter):
+        # plain-vector `prob.p` is the only carrier Enzyme's reverse adjoint route
+        # handles correctly. Same generated RHS kernel — numerically equivalent
+        # (ulp-level fp-contraction differences from the changed inlining context
+        # can shift adaptive step sequences by ~1e-15; well inside solver tolerance).
+        # `funs` (interpolants/model funs/helpers) are evaluation-constant per
+        # individual, so caching the adapter inside the problem template is sound.
+        layout, plen = _flat_layout(compiled.vars)
+        f!_use = _with_infusion(DERHSFlat(get_de_f!(model.de.de), layout, compiled.funs), infusion_rates)
+        # T must cover the vars eltype too (η/θ can enter the RHS without entering
+        # u0) — pack once with the promoted type, reuse for template and remake.
+        T = promote_type(eltype(θ), eltype(η_ind), eltype(u0))
+        p_flat = _flat_pack(compiled.vars, layout, plen, T)
         prob = cache.prob_templates === nothing ? nothing : cache.prob_templates[idx]
         if prob === nothing
-            prob = ODEProblem{true, SciMLBase.FullSpecialize}(f!_use, u0, ind.tspan, compiled)
+            saveat_use = _ll_saveat(cache, idx, ind)
+            prob = _ll_build_prob_template(f!_use, u0, ind.tspan, p_flat, cb, saveat_use)
             if cache.prob_templates !== nothing
                 cache.prob_templates[idx] = prob
             end
         end
 
-        T = promote_type(eltype(θ), eltype(η_ind), eltype(u0))
         u0_T = eltype(u0) === T ? u0 : T.(u0)
-        prob = remake(prob; u0 = u0_T, p = compiled)
-        saveat_use = _ll_saveat(cache, idx, ind)
-        sol = _ll_ode_solve(cache, prob, cb, saveat_use)
+        prob = remake(prob; u0 = u0_T, p = p_flat)
+        sol = _ll_ode_solve_baked(cache, prob)
         SciMLBase.successful_retcode(sol) || return -Inf
         sol_accessors = get_de_accessors_builder(model.de.de)(sol, compiled)
     end
@@ -1969,20 +1996,23 @@ function _resid_stats_individual(dm::DataModel, idx::Int, θ, η_ind, cache::_LL
             cb = ind.callbacks.callback
             infusion_rates = ind.callbacks.infusion_rates
         end
-        f!_use = _with_infusion(get_de_f!(model.de.de), infusion_rates)
+        # Flat-vector solve parameters via DERHSFlat — see _loglikelihood_individual.
+        layout, plen = _flat_layout(compiled.vars)
+        f!_use = _with_infusion(DERHSFlat(get_de_f!(model.de.de), layout, compiled.funs), infusion_rates)
+        T = promote_type(eltype(θ), eltype(η_ind), eltype(u0))
+        p_flat = _flat_pack(compiled.vars, layout, plen, T)
         prob = cache.prob_templates === nothing ? nothing : cache.prob_templates[idx]
         if prob === nothing
-            prob = ODEProblem{true, SciMLBase.FullSpecialize}(f!_use, u0, ind.tspan, compiled)
+            saveat_use = _ll_saveat(cache, idx, ind)
+            prob = _ll_build_prob_template(f!_use, u0, ind.tspan, p_flat, cb, saveat_use)
             if cache.prob_templates !== nothing
                 cache.prob_templates[idx] = prob
             end
         end
 
-        T = promote_type(eltype(θ), eltype(η_ind), eltype(u0))
         u0_T = eltype(u0) === T ? u0 : T.(u0)
-        prob = remake(prob; u0 = u0_T, p = compiled)
-        saveat_use = _ll_saveat(cache, idx, ind)
-        sol = _ll_ode_solve(cache, prob, cb, saveat_use)
+        prob = remake(prob; u0 = u0_T, p = p_flat)
+        sol = _ll_ode_solve_baked(cache, prob)
         SciMLBase.successful_retcode(sol) || return (zero(promote_type(eltype(θ), Float64)), 0, false)
         sol_accessors = get_de_accessors_builder(model.de.de)(sol, compiled)
     end
@@ -2040,20 +2070,23 @@ function _resid_stats_individual_cols(dm::DataModel, idx::Int, θ, η_ind, cache
             cb = ind.callbacks.callback
             infusion_rates = ind.callbacks.infusion_rates
         end
-        f!_use = _with_infusion(get_de_f!(model.de.de), infusion_rates)
+        # Flat-vector solve parameters via DERHSFlat — see _loglikelihood_individual.
+        layout, plen = _flat_layout(compiled.vars)
+        f!_use = _with_infusion(DERHSFlat(get_de_f!(model.de.de), layout, compiled.funs), infusion_rates)
+        T = promote_type(eltype(θ), eltype(η_ind), eltype(u0))
+        p_flat = _flat_pack(compiled.vars, layout, plen, T)
         prob = cache.prob_templates === nothing ? nothing : cache.prob_templates[idx]
         if prob === nothing
-            prob = ODEProblem{true, SciMLBase.FullSpecialize}(f!_use, u0, ind.tspan, compiled)
+            saveat_use = _ll_saveat(cache, idx, ind)
+            prob = _ll_build_prob_template(f!_use, u0, ind.tspan, p_flat, cb, saveat_use)
             if cache.prob_templates !== nothing
                 cache.prob_templates[idx] = prob
             end
         end
 
-        T = promote_type(eltype(θ), eltype(η_ind), eltype(u0))
         u0_T = eltype(u0) === T ? u0 : T.(u0)
-        prob = remake(prob; u0 = u0_T, p = compiled)
-        saveat_use = _ll_saveat(cache, idx, ind)
-        sol = _ll_ode_solve(cache, prob, cb, saveat_use)
+        prob = remake(prob; u0 = u0_T, p = p_flat)
+        sol = _ll_ode_solve_baked(cache, prob)
         SciMLBase.successful_retcode(sol) || return (zeros(promote_type(eltype(θ), Float64), length(dm.config.obs_cols)),
                                                      zeros(Int, length(dm.config.obs_cols)),
                                                      false)

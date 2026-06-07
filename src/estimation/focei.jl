@@ -240,30 +240,23 @@ function _focei_collect_obs_dists!(out::Vector, dm::DataModel, idx::Int, θ, η_
             cb = ind.callbacks.callback
             infusion_rates = ind.callbacks.infusion_rates
         end
-        f!_use = _with_infusion(get_de_f!(model.de.de), infusion_rates)
+        # Flat-vector solve parameters via DERHSFlat — must match the
+        # _loglikelihood_individual template layout (shared cache.prob_templates).
+        layout, plen = _flat_layout(compiled.vars)
+        f!_use = _with_infusion(DERHSFlat(get_de_f!(model.de.de), layout, compiled.funs), infusion_rates)
+        T = promote_type(eltype(θ), eltype(η_ind), eltype(u0))
+        p_flat = _flat_pack(compiled.vars, layout, plen, T)
         prob = cache.prob_templates === nothing ? nothing : cache.prob_templates[idx]
         if prob === nothing
-            prob = ODEProblem{true, SciMLBase.FullSpecialize}(f!_use, u0, ind.tspan, compiled)
+            saveat_use = _ll_saveat(cache, idx, ind)
+            prob = _ll_build_prob_template(f!_use, u0, ind.tspan, p_flat, cb, saveat_use)
             if cache.prob_templates !== nothing
                 cache.prob_templates[idx] = prob
             end
         end
-        T = promote_type(eltype(θ), eltype(η_ind), eltype(u0))
         u0_T = eltype(u0) === T ? u0 : T.(u0)
-        prob = remake(prob; u0 = u0_T, p = compiled)
-        saveat_use = _ll_saveat(cache, idx, ind)
-        sol = if saveat_use === nothing
-            solve_kwargs = _ode_solve_kwargs(cache.solver_cfg.kwargs, cache.ode_kwargs, (dense=true,))
-            cb === nothing ?
-                solve(prob, cache.alg, cache.ode_args...; solve_kwargs...) :
-                solve(prob, cache.alg, cache.ode_args...; solve_kwargs..., callback=cb)
-        else
-            solve_kwargs = _ode_solve_kwargs(cache.solver_cfg.kwargs, cache.ode_kwargs,
-                                             (saveat=saveat_use, save_everystep=false, dense=false))
-            cb === nothing ?
-                solve(prob, cache.alg, cache.ode_args...; solve_kwargs...) :
-                solve(prob, cache.alg, cache.ode_args...; solve_kwargs..., callback=cb)
-        end
+        prob = remake(prob; u0 = u0_T, p = p_flat)
+        sol = _ll_ode_solve_baked(cache, prob)
         SciMLBase.successful_retcode(sol) || return false
         sol_accessors = get_de_accessors_builder(model.de.de)(sol, compiled)
     end

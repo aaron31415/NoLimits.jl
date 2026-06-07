@@ -22,6 +22,7 @@ import SciMLStructures: isscimlstructure, ismutablescimlstructure, canonicalize,
 using SciMLStructures
 using Functors
 import SciMLSensitivity: recursive_copyto!, recursive_add!, recursive_sub!, recursive_neg!, allocate_vjp
+import SciMLBase
 import StaticArrays
 
 RuntimeGeneratedFunctions.init(@__MODULE__)
@@ -140,7 +141,31 @@ struct DEStateAccessor{S, I}
     idx::I
 end
 
-@inline (a::DEStateAccessor)(t) = a.sol(t; idxs=a.idx)
+"""
+    _de_state_at(sol, idx, t)
+
+Evaluate state `idx` of an ODE solution at time `t`, preferring an exact-time
+index lookup into the saved points (`sol.t`/`sol.u`) and falling back to
+interpolation (`sol(t; idxs=idx)`) for off-grid times (dense mode).
+
+In `:saveat` mode every formula evaluation time is a saved point, so the lookup
+always hits; this both avoids the interpolation machinery (faster) and keeps the
+access compatible with SciML sensitivity-analysis solutions, which forbid
+post-solution interpolation ("Standard interpolation is disabled due to
+sensitivity analysis").
+"""
+@inline _de_state_at(sol, idx, t) = sol(t; idxs=idx)
+
+@inline function _de_state_at(sol::SciMLBase.AbstractODESolution, idx, t)
+    ts = sol.t
+    i = searchsortedfirst(ts, t)
+    if i <= length(ts) && @inbounds(ts[i] == t)
+        return @inbounds sol.u[i][idx]
+    end
+    return sol(t; idxs=idx)
+end
+
+@inline (a::DEStateAccessor)(t) = _de_state_at(a.sol, a.idx, t)
 
 """
     DESignalAccessor{S, P, F}
@@ -262,6 +287,152 @@ Base.getindex(t::DETunable, i::Int) = t.mode == :θ ? t.θ[i] :
 Base.iterate(t::DETunable, state...) = iterate(t.mode == :θ ? collect(t.θ) :
                                               t.mode == :η ? collect(t.η) :
                                               vcat(collect(t.θ), collect(t.η)), state...)
+
+# ---------------------------------------------------------------------------
+# Flat parameter-vector machinery (Enzyme-reverse-compatible solve parameters)
+# ---------------------------------------------------------------------------
+# The Enzyme → DiffEqBase → SciMLSensitivity adjoint route requires `prob.p` to be
+# a plain numeric `Vector`: struct parameters either fail Enzyme's IR verification
+# (`DEParams`) or — worse — return silently ZERO gradients (minimal SciMLStructures
+# struct, probed 2026-06-06). `DERHSFlat` therefore wraps the macro-generated RHS
+# UNCHANGED and reconstructs the `(vars = ..., funs = ...)` view it expects from a
+# flat vector via a type-stable layout, so primals are bit-identical to the
+# NamedTuple path. Functions/interpolants stay in the adapter (`funs`,
+# evaluation-constant per individual); every θ/η/preDE-derived NUMBER flows through
+# the flat vector.
+
+"""
+    DEVarSlot{N}
+
+Position of one DE variable inside a flat parameter vector: `offset` is the first
+index, `dims` the original shape (`N == 0` scalar, `N == 1` vector, `N == 2` matrix).
+"""
+struct DEVarSlot{N}
+    offset::Int
+    dims::NTuple{N, Int}
+end
+
+"""
+    DEVarConst{V}
+
+Layout slot for a DE variable that is NOT packed into the flat vector but carried
+as an inert constant inside the layout itself (e.g. `Symbol`/`String`/`Bool`
+covariate values). Such values cannot be θ/η-dependent (parameter transforms and
+preDE numerics are real-valued), so storing them at layout-build time is exact.
+"""
+struct DEVarConst{V}
+    val::V
+end
+
+# Bool is a Number, but packing it as a float would change `if`/`&&` semantics in
+# the RHS — carry it (and any other non-real value) as an inert layout constant.
+_flat_len(::Bool) = 0
+_flat_len(::Real) = 1
+_flat_len(v::AbstractArray{<:Real}) = eltype(v) === Bool ? 0 : length(v)
+_flat_len(v) = 0
+
+_flat_slot(v::Bool, o::Int) = DEVarConst(v)
+_flat_slot(::Real, o::Int) = DEVarSlot{0}(o, ())
+_flat_slot(v::AbstractArray{<:Real, N}, o::Int) where {N} =
+    eltype(v) === Bool ? DEVarConst(v) : DEVarSlot{N}(o, size(v))
+_flat_slot(v, o::Int) = DEVarConst(v)
+
+"""
+    _flat_layout(vars::NamedTuple) -> (layout::NamedTuple, len::Int)
+
+Build the flat-vector layout for a compiled DE `vars` NamedTuple. The layout's
+type is inferable from the `vars` type (slot dimensionality per field), so
+reconstruction via [`_vars_from_flat`](@ref) is type-stable.
+"""
+function _flat_layout(vars::NamedTuple{names}) where {names}
+    isempty(names) && return NamedTuple(), 0
+    vals = values(vars)
+    lens = map(_flat_len, vals)
+    offs = cumsum((1, Base.front(lens)...))
+    slots = map(_flat_slot, vals, offs)
+    return NamedTuple{names}(slots), sum(lens)
+end
+
+@inline _flat_write!(p, v::Number, s::DEVarSlot{0}) = (@inbounds p[s.offset] = v; p)
+@inline function _flat_write!(p, v::AbstractArray, s::DEVarSlot)
+    o = s.offset
+    j = 0
+    @inbounds for x in vec(v)
+        p[o + j] = x
+        j += 1
+    end
+    return p
+end
+@inline _flat_write!(p, v, ::DEVarConst) = p
+
+_flat_pack_fill!(p, ::Tuple{}, ::Tuple{}) = p
+function _flat_pack_fill!(p, vs::Tuple, ss::Tuple)
+    _flat_write!(p, first(vs), first(ss))
+    return _flat_pack_fill!(p, Base.tail(vs), Base.tail(ss))
+end
+
+"""
+    _flat_pack(vars::NamedTuple, layout::NamedTuple, len::Int, ::Type{T}) -> Vector{T}
+
+Pack the compiled DE `vars` values into a fresh flat `Vector{T}` following `layout`
+(arrays in column-major order, matching [`_vars_from_flat`](@ref)).
+"""
+function _flat_pack(vars::NamedTuple{names}, layout::NamedTuple{names}, len::Int, ::Type{T}) where {names, T}
+    p = Vector{T}(undef, len)
+    _flat_pack_fill!(p, values(vars), values(layout))
+    return p
+end
+_flat_pack(::NamedTuple{()}, ::NamedTuple{()}, len::Int, ::Type{T}) where {T} = Vector{T}(undef, 0)
+
+"""
+    _vars_from_flat(p::AbstractVector, layout::NamedTuple)
+
+Reconstruct the `vars` NamedTuple view from a flat parameter vector: scalars by
+indexing, vectors as views, matrices as reshaped views — zero-copy and type-stable
+from the layout type.
+"""
+@generated function _vars_from_flat(p::AbstractVector, layout::NamedTuple{names, S}) where {names, S}
+    isempty(names) && return :(NamedTuple())
+    exprs = Any[]
+    for (i, _) in enumerate(names)
+        slotT = S.parameters[i]
+        if slotT <: DEVarConst
+            push!(exprs, :(layout[$i].val))
+        else
+            N = slotT.parameters[1]
+            if N == 0
+                push!(exprs, :(@inbounds p[layout[$i].offset]))
+            elseif N == 1
+                push!(exprs, :(@inbounds view(p, layout[$i].offset:(layout[$i].offset + layout[$i].dims[1] - 1))))
+            else
+                push!(exprs, :(reshape(view(p, layout[$i].offset:(layout[$i].offset + prod(layout[$i].dims) - 1)), layout[$i].dims)))
+            end
+        end
+    end
+    return :(NamedTuple{$(names)}(($(exprs...),)))
+end
+
+"""
+    DERHSFlat{F, L, C}
+
+In-place RHS adapter for flat parameter vectors: wraps the macro-generated DE
+function `inner!` (which reads `p.vars` / `p.funs`) and rebuilds that view from a
+plain `Vector` `p` on each call. The reconstructed NamedTuple is non-escaping and
+concretely typed, so it compiles away; results are numerically equivalent to
+passing the compiled NamedTuple directly (the changed inlining context may alter
+fp contraction at the ulp level, which can shift adaptive step sequences within
+solver tolerance).
+"""
+struct DERHSFlat{F, L, C}
+    inner!::F
+    layout::L
+    funs::C
+end
+
+@inline function (f::DERHSFlat)(du, u, p, t)
+    f.inner!(du, u, (vars = _vars_from_flat(p, f.layout), funs = f.funs), t)
+    return nothing
+end
 
 function _de_build_compiled(θ::ComponentArray, η::ComponentArray, static::DEStaticContext)
     fe_un = static.inverse_transform(θ)
@@ -755,7 +926,7 @@ macro DifferentialEquation(block)
         return $f_expr
     end)
 
-    state_sol_binds = [:( $(state_names[i]) = sol(t; idxs=$i) ) for i in eachindex(state_names)]
+    state_sol_binds = [:( $(state_names[i]) = $(_de_state_at)(sol, $i, t) ) for i in eachindex(state_names)]
     signal_fn_exprs = [
         :(function (sol, pc, t)
                 vars = pc.vars

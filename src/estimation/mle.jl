@@ -102,14 +102,30 @@ function _fit_no_re(dm::DataModel, method;
 
     θ0_free_t = ComponentArray(NamedTuple{Tuple(free_names)}(Tuple(getproperty(θ0_t, n) for n in free_names)))
     axs = getaxes(θ0_free_t)
+    # Precompute the flat positions of the free parameters inside the full
+    # transformed vector. The free/constants merge inside `obj` is then plain
+    # positional indexing — the old per-name `setproperty!` loop dispatches on
+    # runtime Symbols, which Enzyme's runtime rules reject
+    # (`AssertionError: x.indices == dx.indices` on the shadow views).
+    free_idx = let lab_full = ComponentArrays.labels(θ_const_t),
+                   lab_free = ComponentArrays.labels(θ0_free_t)
+        pos_full = Dict{String, Int}(lab_full[i] => i for i in eachindex(lab_full))
+        Int[pos_full[l] for l in lab_free]
+    end
+    θ_const_t_vec = collect(θ_const_t)
+    axs_full = getaxes(θ_const_t)
     function obj(θt, p)
-        θt_free = θt isa ComponentArray ? θt : ComponentArray(θt, axs)
-        T = eltype(θt_free)
+        v_free = θt isa ComponentArray ? ComponentArrays.getdata(θt) : θt
+        T = eltype(v_free)
         infT = convert(T, Inf)
-        θt_full = ComponentArray(T.(θ_const_t), getaxes(θ_const_t))
-        for name in free_names
-            setproperty!(θt_full, name, getproperty(θt_free, name))
+        full = Vector{T}(undef, length(θ_const_t_vec))
+        @inbounds for i in eachindex(full)
+            full[i] = θ_const_t_vec[i]
         end
+        @inbounds for k in eachindex(free_idx)
+            full[free_idx[k]] = v_free[k]
+        end
+        θt_full = ComponentArray(full, axs_full)
         θu = inv_transform(θt_full)
         add = add_term(θu)
         add == Inf && return infT

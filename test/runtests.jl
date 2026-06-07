@@ -109,6 +109,11 @@ const TEST_FILES = [
     "logit_scale_uq_tests.jl",
     "serialization_tests.jl",
     "coverage_gap_tests.jl",
+    # Enzyme regression tests (merged from enzyme-compat). proxy = always-on,
+    # ForwardDiff-only structural/numeric invariants; smoke = opt-in real Enzyme
+    # gradients, no-op unless NOLIMITS_TEST_ENZYME=true (+ Julia>=1.12.5 + Enzyme).
+    "enzyme_compat_proxy_tests.jl",
+    "enzyme_smoke_tests.jl",
 ]
 
 # --- Orchestrate sequential subprocess batches -----------------------------

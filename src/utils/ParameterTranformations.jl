@@ -28,22 +28,64 @@ struct TransformSpec
     mask::Union{Nothing, Vector{Symbol}}
 end
 
-struct ForwardTransform
+# `out_axes`/`n_out` (when provided) describe the output ComponentArray layout and
+# enable a type-stable assembly path: the legacy `ComponentArray(NamedTuple{...})`
+# construction is dynamic (runtime `names`) and routes through ComponentArrays'
+# `make_idx`, whose IdDict lookups (`jl_eqtable_get`) have no Enzyme forward-mode
+# rule. The 2-arg constructors keep the legacy dynamic path for ad-hoc transforms
+# (e.g. restricted transforms in plotting/UQ).
+struct ForwardTransform{A}
     names::Vector{Symbol}
     specs::Vector{TransformSpec}
+    out_axes::A
+    n_out::Int
 end
+ForwardTransform(names, specs) = ForwardTransform(names, specs, nothing, -1)
 
-struct InverseTransform
+struct InverseTransform{A}
     names::Vector{Symbol}
     specs::Vector{TransformSpec}
+    out_axes::A
+    n_out::Int
 end
+InverseTransform(names, specs) = InverseTransform(names, specs, nothing, -1)
 
 function (ft::ForwardTransform)(θ::ComponentArray)
-    return _apply_transform(θ, ft.names, ft.specs)
+    vals = _transform_vals(θ, ft.names, ft.specs)
+    return _assemble_ca(vals, ft.names, ft.out_axes, ft.n_out, eltype(θ))
 end
 
 function (it::InverseTransform)(θ::ComponentArray)
-    return _apply_inverse_transform(θ, it.names, it.specs)
+    vals = _inverse_vals(θ, it.names, it.specs)
+    return _assemble_ca(vals, it.names, it.out_axes, it.n_out, eltype(θ))
+end
+
+# Legacy dynamic assembly (runtime names; ForwardDiff-compatible, not Enzyme-forward).
+function _assemble_ca(vals, names::Vector{Symbol}, ::Nothing, n_out::Int, ::Type{T}) where {T}
+    return ComponentArray(NamedTuple{Tuple(names)}(Tuple(vals)))
+end
+
+# Type-stable assembly: write the heterogeneous per-parameter values into one flat
+# vector (single up-front allocation, assigned-once slots) and wrap it with the
+# precomputed axes.
+function _assemble_ca(vals, names::Vector{Symbol}, out_axes::Tuple, n_out::Int, ::Type{T}) where {T}
+    flat = Vector{T}(undef, n_out)
+    k = 1
+    for v in vals
+        k = _write_flat!(flat, v, k)
+    end
+    k == n_out + 1 || error("Transform output length mismatch: expected $(n_out), got $(k - 1).")
+    return ComponentArray(flat, out_axes)
+end
+
+_write_flat!(flat::Vector, v::Number, k::Int) = (flat[k] = v; k + 1)
+
+function _write_flat!(flat::Vector, v::AbstractArray, k::Int)
+    for x in vec(v)
+        flat[k] = x
+        k += 1
+    end
+    return k
 end
 
 function log_forward(x::Real)
@@ -414,8 +456,8 @@ function apply_inv_jacobian_T(it::InverseTransform, θt::ComponentArray, grad_u:
     return out
 end
 
-function _apply_transform(θ::ComponentArray, names::Vector{Symbol}, specs::Vector{TransformSpec})
-    vals = map(1:length(names)) do i
+function _transform_vals(θ::ComponentArray, names::Vector{Symbol}, specs::Vector{TransformSpec})
+    return map(1:length(names)) do i
         name = names[i]
         spec = specs[i]
         val = θ[name]
@@ -441,11 +483,10 @@ function _apply_transform(θ::ComponentArray, names::Vector{Symbol}, specs::Vect
             return val
         end
     end
-    return ComponentArray(NamedTuple{Tuple(names)}(Tuple(vals)))
 end
 
-function _apply_inverse_transform(θ::ComponentArray, names::Vector{Symbol}, specs::Vector{TransformSpec})
-    vals = map(1:length(names)) do i
+function _inverse_vals(θ::ComponentArray, names::Vector{Symbol}, specs::Vector{TransformSpec})
+    return map(1:length(names)) do i
         name = names[i]
         spec = specs[i]
         val = θ[name]
@@ -475,5 +516,4 @@ function _apply_inverse_transform(θ::ComponentArray, names::Vector{Symbol}, spe
             return val
         end
     end
-    return ComponentArray(NamedTuple{Tuple(names)}(Tuple(vals)))
 end

@@ -1412,6 +1412,12 @@ function DataModel(model,
         error("Formulas request times earlier than the first observation for individual ids: $(details). This would require to calculate the value of the ODE solution prior to the initial conditions (at t=0). Change the offset in your model or remove the corresponding data points that are observed at t_k for which t_k - offset < 0.")
     end
 
+    # Narrow the element type (individuals of a homogeneous dataset share one concrete
+    # Individual type). Keeps downstream field access (`ind.const_cov`, `ind.series`, ...)
+    # type-stable, which Enzyme reverse mode requires: dynamic getfield on the abstract
+    # eltype routes through Enzyme's runtime fallback, which cannot shadow-accumulate
+    # into immutable structs (`setfield!: immutable struct ... cannot be changed`).
+    individuals = map(identity, individuals)
     pairing = _build_pairing(individuals, model)
     id_index = Dict{Any, Int}((keys_sorted[i] => i) for i in eachindex(keys_sorted))
     row_groups = RowGroups(groups, obs_groups)

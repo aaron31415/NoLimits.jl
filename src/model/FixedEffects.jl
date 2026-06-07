@@ -44,9 +44,9 @@ struct FixedEffectsBounds
     transformed::Tuple{ComponentArray, ComponentArray}
 end
 
-struct FixedEffectsTransforms
-    forward::ForwardTransform
-    inverse::InverseTransform
+struct FixedEffectsTransforms{F<:ForwardTransform, I<:InverseTransform}
+    forward::F
+    inverse::I
 end
 
 struct FixedEffectsExtras{P<:NamedTuple, MF<:NamedTuple, PA<:NamedTuple}
@@ -66,11 +66,11 @@ soft trees, NPFs).
 
 Use accessor functions rather than accessing fields directly.
 """
-struct FixedEffects{E<:FixedEffectsExtras}
+struct FixedEffects{E<:FixedEffectsExtras, TR<:FixedEffectsTransforms}
     meta::FixedEffectsMeta
     values::FixedEffectsValues
     bounds::FixedEffectsBounds
-    transforms::FixedEffectsTransforms
+    transforms::TR
     extras::E
 end
 
@@ -361,8 +361,8 @@ function build_fixed_effects(params::NamedTuple)
         θ0 = ComponentArray(empty_nt)
         bounds = (ComponentArray(empty_nt), ComponentArray(empty_nt))
         specs = TransformSpec[]
-        transform = ForwardTransform(Symbol[], specs)
-        inverse_transform = InverseTransform(Symbol[], specs)
+        transform = ForwardTransform(Symbol[], specs, getaxes(θ0), 0)
+        inverse_transform = InverseTransform(Symbol[], specs, getaxes(θ0), 0)
         meta = FixedEffectsMeta(Symbol[], Symbol[])
         values = FixedEffectsValues(θ0, θ0)
         bounds_obj = FixedEffectsBounds(bounds, bounds)
@@ -401,10 +401,13 @@ function build_fixed_effects(params::NamedTuple)
         ComponentArray(NamedTuple{Tuple(first.(upper_pairs))}(Tuple(last.(upper_pairs))))
     )
 
-    transform = ForwardTransform(names, specs)
-    inverse_transform = InverseTransform(names, specs)
-
-    θ0_transformed = transform(θ0_untransformed)
+    # Bootstrap with the legacy (dynamic) transform to learn the output layout, then
+    # rebuild the transforms with precomputed axes so applications use the type-stable
+    # assembly path (required for Enzyme; see ParameterTranformations.jl).
+    transform0 = ForwardTransform(names, specs)
+    θ0_transformed = transform0(θ0_untransformed)
+    transform = ForwardTransform(names, specs, getaxes(θ0_transformed), length(θ0_transformed))
+    inverse_transform = InverseTransform(names, specs, getaxes(θ0_untransformed), length(θ0_untransformed))
     bounds_transformed = _transform_bounds(bounds_untransformed, names, specs)
 
     flat_names, _ = _flatten_by_specs(θ0_transformed, names, specs)
@@ -619,43 +622,80 @@ function _param_spec(name::Symbol, p::ContinuousTransitionMatrix)
     n = size(p.value, 1)
     return TransformSpec(name, :lograterows, (n, n), nothing)
 end
+# NN parameters are rebuilt from the flat vector via ComponentArray axes instead of
+# the Optimisers.Restructure closure: Restructure goes through Functors.fmap, whose
+# IdDict cache lookups (`jl_eqtable_get`) have no Enzyme forward-mode rule. The
+# ComponentArray construction is also type-stable and skips the per-call fmap
+# conversion the old path always performed (`eltype(::NamedTuple)` is never `=== T`).
+# Layout equality with the destructure order used for `p.value` is asserted at
+# model-build time via `_check_nn_flat_layout`.
+function _nn_axes_template(p::NNParameters, ::Type{T}) where {T}
+    ps_template = Functors.fmap(y -> _to_type(T, y), p.reconstructor(p.value))
+    ps_ca = ComponentArray(ps_template)
+    _check_nn_flat_layout(p, ps_ca, T)
+    return getaxes(ps_ca)
+end
+
+function _check_nn_flat_layout(p::NNParameters, ps_ca::ComponentArray, ::Type{T}) where {T}
+    collect(ps_ca) == _to_type(T, p.value) ||
+        error("NN parameter $(p.name): ComponentArray flat layout does not match the Optimisers.destructure order of the stored value. Cannot build $(p.function_name).")
+    return nothing
+end
+
 function _collect_model_fun!(p::NNParameters, model_fun_pairs)
     st = Lux.initialstates(Xoshiro(0), p.chain)
-    push!(model_fun_pairs, p.function_name => (x, θ) -> first(Lux.apply(p.chain, x, p.reconstructor(θ), st)))
+    T = eltype(p.value)
+    ps_axes = _nn_axes_template(p, T)
+    push!(model_fun_pairs, p.function_name => (x, θ) -> first(Lux.apply(p.chain, x, ComponentArray(collect(θ), ps_axes), st)))
 end
 
 function _collect_model_fun!(p::NNParameters, model_fun_pairs, ::Type{T}) where {T}
     st = Lux.initialstates(Xoshiro(0), p.chain)
     stT = Functors.fmap(y -> _to_type(T, y), st)
+    ps_axes = _nn_axes_template(p, T)
     push!(model_fun_pairs, p.function_name => (x, θ) -> begin
         TT = promote_type(eltype(θ), _value_type(x))
         if TT === T
             xT = _to_type(T, x)
-            ps = p.reconstructor(_to_type(T, θ))
-            psT = eltype(ps) === T ? ps : Functors.fmap(y -> _to_type(T, y), ps)
+            psT = ComponentArray(_to_type(T, θ), ps_axes)
             return first(Lux.apply(p.chain, xT, psT, stT))
         end
         xTT = _to_type(TT, x)
-        ps = p.reconstructor(_to_type(TT, θ))
-        psTT = eltype(ps) === TT ? ps : Functors.fmap(y -> _to_type(TT, y), ps)
+        psTT = ComponentArray(_to_type(TT, θ), ps_axes)
         stTT = Functors.fmap(y -> _to_type(TT, y), stT)
         return first(Lux.apply(p.chain, xTT, psTT, stTT))
     end)
 end
 
+# SoftTree parameters are rebuilt positionally from the flat vector
+# (`softtree_params_from_flat`) instead of via the Optimisers.Restructure closure —
+# same Enzyme rationale as for NNParameters above. Layout equality with the
+# destructure order is asserted at model-build time.
+function _check_softtree_flat_layout(p::SoftTreeParameters, tree::SoftTree)
+    p_pos = softtree_params_from_flat(p.value, tree)
+    p_ref = p.reconstructor(p.value)
+    (p_pos.node_weights == p_ref.node_weights &&
+     p_pos.node_biases == p_ref.node_biases &&
+     p_pos.leaf_values == p_ref.leaf_values) ||
+        error("SoftTree parameter $(p.name): positional flat layout does not match the Optimisers.destructure order of the stored value. Cannot build $(p.function_name).")
+    return nothing
+end
+
 function _collect_model_fun!(p::SoftTreeParameters, model_fun_pairs)
     tree = SoftTree(p.input_dim, p.depth, p.n_output)
-    push!(model_fun_pairs, p.function_name => (x, θ) -> tree(x, p.reconstructor(θ)))
+    _check_softtree_flat_layout(p, tree)
+    push!(model_fun_pairs, p.function_name => (x, θ) -> tree(x, softtree_params_from_flat(collect(θ), tree)))
 end
 
 function _collect_model_fun!(p::SoftTreeParameters, model_fun_pairs, ::Type{T}) where {T}
     tree = SoftTree(p.input_dim, p.depth, p.n_output)
+    _check_softtree_flat_layout(p, tree)
     push!(model_fun_pairs, p.function_name => (x, θ) -> begin
         TT = promote_type(eltype(θ), _value_type(x))
         if TT === T
-            return tree(_to_type(T, x), _to_type(T, p.reconstructor(θ)))
+            return tree(_to_type(T, x), softtree_params_from_flat(_to_type(T, θ), tree))
         end
-        return tree(_to_type(TT, x), _to_type(TT, p.reconstructor(θ)))
+        return tree(_to_type(TT, x), softtree_params_from_flat(_to_type(TT, θ), tree))
     end)
 end
 
@@ -672,14 +712,28 @@ function _collect_model_fun!(p::SplineParameters, model_fun_pairs, ::Type{T}) wh
         return bspline_eval(_to_type(TT, x), _to_type(TT, θ), p.knots, p.degree)
     end)
 end
+# The NormalizingPlanarFlow flat-θ constructor rebuilds the planar chain
+# positionally (`_planar_chain_from_flat`) instead of via the stored
+# Optimisers.Restructure — same Enzyme rationale as for NNParameters/SoftTree
+# above. Layout equality with the destructure order is asserted at model-build time.
+function _check_npf_flat_layout(p::NPFParameter)
+    bij = _planar_chain_from_flat(p.value, p.n_input)
+    flat_ref, _ = Optimisers.destructure(bij)
+    flat_ref == p.value ||
+        error("NPF parameter $(p.name): positional flat layout does not match the Optimisers.destructure order of the stored value. Cannot build NPF_$(p.name).")
+    return nothing
+end
+
 function _collect_model_fun!(p::NPFParameter, model_fun_pairs)
     key = Symbol("NPF_", p.name)
     q0 = p.base_dist
+    _check_npf_flat_layout(p)
     push!(model_fun_pairs, key => (θ) -> NormalizingPlanarFlow(θ, p.reconstructor, q0))
 end
 function _collect_model_fun!(p::NPFParameter, model_fun_pairs, ::Type{T}) where {T}
     key = Symbol("NPF_", p.name)
     q0T = _adapt_base_dist(p.base_dist, T)
+    _check_npf_flat_layout(p)
     push!(model_fun_pairs, key => (θ) -> begin
         TT = eltype(θ)
         if TT === T
@@ -692,6 +746,15 @@ end
 
 # Adapt base distribution element type for ForwardDiff compatibility.
 # MvNormal is re-parameterised with typed mean/cov; other distributions are used as-is.
+# The covariance STRUCTURE is preserved: densifying a ScalMat/PDiagMat to a full
+# PDMat would route logpdf through a LAPACK triangular solve (`trtrs`), which
+# Enzyme forward mode cannot handle under runtime activity ("Runtime Activity not
+# yet implemented for Forward-Mode BLAS calls"); the scalar/diagonal forms use
+# plain dot/loops instead.
+_adapt_base_dist(d::MvNormal{<:Real, <:Distributions.PDMats.ScalMat}, ::Type{T}) where {T} =
+    MvNormal(T.(mean(d)), Distributions.PDMats.ScalMat(length(d), T(d.Σ.value)))
+_adapt_base_dist(d::MvNormal{<:Real, <:Distributions.PDMats.PDiagMat}, ::Type{T}) where {T} =
+    MvNormal(T.(mean(d)), Distributions.PDMats.PDiagMat(T.(d.Σ.diag)))
 _adapt_base_dist(d::MvNormal, ::Type{T}) where {T} = MvNormal(T.(mean(d)), Matrix{T}(cov(d)))
 _adapt_base_dist(d, ::Type{T}) where {T} = d
 function _collect_model_fun!(p, model_fun_pairs)
