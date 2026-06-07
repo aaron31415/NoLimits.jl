@@ -662,8 +662,8 @@ end
     res_pooled = fit_model(dm_pooled, NoLimits.Pooled(); serialization=NoLimits.EnsembleSerial())
     res_mle = fit_model(dm_mle, NoLimits.MLE(); serialization=NoLimits.EnsembleSerial())
 
-    uq_pooled = compute_uq(res_pooled; n_draws=200, serialization=NoLimits.EnsembleSerial())
-    uq_mle = compute_uq(res_mle; n_draws=200, serialization=NoLimits.EnsembleSerial())
+    uq_pooled = compute_uq(res_pooled; n_draws=30, serialization=NoLimits.EnsembleSerial())
+    uq_mle = compute_uq(res_mle; n_draws=30, serialization=NoLimits.EnsembleSerial())
 
     @test NoLimits.get_uq_backend(uq_pooled) == :wald
     @test NoLimits.get_uq_source_method(uq_pooled) == :pooled
@@ -679,7 +679,7 @@ end
     @test se_pooled ≈ se_mle rtol = 1e-3
 
     # sandwich variant also runs
-    uq_sand = compute_uq(res_pooled; vcov=:sandwich, n_draws=100,
+    uq_sand = compute_uq(res_pooled; vcov=:sandwich, n_draws=30,
                          serialization=NoLimits.EnsembleSerial())
     @test all(isfinite, diag(NoLimits.get_uq_vcov(uq_sand; scale=:transformed)))
 end

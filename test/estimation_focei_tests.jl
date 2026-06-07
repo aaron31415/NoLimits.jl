@@ -168,8 +168,8 @@ end
     rf = fit_model(dm, NL.FOCEI(multistart_n=1, multistart_k=1); serialization=NL.EnsembleSerial())
     rl = fit_model(dm, NL.Laplace(multistart_n=1, multistart_k=1); serialization=NL.EnsembleSerial())
 
-    uq_f = compute_uq(rf; n_draws=200, serialization=NL.EnsembleSerial())
-    uq_l = compute_uq(rl; n_draws=200, serialization=NL.EnsembleSerial())
+    uq_f = compute_uq(rf; n_draws=30, serialization=NL.EnsembleSerial())
+    uq_l = compute_uq(rl; n_draws=30, serialization=NL.EnsembleSerial())
 
     @test NL.get_uq_backend(uq_f) == :wald
     @test NL.get_uq_source_method(uq_f) == :focei

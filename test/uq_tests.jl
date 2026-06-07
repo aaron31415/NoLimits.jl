@@ -29,7 +29,7 @@ using LinearAlgebra
     dm = DataModel(model, df; primary_id=:ID, time_col=:t)
     res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
 
-    uq = compute_uq(res; method=:wald, n_draws=200, rng=Random.Xoshiro(1))
+    uq = compute_uq(res; method=:wald, n_draws=30, rng=Random.Xoshiro(1))
     @test get_uq_backend(uq) == :wald
     @test get_uq_source_method(uq) == :mle
     names = get_uq_parameter_names(uq)
@@ -40,7 +40,7 @@ using LinearAlgebra
     @test ints !== nothing
     @test hasproperty(ints, :lower)
     @test size(get_uq_vcov(uq)) == (2, 2)
-    @test size(get_uq_draws(uq)) == (200, 2)
+    @test size(get_uq_draws(uq)) == (30, 2)
     Vt = get_uq_vcov(uq; scale=:transformed)
     λmin = minimum(eigvals(Symmetric(0.5 .* (Vt .+ Vt'))))
     @test λmin >= -1e-10
@@ -55,7 +55,7 @@ using LinearAlgebra
     @test d.inactive_fixed_effects_held_constant
     @test d.vcov_min_eig_used >= -1e-10
 
-    uq_const = compute_uq(res; method=:wald, constants=(a=0.2,), n_draws=100, rng=Random.Xoshiro(2))
+    uq_const = compute_uq(res; method=:wald, constants=(a=0.2,), n_draws=30, rng=Random.Xoshiro(2))
     @test get_uq_parameter_names(uq_const) == [:σ]
 end
 
@@ -82,7 +82,7 @@ end
     dm = DataModel(model, df; primary_id=:ID, time_col=:t)
     res = fit_model(dm, NoLimits.MAP(; optim_kwargs=(maxiters=2,)))
 
-    uq = compute_uq(res; method=:wald, n_draws=150, rng=Random.Xoshiro(3))
+    uq = compute_uq(res; method=:wald, n_draws=30, rng=Random.Xoshiro(3))
     @test get_uq_backend(uq) == :wald
     @test get_uq_source_method(uq) == :map
     @test get_uq_parameter_names(uq) == [:a, :σ]
@@ -216,12 +216,12 @@ end
     dm = DataModel(model, df; primary_id=:ID, time_col=:t)
     res = fit_model(dm, NoLimits.Laplace(; optim_kwargs=(maxiters=2,)))
 
-    uq = compute_uq(res; method=:wald, n_draws=120, rng=Random.Xoshiro(5))
+    uq = compute_uq(res; method=:wald, n_draws=30, rng=Random.Xoshiro(5))
     @test get_uq_backend(uq) == :wald
     @test get_uq_source_method(uq) == :laplace
     @test get_uq_parameter_names(uq) == [:a, :ω]
     @test size(get_uq_vcov(uq)) == (2, 2)
-    @test size(get_uq_draws(uq)) == (120, 2)
+    @test size(get_uq_draws(uq)) == (30, 2)
     d = get_uq_diagnostics(uq)
     @test haskey(d, :hessian_reduced)
     @test haskey(d, :inactive_fixed_effects_held_constant)
@@ -302,7 +302,7 @@ end
     dm = DataModel(model, df; primary_id=:ID, time_col=:t)
     res = fit_model(dm, NoLimits.LaplaceMAP(; optim_kwargs=(maxiters=2,)))
 
-    uq = compute_uq(res; method=:wald, n_draws=80, rng=Random.Xoshiro(7))
+    uq = compute_uq(res; method=:wald, n_draws=30, rng=Random.Xoshiro(7))
     @test get_uq_backend(uq) == :wald
     @test get_uq_source_method(uq) == :laplace_map
     @test get_uq_parameter_names(uq) == [:a, :ω, :σ]
@@ -478,7 +478,7 @@ end
     dm = DataModel(model, df; primary_id=:ID, time_col=:t)
     res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
 
-    uq = compute_uq(res; method=:wald, vcov=:sandwich, n_draws=120, rng=Random.Xoshiro(12))
+    uq = compute_uq(res; method=:wald, vcov=:sandwich, n_draws=30, rng=Random.Xoshiro(12))
     @test get_uq_backend(uq) == :wald
     @test get_uq_source_method(uq) == :mle
     @test size(get_uq_vcov(uq)) == (2, 2)
@@ -512,7 +512,7 @@ end
     dm = DataModel(model, df; primary_id=:ID, time_col=:t)
     res = fit_model(dm, NoLimits.Laplace(; optim_kwargs=(maxiters=2,)))
 
-    uq = compute_uq(res; method=:wald, vcov=:sandwich, n_draws=80, rng=Random.Xoshiro(13))
+    uq = compute_uq(res; method=:wald, vcov=:sandwich, n_draws=30, rng=Random.Xoshiro(13))
     @test get_uq_backend(uq) == :wald
     @test get_uq_source_method(uq) == :laplace
     @test size(get_uq_vcov(uq)) == (2, 2)

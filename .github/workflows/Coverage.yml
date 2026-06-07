@@ -1,0 +1,47 @@
+name: Coverage
+
+# Coverage instrumentation is ~4x slower than a plain test run, so it is kept
+# OUT of the PR gate (CI.yml) and runs here instead: on pushes to main and on
+# demand. Each shard uploads its lcov.info to Codecov, which merges the per-shard
+# uploads (same commit SHA) into one combined report. This workflow does not gate
+# pull requests.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    name: coverage - shard ${{ matrix.group }}/10
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.12"
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-runtest@v1
+        with:
+          coverage: true
+        env:
+          TEST_GROUP: ${{ matrix.group }}
+          TEST_GROUPS: "10"
+      - uses: julia-actions/julia-processcoverage@v1
+      - uses: codecov/codecov-action@v4
+        with:
+          file: lcov.info
+          flags: shard-${{ matrix.group }}
+          name: coverage-shard-${{ matrix.group }}
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false

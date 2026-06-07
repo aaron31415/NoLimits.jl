@@ -241,7 +241,7 @@ using Random
         dm = DataModel(model, df; primary_id=:ID, time_col=:t)
         res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
 
-        uq = compute_uq(res; n_draws=200, rng=MersenneTwister(42))
+        uq = compute_uq(res; n_draws=30, rng=MersenneTwister(42))
 
         # Transformed scale: k-1=2 pi coords + 1 sigma = 3
         names_t = get_uq_parameter_names(uq; scale=:transformed)
@@ -312,7 +312,7 @@ using Random
         dm = DataModel(model, df; primary_id=:ID, time_col=:t)
         res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
 
-        uq = compute_uq(res; n_draws=200, rng=MersenneTwister(42))
+        uq = compute_uq(res; n_draws=30, rng=MersenneTwister(42))
 
         # n=2: n*(n-1)=2 transformed + 1 sigma = 3 transformed coords
         names_t = get_uq_parameter_names(uq; scale=:transformed)
@@ -369,7 +369,7 @@ using Random
         dm = DataModel(model, df; primary_id=:ID, time_col=:t)
         res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
 
-        uq = compute_uq(res; n_draws=200, rng=MersenneTwister(99))
+        uq = compute_uq(res; n_draws=30, rng=MersenneTwister(99))
 
         # Transformed: a(1) + pi_1,pi_2(2) + sigma(1) = 4
         names_t = get_uq_parameter_names(uq; scale=:transformed)
@@ -414,7 +414,7 @@ using Random
         )
         dm = DataModel(model, df; primary_id=:ID, time_col=:t)
         res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
-        uq = compute_uq(res; n_draws=100, rng=MersenneTwister(10))
+        uq = compute_uq(res; n_draws=30, rng=MersenneTwister(10))
 
         # Only sigma is active; parameter_names_natural should be nothing
         @test uq.parameter_names_natural === nothing

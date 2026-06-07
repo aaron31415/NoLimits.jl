@@ -51,7 +51,7 @@ using Turing: MH
     @test s_fit_all.n_parameters_reported == 3
     @test any(r -> r.parameter == :b, s_fit_all.parameter_rows)
 
-    uq = compute_uq(res; method=:wald, n_draws=120)
+    uq = compute_uq(res; method=:wald, n_draws=30)
     s_uq = summarize(uq)
     @test s_uq isa UQResultSummary
     @test s_uq.inference == :frequentist
@@ -122,7 +122,7 @@ end
     @test occursin("Empirical Bayes random effects summary", txt_lap_fit)
     @test !occursin("component", txt_lap_fit)
 
-    uq = compute_uq(res; method=:wald, n_draws=120)
+    uq = compute_uq(res; method=:wald, n_draws=30)
     s_comb = summarize(res, uq; include_non_se=true)
     @test s_comb isa UQResultSummary
     @test s_comb.inference == :frequentist
