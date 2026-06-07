@@ -52,18 +52,8 @@ end
 end
 
 @testset "residuals MCMC summary and draw-level outputs" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.2, prior=Normal(0.0, 1.0))
-            σ = RealNumber(0.3, scale=:log, prior=LogNormal(0.0, 0.5))
-        end
-        @covariates begin; t = Covariate(); end
-        @formulas begin; y ~ Normal(a * t, σ); end
-    end
-
-    df = DataFrame(ID=[1,1,2,2], t=[0.0,1.0,0.0,1.0], y=[0.1,0.2,0.0,-0.1])
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MCMC(; turing_kwargs=(n_samples=8, n_adapt=2, progress=false)))
+    res = fx_mcmc()                       # shared no-RE MCMC fit
+    df = fx_nore_df()
 
     rdf = get_residuals(res; mcmc_draws=5, mcmc_quantiles=[10, 90])
     @test nrow(rdf) == nrow(df)
@@ -80,18 +70,8 @@ end
 end
 
 @testset "residuals VI summary and draw-level outputs" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.2, prior=Normal(0.0, 1.0))
-            σ = RealNumber(0.3, scale=:log, prior=LogNormal(0.0, 0.5))
-        end
-        @covariates begin; t = Covariate(); end
-        @formulas begin; y ~ Normal(a * t, σ); end
-    end
-
-    df = DataFrame(ID=[1,1,2,2], t=[0.0,1.0,0.0,1.0], y=[0.1,0.2,0.0,-0.1])
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.VI(; turing_kwargs=(max_iter=15, progress=false)))
+    res = fx_vi()                         # shared no-RE VI fit
+    df = fx_nore_df()
 
     rdf = get_residuals(res; mcmc_draws=5, mcmc_quantiles=[10, 90])
     @test nrow(rdf) == nrow(df)
