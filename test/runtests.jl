@@ -1,14 +1,16 @@
 using Test
-using NoLimits
 
-# Shared model/fit fixtures (built once, reused by every test below) — see
-# fixtures.jl. The suite runs as a single flat sequence so each canonical model
-# is compiled once and each method is fit once.
-include("fixtures.jl")
+# This is ONE CI job (no GitHub sharding), but it runs the suite as a handful of
+# sequential `julia` subprocesses ("batches") rather than a single process.
+# Reason: every distinct `@Model` in the suite emits type-specialized native
+# code that Julia never frees within a process. Running all ~97 files in one
+# process accumulates enough compiled code to exhaust RAM and stall (~50 min,
+# 0% CPU). Splitting into batches caps per-process memory by exiting between
+# batches. Each subprocess includes fixtures.jl fresh (lazy/memoized), so the
+# only added cost is repeated `using NoLimits` (~tens of seconds per batch).
+#
+# Set NL_BATCHES to override the batch count (default below).
 
-# Each file runs inside its own @testset so a top-level error in one file is
-# recorded as a failure rather than aborting the whole suite. `include` still
-# evaluates each file in this module's global scope.
 const TEST_FILES = [
     "softtrees_tests.jl",
     "ad_softtree.jl",
@@ -109,10 +111,65 @@ const TEST_FILES = [
     "coverage_gap_tests.jl",
 ]
 
-@testset "NoLimits" begin
-    for f in TEST_FILES
-        @testset "$f" begin
-            include(f)
-        end
+# --- Orchestrate sequential subprocess batches -----------------------------
+
+const N_BATCHES = parse(Int, get(ENV, "NL_BATCHES", "6"))
+
+# Contiguous split of TEST_FILES into N_BATCHES near-equal chunks (order
+# preserved). Batches run sequentially, so the split only bounds per-process
+# memory — balance isn't needed for wall-clock.
+function _chunks(items, n)
+    n = min(n, length(items))
+    q, r = divrem(length(items), n)
+    out = Vector{eltype(items)}[]
+    i = 1
+    for b in 1:n
+        len = q + (b <= r ? 1 : 0)
+        push!(out, items[i:(i + len - 1)])
+        i += len
     end
+    out
+end
+
+# Propagate the parent's relevant flags to each child so `Pkg.test` semantics
+# (coverage, --check-bounds=auto) carry into the subprocesses.
+#
+# -O1 is the runtime lever: the suite is COMPILE-bound (577 distinct @Models,
+# each forcing fresh type-specialized codegen), and tests use tiny data +
+# maxiters<=3, so execution speed is irrelevant while LLVM optimization time
+# dominates. -O1 cut a heavy 3-file batch from 358s to 236s (~1.5x). We do NOT
+# go to -O0: -O0 disables LLVM fma/muladd contraction, which shifts results from
+# the -O2 baseline the suite was validated under (one Laplace warm-vs-cold
+# tolerance test breaks) AND fma contraction is architecture-dependent (arm64 vs
+# CI's x86), so -O0 risks cross-arch flaky failures. -O1 keeps contraction on
+# (same numeric class as -O2). Skipped under coverage (that workflow isn't
+# latency-bound and instrumentation dominates anyway).
+function _child_flags()
+    o = Base.JLOptions()
+    flags = String["--color=yes"]
+    # check-bounds: 1=yes, 2=no, 0=default(auto) → leave unset
+    o.check_bounds == 1 && push!(flags, "--check-bounds=yes")
+    o.check_bounds == 2 && push!(flags, "--check-bounds=no")
+    # code-coverage: 1=user, 2=all (Pkg.test sets coverage=true → user)
+    o.code_coverage == 1 && push!(flags, "--code-coverage=user")
+    o.code_coverage == 2 && push!(flags, "--code-coverage=all")
+    o.code_coverage == 0 && push!(flags, "-O1")
+    flags
+end
+
+const _BATCHES = _chunks(TEST_FILES, N_BATCHES)
+const _PROJECT = dirname(Base.active_project())
+const _BATCH_SCRIPT = joinpath(@__DIR__, "run_batch.jl")
+
+let failed = String[]
+    for (i, batch) in enumerate(_BATCHES)
+        @info "=== Test batch $i/$(length(_BATCHES)) ($(length(batch)) files) ===" files=batch
+        cmd = `$(Base.julia_cmd()) $(_child_flags()) --project=$(_PROJECT) $(_BATCH_SCRIPT) $(batch)`
+        ok = success(pipeline(cmd; stdout=stdout, stderr=stderr))
+        ok || push!(failed, "batch $i: " * join(batch, ", "))
+    end
+    if !isempty(failed)
+        error("Test batches failed:\n  " * join(failed, "\n  "))
+    end
+    @info "All $(length(_BATCHES)) test batches passed."
 end
