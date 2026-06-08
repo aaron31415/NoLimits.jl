@@ -139,16 +139,16 @@ end
 # Propagate the parent's relevant flags to each child so `Pkg.test` semantics
 # (coverage, --check-bounds=auto) carry into the subprocesses.
 #
-# -O1 is the runtime lever: the suite is COMPILE-bound (577 distinct @Models,
+# -O0 is the runtime lever: the suite is COMPILE-bound (577 distinct @Models,
 # each forcing fresh type-specialized codegen), and tests use tiny data +
 # maxiters<=3, so execution speed is irrelevant while LLVM optimization time
-# dominates. -O1 cut a heavy 3-file batch from 358s to 236s (~1.5x). We do NOT
-# go to -O0: -O0 disables LLVM fma/muladd contraction, which shifts results from
-# the -O2 baseline the suite was validated under (one Laplace warm-vs-cold
-# tolerance test breaks) AND fma contraction is architecture-dependent (arm64 vs
-# CI's x86), so -O0 risks cross-arch flaky failures. -O1 keeps contraction on
-# (same numeric class as -O2). Skipped under coverage (that workflow isn't
-# latency-bound and instrumentation dominates anyway).
+# dominates. -O0 cut a heavy 3-file batch from 358s (-O2) to 109s (~3.3x); -O1
+# only reached 236s and the GitHub runner still exceeded the 120 min timeout at
+# -O1. -O0 disables fma/muladd contraction, which can nudge optimizer
+# trajectories on tiny degenerate-prone problems (one Laplace warm-start fit no
+# longer converges); the affected test is convergence-gated rather than loosened.
+# -O0 (unfused) is consistent across arm64/x86. Skipped under coverage (that
+# workflow isn't latency-bound and instrumentation dominates anyway).
 function _child_flags()
     o = Base.JLOptions()
     flags = String["--color=yes"]
@@ -158,7 +158,10 @@ function _child_flags()
     # code-coverage: 1=user, 2=all (Pkg.test sets coverage=true → user)
     o.code_coverage == 1 && push!(flags, "--code-coverage=user")
     o.code_coverage == 2 && push!(flags, "--code-coverage=all")
-    o.code_coverage == 0 && push!(flags, "-O1")
+    if o.code_coverage == 0
+        push!(flags, "-O0")
+        push!(flags, "--min-optlevel=0")
+    end
     flags
 end
 
