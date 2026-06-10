@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you use NoLimits.jl in your research, please cite it as below."
+title: "NoLimits.jl"
+abstract: >-
+  A Julia framework for nonlinear mixed-effects modeling of longitudinal data,
+  unifying mechanistic ODEs, hidden Markov models, neural-network and soft-tree
+  components, and flexible random-effect distributions under frequentist,
+  Bayesian, and variational estimation through a single fitting interface.
+type: software
+authors:
+  - family-names: "Huth"
+    given-names: "Manuel"
+    affiliation: "University of Bonn"
+  - family-names: "Arruda"
+    given-names: "Jonas"
+  - family-names: "Peiter"
+    given-names: "Clemens"
+  - family-names: "Schmid"
+    given-names: "Nina"
+  - family-names: "Hasenauer"
+    given-names: "Jan"
+    affiliation: "University of Bonn"
+version: "0.1.0"
+license: MIT
+repository-code: "https://github.com/manuhuth/NoLimits.jl"
+url: "https://manuhuth.github.io/NoLimits.jl/"
+keywords:
+  - "nonlinear mixed-effects models"
+  - "longitudinal data"
+  - "pharmacometrics"
+  - "scientific machine learning"
+  - "Bayesian inference"
+  - "Julia"

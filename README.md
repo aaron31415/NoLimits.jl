@@ -13,6 +13,12 @@
   <a href="https://codecov.io/gh/manuhuth/NoLimits.jl">
     <img src="https://codecov.io/gh/manuhuth/NoLimits.jl/branch/main/graph/badge.svg" alt="Coverage"/>
   </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/>
+  </a>
+  <a href="https://julialang.org">
+    <img src="https://img.shields.io/badge/Julia-1.12%2B-9558B2.svg?logo=julia&logoColor=white" alt="Julia 1.12+"/>
+  </a>
 </p>
 
 NoLimits.jl provides a unified, open-source framework for specifying, estimating, and diagnosing hierarchical models of longitudinal data. It is designed for life-science applications — from pharmacokinetics and systems biology to ecology and neuroscience — where population variability, mechanistic dynamics, and complex outcome structures must be modeled jointly.
@@ -49,8 +55,10 @@ All methods share a single `fit_model` interface, enabling direct comparison acr
 
 | Inference paradigm | Methods |
 |---|---|
-| **Fixed effects** | MLE, MAP, MCMC, VI, Multistart |
-| **Mixed effects** | Laplace, LaplaceMAP, GHQuadrature, GHQuadratureMAP, SAEM, MCEM, MCMC |
+| **Fixed effects** | MLE, MAP, MCMC, VI |
+| **Mixed effects** | Laplace, LaplaceMAP, FOCEI, FOCEIMAP, GHQuadrature, GHQuadratureMAP, MCEM, SAEM, MCMC |
+| **Pooled (mixed effects)** | Pooled, PooledMap |
+| **Cross-method** | Multistart |
 
 ### Uncertainty Quantification
 
@@ -70,7 +78,7 @@ Visual predictive checks (VPCs), residual diagnostics (QQ, PIT, ACF), random-eff
 The example below fits a one-compartment pharmacokinetic model with subject-level random effects on clearance and volume using a Laplace approximation.
 
 ```julia
-using NoLimits, DataFrames, Distributions, OrdinaryDiffEq
+using NoLimits, DataFrames, Distributions, OrdinaryDiffEq, Random
 
 # --- 1. Define the model ---
 model = @Model begin
@@ -110,18 +118,31 @@ model = @Model begin
     end
 end
 
-# --- 2. Bind to data ---
+# --- 2. Simulate a small dataset (or bring your own DataFrame with columns :ID, :t, :y) ---
+rng   = MersenneTwister(1)
+times = [0.5, 1.0, 2.0, 4.0, 8.0, 12.0, 24.0]
+df = DataFrame(ID=Int[], t=Float64[], y=Float64[])
+for id in 1:12
+    cl = 5.0  * exp(0.3 * randn(rng))      # subject-specific clearance
+    v  = 30.0 * exp(0.3 * randn(rng))      # subject-specific volume
+    for t in times
+        conc = (100.0 / v) * exp(-(cl / v) * t)
+        push!(df, (id, t, conc + 0.2 * randn(rng)))
+    end
+end
+
+# --- 3. Bind to data ---
 dm = DataModel(model, df; primary_id=:ID, time_col=:t)
 
-# --- 3. Fit ---
+# --- 4. Fit ---
 res = fit_model(dm, Laplace())
 
-# --- 4. Inspect results ---
+# --- 5. Inspect results ---
 get_params(res; scale=:untransformed)
 re  = get_random_effects(res)
 uq  = compute_uq(res; method=:wald)
 
-# --- 5. Diagnostics ---
+# --- 6. Diagnostics ---
 plot_fits(res)
 plot_vpc(res; n_simulations=200)
 plot_residuals(res)
@@ -176,7 +197,7 @@ Full documentation, including tutorials, method descriptions, and API reference:
 
 ## Citation
 
-A manuscript describing NoLimits.jl is in preparation. In the meantime, if you use this package in published work, please cite this repository:
+If you use NoLimits.jl in published work, please cite the software. GitHub's **"Cite this repository"** button (generated from [`CITATION.cff`](CITATION.cff)) provides ready-made APA and BibTeX exports; the BibTeX entry is:
 
 ```bibtex
 @software{NoLimits_jl_2026,
