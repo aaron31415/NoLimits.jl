@@ -12,7 +12,7 @@ bib = CitationBibliography(
 
 makedocs(;
     sitename = "NoLimits.jl",
-    authors = "Manuel Huth, Jonas Arruda, Clemens Peiter, Nina Schmid, Jan Hasenauer",
+    authors = "Manuel Huth, Jonas Arruda, Clemens Peiter, Roy Gusinow, Nina Schmid, Jan Hasenauer",
     modules = [NoLimits],
     checkdocs = :none,
     plugins = [bib],

@@ -202,7 +202,7 @@ If you use NoLimits.jl in published work, please cite the software. GitHub's **"
 ```bibtex
 @software{NoLimits_jl_2026,
   title  = {{NoLimits.jl}},
-  author = {Huth, Manuel and Arruda, Jonas and Peiter, Clemens and Schmid, Nina and Hasenauer, Jan},
+  author = {Huth, Manuel and Arruda, Jonas and Peiter, Clemens and Gusinow, Roy and Schmid, Nina and Hasenauer, Jan},
   year   = {2026},
   url    = {https://github.com/manuhuth/NoLimits.jl}
 }
