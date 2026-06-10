@@ -14,7 +14,6 @@ permissions:
   contents: write
   deployments: read
   issues: read
-  metadata: read
   packages: read
   pages: read
   pull-requests: read
