@@ -75,7 +75,7 @@ method = NoLimits.MLE(;
 | Optimization | `optimizer`, `optim_kwargs`, `adtype` | Controls fixed-effect objective optimization via [Optimization.jl](https://docs.sciml.ai/Optimization/stable/). |
 | Bounds | `lb`, `ub`, `ignore_model_bounds` | Optional transformed-scale bounds for free fixed effects; `ignore_model_bounds` disables model-declared bounds. |
 
-`ignore_model_bounds` defaults to `false`. Setting it to `true` disables the parameter bounds declared in the model during optimization. This keyword also applies to [`MAP`](mle-map.md), which shares the `MLE` constructor options.
+`ignore_model_bounds` defaults to `false`. Setting it to `true` disables the parameter bounds declared in the model during optimization. This keyword also applies to [`MAP`](#MAP-Estimation), which shares the `MLE` constructor options.
 
 ## Optimization.jl Interface
 
@@ -230,6 +230,51 @@ df_hmm = DataFrame(
 dm_hmm = DataModel(model_hmm, df_hmm; primary_id=:ID, time_col=:t)
 res_hmm = fit_model(dm_hmm, NoLimits.MLE(optim_kwargs=(iterations=5,)))
 ```
+
+## MAP Estimation
+
+Maximum a posteriori (`MAP`) estimation extends `MLE` by incorporating prior information about the fixed effects into the objective. Where `MLE` minimizes the negative log-likelihood alone, `MAP` minimizes the negative log-likelihood plus the negative log-prior of the fixed effects. It is the natural choice for fixed-effects-only models when substantive domain knowledge is available as priors.
+
+`MAP` shares every `MLE` constructor option and `fit_model` keyword; switching between the two requires changing only the method argument. It requires at least one fixed effect to carry a prior (a non-`Priorless` distribution); otherwise `fit_model` raises an error. Priors are assigned per parameter with the `prior` keyword in [`@fixedEffects`](../model-building/fixed-effects.md).
+
+```julia
+using NoLimits
+using DataFrames
+using Distributions
+
+model_map = @Model begin
+    @fixedEffects begin
+        a = RealNumber(0.2, prior=Normal(0.0, 1.0))
+        sigma = RealNumber(0.5, scale=:log, prior=LogNormal(0.0, 0.5))
+    end
+
+    @covariates begin
+        t = Covariate()
+    end
+
+    @formulas begin
+        y ~ Pareto(exp(a), sigma)
+    end
+end
+
+df_map = DataFrame(
+    ID = [1, 1, 2, 2],
+    t = [0.0, 1.0, 0.0, 1.0],
+    y = [1.0, 1.1, 0.9, 1.0],
+)
+
+dm_map = DataModel(model_map, df_map; primary_id=:ID, time_col=:t)
+res_map = fit_model(dm_map, NoLimits.MAP(; optim_kwargs=(maxiters=80,)))
+```
+
+Because the two methods share the same interface, the same data model can be fit both ways to assess how the prior influences the estimates:
+
+```julia
+res_mle = fit_model(dm_map, NoLimits.MLE())
+res_map = fit_model(dm_map, NoLimits.MAP())
+```
+
+The prior regularization can improve estimation stability when data are sparse or when certain parameters are weakly identified by the likelihood alone.
 
 ## Accessing Results
 

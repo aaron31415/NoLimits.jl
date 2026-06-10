@@ -4,9 +4,10 @@ Variational inference (VI) provides approximate Bayesian inference by optimizing
 
 Compared with `MCMC`, VI is often faster and easier to scale, but it returns an approximation whose quality depends on the selected variational family.
 
-!!! note
-    VI is not supported for models with random effects. Use `MCMC` for full Bayesian
-    inference on mixed-effects models.
+!!! note "VI is fixed-effects only"
+    VI is not supported for models with random effects. For full Bayesian inference on
+    mixed-effects models use [`MCMC`](mcmc.md) instead. For a worked fixed-effects VI
+    example, see the [Fixed-Effects VI tutorial](../tutorials/fixed-effects-vi.md).
 
 ## Applicability
 

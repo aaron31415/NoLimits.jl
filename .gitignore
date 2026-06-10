@@ -5,6 +5,13 @@ Manifest.toml
 docs/build/
 docs/cache/
 
+# Documentation (VitePress / npm build artifacts)
+node_modules/
+docs/node_modules/
+docs/package-lock.json
+docs/src/.vitepress/cache/
+docs/src/.vitepress/dist/
+
 # macOS
 .DS_Store
 

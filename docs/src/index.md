@@ -1,30 +1,79 @@
-# NoLimits.jl
+---
+layout: home
 
-**NoLimits.jl** is a Julia package for nonlinear mixed-effects (NLME) modeling of longitudinal data. It provides a unified framework for specifying, estimating, and diagnosing hierarchical models that arise across the life sciences, including ecology, neuroscience, epidemiology, pharmacology, and beyond.
+hero:
+  name: "NoLimits.jl"
+  text: "Nonlinear mixed-effects modeling without compromise"
+  tagline: Mechanistic ODEs, hidden Markov models, neural-network and soft-tree components, and frequentist, Bayesian, and variational estimation — composed in one framework, fit through one interface.
+  image:
+    src: /logo.png
+    alt: NoLimits.jl
+  actions:
+    - theme: brand
+      text: Get Started
+      link: /quickstart
+    - theme: alt
+      text: Tutorials
+      link: /tutorials/mixed-effects-multiple-methods
+    - theme: alt
+      text: View on GitHub
+      link: https://github.com/manuhuth/NoLimits.jl
+
+features:
+  - title: Diverse structural models
+    details: Classical nonlinear functions, mechanistic ODE systems, and hidden Markov outcome models combine within a single specification.
+  - title: Flexible estimation
+    details: Fit one model with Laplace, FOCEI, MCEM, SAEM, full Bayesian MCMC, or variational inference — and compare paradigms without rewriting it.
+  - title: Machine-learning integration
+    details: Embed neural networks (including neural-ODE constructions) and soft decision trees alongside known mechanistic terms.
+  - title: Rich hierarchical variability
+    details: Heavy-tailed, skewed, and normalizing-flow random-effect distributions, optionally parameterized by covariates and learned functions.
+---
 
 ## Why NoLimits.jl?
 
-Longitudinal studies -- where repeated measurements are collected from multiple individuals over time -- are ubiquitous in biomedical and natural sciences research. Analyzing such data requires models that capture both the underlying process dynamics and the variability across individuals. Nonlinear mixed-effects models provide a principled statistical framework for this, but existing software often forces users to choose between model expressiveness, estimation flexibility, and modern machine-learning integration.
+Longitudinal studies — where repeated measurements are collected from multiple individuals
+over time — are ubiquitous in the biomedical and natural sciences. Analyzing such data
+requires models that capture both the underlying process dynamics and the variability across
+individuals. Nonlinear mixed-effects models provide a principled statistical framework for
+this, but existing software often forces users to choose between model expressiveness,
+estimation flexibility, and modern machine-learning integration.
 
 NoLimits.jl removes these trade-offs. It supports:
 
-- **Diverse structural models.** Classical nonlinear functions, mechanistic ODE systems, and hidden Markov outcome models can be combined within a single specification.
-- **Flexible estimation.** The same model can be fitted using frequentist maximum-likelihood methods (Laplace approximation, MCEM, SAEM), full Bayesian MCMC sampling, or variational inference (VI), enabling comparison across inferential paradigms.
-- **Machine-learning integration.** Neural-network components -- including neural-ODE constructions -- and soft decision trees can be embedded alongside known mechanistic terms. This allows models to retain established scientific structure while learning unknown nonlinear behavior from data.
-- **Rich hierarchical variability.** Random-effect distributions are not restricted to Gaussian forms; heavy-tailed, skewed, and normalizing-flow-based distributions are supported. These distributions can themselves be parameterized by covariates and learned functions.
-- **Composability.** Multiple outcomes, multiple grouping structures (e.g., subject-level and site-level), covariates at different temporal resolutions, and learned components can all coexist in one coherent model definition.
+- **Diverse structural models.** Classical nonlinear functions, mechanistic ODE systems, and
+  hidden Markov outcome models can be combined within a single specification.
+- **Flexible estimation.** The same model can be fitted using frequentist methods (Laplace
+  approximation, FOCEI, MCEM, SAEM, Gauss–Hermite quadrature), full Bayesian MCMC sampling,
+  or variational inference, enabling comparison across inferential paradigms.
+- **Machine-learning integration.** Neural-network components — including neural-ODE
+  constructions — and soft decision trees can be embedded alongside known mechanistic terms,
+  so models retain established scientific structure while learning unknown nonlinear behavior
+  from data.
+- **Rich hierarchical variability.** Random-effect distributions are not restricted to
+  Gaussian forms; heavy-tailed, skewed, and normalizing-flow-based distributions are
+  supported, and can themselves be parameterized by covariates and learned functions.
+- **Composability.** Multiple outcomes, multiple grouping structures (e.g., subject-level and
+  site-level), covariates at different temporal resolutions, and learned components can all
+  coexist in one coherent model definition.
 
-Fixed-effects-only workflows are also supported for problems where random effects are not required.
+Fixed-effects-only workflows are also supported for problems where random effects are not
+required.
 
 ## Getting Started
 
-New users should begin with the [Installation](@ref) page, then work through the [Tutorials](tutorials/mixed-effects-multiple-methods.md) for hands-on examples covering fixed-effects models, mixed-effects estimation with multiple methods, ODE-based models, and machine-learning-augmented dynamics.
+New users should begin with the [Installation](installation.md) page and the
+[Quickstart](quickstart.md), then work through the
+[Tutorials](tutorials/mixed-effects-multiple-methods.md) for hands-on examples covering
+fixed-effects models, mixed-effects estimation with multiple methods, ODE-based models, and
+machine-learning-augmented dynamics.
 
-For a concise overview of what the package can do, see [Capabilities](@ref). For the mathematical foundations, see [NLME Methodology](@ref).
+For a concise overview of what the package can do, see [Capabilities](capabilities.md). For
+the mathematical foundations, see [NLME Methodology](nlme-methodology.md).
 
 ## How to Cite
 
-A manuscript describing NoLimits.jl is in preparation. In the meantime, please cite this repository:
+If you use NoLimits.jl in your research, please cite the software:
 
 ```bibtex
 @software{NoLimits_jl_2026,

@@ -1,0 +1,17 @@
+[deps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+DocumenterCitations = "daee34ce-89f3-4625-b898-19384cb65244"
+DocumenterVitepress = "4710194d-e776-4893-9690-8d956a29c365"
+LiveServer = "16fef848-5104-11e9-1b77-fb7a48bbb589"
+NoLimits = "1d491b74-35a5-408f-ae19-cf8524c3769d"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
+
+[compat]
+Documenter = "1.17"
+DocumenterCitations = "1.4"
+DocumenterVitepress = "0.3"
+julia = "1.12"

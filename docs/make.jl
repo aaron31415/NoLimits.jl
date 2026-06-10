@@ -1,18 +1,34 @@
 using Documenter
+using DocumenterVitepress
+using DocumenterCitations
 
 push!(LOAD_PATH, joinpath(@__DIR__, ".."))
 using NoLimits
 
+bib = CitationBibliography(
+    joinpath(@__DIR__, "src", "references.bib");
+    style = :numeric,
+)
+
 makedocs(;
-    sitename="NoLimits.jl",
-    modules=[NoLimits],
-    format=Documenter.HTML(; prettyurls=get(ENV, "CI", nothing) == "true", collapselevel=1, sidebar_sitename=false, size_threshold=400*1024),
-    repo=Remotes.GitHub("manuhuth", "NoLimits.jl"),
-    checkdocs=:none,
-    pages=[
+    sitename = "NoLimits.jl",
+    authors = "Manuel Huth, Jonas Arruda, Clemens Peiter, Nina Schmid, Jan Hasenauer",
+    modules = [NoLimits],
+    checkdocs = :none,
+    plugins = [bib],
+    format = DocumenterVitepress.MarkdownVitepress(;
+        repo = "github.com/manuhuth/NoLimits.jl",
+        devbranch = "main",
+        devurl = "dev",
+    ),
+    pages = [
         "Home" => "index.md",
-        "Installation" => "installation.md",
-        "Capabilities" => "capabilities.md",
+        "Getting Started" => [
+            "Installation" => "installation.md",
+            "Quickstart" => "quickstart.md",
+            "Capabilities" => "capabilities.md",
+            "NLME Methodology" => "nlme-methodology.md",
+        ],
         "Model Building" => [
             "Overview" => "model-building/index.md",
             "@Model" => "model-building/model-macro.md",
@@ -29,15 +45,15 @@ makedocs(;
         "Data Model Construction" => "data-model-construction.md",
         "Estimation" => [
             "Overview" => "estimation/index.md",
-            "Laplace" => "estimation/laplace.md",
-            "Laplace MAP" => "estimation/laplace-map.md",
+            "MLE / MAP" => "estimation/mle.md",
+            "Laplace / LaplaceMAP" => "estimation/laplace.md",
+            "FOCEI / FOCEIMAP" => "estimation/focei.md",
             "GH Quadrature" => "estimation/ghquadrature.md",
             "MCEM" => "estimation/mcem.md",
             "SAEM" => "estimation/saem.md",
+            "Pooled / PooledMap" => "estimation/pooled.md",
             "MCMC" => "estimation/mcmc.md",
             "VI" => "estimation/vi.md",
-            "MLE" => "estimation/mle.md",
-            "MAP" => "estimation/mle-map.md",
             "Multistart" => "estimation/multistart.md",
             "Cross-Validation" => "estimation/cv.md",
             "Saving & Loading" => "estimation/saving-and-loading.md",
@@ -50,23 +66,27 @@ makedocs(;
         ],
         "Plotting" => "plotting/index.md",
         "Tutorials" => [
-            "Mixed-Effects Tutorial 1: Nonlinear Random-Effects Model Across Multiple Estimation Methods" => "tutorials/mixed-effects-multiple-methods.md",
-            "Mixed-Effects Tutorial 2: ODE Model with Dosing Events (MCEM)" => "tutorials/mixed-effects-ode-mcem.md",
-            "Mixed-Effects Tutorial 3: Neural Differential-Equation Components (SAEM)" => "tutorials/mixed-effects-nn-saem.md",
-            "Mixed-Effects Tutorial 4: SoftTree Differential-Equation Components (SAEM)" => "tutorials/mixed-effects-softtree-saem.md",
-            "Mixed-Effects Tutorial 5: Seizure Counts with Poisson and NegativeBinomial Outcomes (MCEM)" => "tutorials/mixed-effects-seizure-counts-poisson-nb-mcem.md",
-            "Mixed-Effects Tutorial 6: Left-Censored Nonlinear Model (Laplace)" => "tutorials/mixed-effects-left-censored-virload50-laplace.md",
-            "Mixed-Effects Tutorial 7: VI for Mixed Effects (Not Supported)" => "tutorials/mixed-effects-vi.md",
-            "Fixed-Effects Tutorial 1: Nonlinear Longitudinal Model (MLE + MAP)" => "tutorials/fixed-effects-nonlinear-mle-map.md",
-            "Fixed-Effects Tutorial 2: Variational Inference (VI)" => "tutorials/fixed-effects-vi.md",
-            "Markov Models Tutorial 1: Observed-State, Hidden-State, and Coarsed Observations" => "tutorials/markov-models-observed-hidden-coarsed.md",
-            ],
+            "Multi-Method Comparison" => "tutorials/mixed-effects-multiple-methods.md",
+            "ODE Model with Dosing (MCEM)" => "tutorials/mixed-effects-ode-mcem.md",
+            "Neural Differential Equations (SAEM)" => "tutorials/mixed-effects-nn-saem.md",
+            "Soft-Tree Differential Equations (SAEM)" => "tutorials/mixed-effects-softtree-saem.md",
+            "Count Outcomes: Poisson & NegativeBinomial (MCEM)" => "tutorials/mixed-effects-seizure-counts-poisson-nb-mcem.md",
+            "Left-Censored Nonlinear Model (Laplace)" => "tutorials/mixed-effects-left-censored-virload50-laplace.md",
+            "Fixed-Effects: MLE & MAP" => "tutorials/fixed-effects-nonlinear-mle-map.md",
+            "Fixed-Effects: Variational Inference" => "tutorials/fixed-effects-vi.md",
+            "Hidden & Observed Markov Models" => "tutorials/markov-models-observed-hidden-coarsed.md",
+        ],
+        "Developers Guide" => "developers-guide.md",
         "How to Contribute" => "how-to-contribute.md",
+        "References" => "references.md",
         "API" => "api.md",
     ],
 )
 
 deploydocs(;
     repo = "github.com/manuhuth/NoLimits.jl",
+    target = joinpath(@__DIR__, "build"),
+    branch = "gh-pages",
     devbranch = "main",
+    push_preview = true,
 )

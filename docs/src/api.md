@@ -141,6 +141,8 @@ MLE
 MAP
 Laplace
 LaplaceMAP
+FOCEI
+FOCEIMAP
 GHQuadrature
 GHQuadratureMAP
 MCEM
@@ -165,6 +167,7 @@ GHQuadratureMAPResult
 MCEMResult
 SAEMResult
 MCMCResult
+PooledResult
 MultistartFitResult
 ```
 

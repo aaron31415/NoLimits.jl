@@ -36,11 +36,12 @@ NoLimits.jl provides a broad set of modeling, estimation, and diagnostic capabil
 
 | Model type | Available methods |
 | --- | --- |
-| Mixed-effects | Laplace approximation, LaplaceMAP, MCEM, SAEM, Gauss–Hermite quadrature (GHQuadrature, GHQuadratureMAP), MCMC |
+| Mixed-effects | Laplace approximation, LaplaceMAP, FOCEI, FOCEIMAP, MCEM, SAEM, Gauss–Hermite quadrature (GHQuadrature, GHQuadratureMAP), MCMC |
+| Mixed-effects (pooled) | Pooled, PooledMap |
 | Fixed-effects only | MLE, MAP, MCMC, VI |
 | Cross-method | Multistart optimization wrapper |
 
-All methods share a unified `fit_model` interface, allowing direct comparison of estimation approaches on the same model and data.
+All methods share a unified `fit_model` interface, allowing direct comparison of estimation approaches on the same model and data. See [Estimation](estimation/index.md) for the full method reference.
 
 ## Uncertainty Quantification
 

@@ -68,7 +68,7 @@ end
 Configuration for the ODE solver used when integrating the `@DifferentialEquation` block.
 
 # Fields
-- `alg`: ODE algorithm (e.g. `Tsit5()`, `CVODE_BDF()`). `nothing` uses the SciML default.
+- `alg`: ODE algorithm (e.g. `Tsit5()`, `Rodas5P()`). `nothing` falls back to `Tsit5()`.
 - `kwargs::NamedTuple`: keyword arguments forwarded to `solve` (e.g. `abstol`, `reltol`).
 - `args::Tuple`: positional arguments forwarded to `solve`.
 - `saveat_mode::Symbol`: one of `:dense`, `:saveat`, or `:auto`.
@@ -302,7 +302,7 @@ The keyword form constructs a new [`ODESolverConfig`](@ref) from the given keywo
 arguments and replaces the existing configuration.
 
 # Keyword Arguments
-- `alg`: ODE algorithm (e.g. `Tsit5()`). `nothing` uses the SciML default.
+- `alg`: ODE algorithm (e.g. `Tsit5()`). `nothing` falls back to `Tsit5()`.
 - `kwargs = NamedTuple()`: keyword arguments forwarded to `solve`.
 - `args = ()`: positional arguments forwarded to `solve`.
 - `saveat_mode::Symbol = :dense`: save-time mode (`:dense`, `:saveat`, or `:auto`).

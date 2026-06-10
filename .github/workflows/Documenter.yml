@@ -3,10 +3,14 @@ name: Documenter
 on:
   push:
     branches: [main]
+    tags: ['*']
   pull_request:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+  statuses: write
 
 jobs:
   docs:
@@ -21,10 +25,10 @@ jobs:
 
       - uses: julia-actions/cache@v2
 
-      - uses: julia-actions/julia-buildpkg@v1
-
-      - name: Build and deploy docs
+      # Node.js is provided by DocumenterVitepress via NodeJS_jll — no setup-node step needed.
+      # julia-docdeploy builds with --project=docs/ and dev-installs the package into it.
+      - uses: julia-actions/julia-docdeploy@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
           GKSwstype: "100"   # headless GR backend for Plots.jl
-        run: julia --project=. docs/make.jl
