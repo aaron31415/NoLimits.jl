@@ -12,6 +12,7 @@ using Test
 # Set NL_BATCHES to override the batch count (default below).
 
 const TEST_FILES = [
+    "aqua_tests.jl",
     "softtrees_tests.jl",
     "ad_softtree.jl",
     "ad_flow.jl",
@@ -120,6 +121,21 @@ const TEST_FILES = [
 
 # --- Orchestrate sequential subprocess batches -----------------------------
 
+# Optional subset filter: comma-separated file names from TEST_FILES. Runs only
+# those files, but through the full Pkg.test sandbox (test/Project.toml deps +
+# NoLimits). This is the supported way to run single files now that test-only
+# deps live in test/Project.toml, e.g.:
+#   NL_TEST_FILES="aqua_tests.jl" julia --project -e 'using Pkg; Pkg.test()'
+const _FILTER = strip(get(ENV, "NL_TEST_FILES", ""))
+const _SELECTED_FILES = if isempty(_FILTER)
+    TEST_FILES
+else
+    requested = strip.(split(_FILTER, ","))
+    unknown = setdiff(requested, TEST_FILES)
+    isempty(unknown) || error("NL_TEST_FILES entries not in TEST_FILES: $(unknown)")
+    filter(in(Set(requested)), TEST_FILES)
+end
+
 const N_BATCHES = parse(Int, get(ENV, "NL_BATCHES", "6"))
 
 # Contiguous split of TEST_FILES into N_BATCHES near-equal chunks (order
@@ -167,7 +183,7 @@ function _child_flags()
     flags
 end
 
-const _BATCHES = _chunks(TEST_FILES, N_BATCHES)
+const _BATCHES = _chunks(_SELECTED_FILES, N_BATCHES)
 const _PROJECT = dirname(Base.active_project())
 const _BATCH_SCRIPT = joinpath(@__DIR__, "run_batch.jl")
 

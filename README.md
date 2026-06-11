@@ -20,6 +20,9 @@
   <a href="https://codecov.io/gh/manuhuth/NoLimits.jl">
     <img src="https://codecov.io/gh/manuhuth/NoLimits.jl/branch/main/graph/badge.svg" alt="Coverage"/>
   </a>
+  <a href="https://github.com/JuliaTesting/Aqua.jl">
+    <img src="https://juliatesting.github.io/Aqua.jl/dev/assets/badge.svg" alt="Aqua QA"/>
+  </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/>
   </a>

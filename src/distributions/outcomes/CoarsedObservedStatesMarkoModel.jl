@@ -93,6 +93,32 @@ end
 
 Distributions.pdf(dist::CoarsedObservedStatesMarkovModel, y) = exp(logpdf(dist, y))
 
+# --- Aqua ambiguity disambiguation -------------------------------------------
+# This type is a `Distribution{Univariate,Discrete}`, and its `logpdf`/`pdf`
+# take an untyped `y`. That is ambiguous with Distributions' generic array
+# overloads (0-dim, n-dim, nested) and `pdf(::UnivariateDistribution, ::Real)`.
+# A coarsed observation is a 1-d vector (handled by the method above); other
+# array shapes forward to the untyped handler (via `invoke`, to avoid
+# self-recursion), which errors as before — the observation pipeline never
+# constructs the array shapes caught here.
+Distributions.logpdf(dist::CoarsedObservedStatesMarkovModel,
+                     y::AbstractArray{<:Real, 0}) = invoke(
+    Distributions.logpdf, Tuple{CoarsedObservedStatesMarkovModel, Any}, dist, y)
+Distributions.logpdf(dist::CoarsedObservedStatesMarkovModel,
+                     y::AbstractArray{<:Real}) = invoke(
+    Distributions.logpdf, Tuple{CoarsedObservedStatesMarkovModel, Any}, dist, y)
+Distributions.logpdf(dist::CoarsedObservedStatesMarkovModel,
+                     y::AbstractArray{<:AbstractArray{<:Real, 0}}) = invoke(
+    Distributions.logpdf, Tuple{CoarsedObservedStatesMarkovModel, Any}, dist, y)
+Distributions.pdf(dist::CoarsedObservedStatesMarkovModel, y::Real) =
+    exp(logpdf(dist, y))
+Distributions.pdf(dist::CoarsedObservedStatesMarkovModel,
+                  y::AbstractArray{<:Real, 0}) = exp(logpdf(dist, y))
+Distributions.pdf(dist::CoarsedObservedStatesMarkovModel,
+                  y::AbstractArray{<:Real}) = exp(logpdf(dist, y))
+Distributions.pdf(dist::CoarsedObservedStatesMarkovModel,
+                  y::AbstractArray{<:AbstractArray{<:Real, 0}}) = exp(logpdf(dist, y))
+
 Distributions.rand(rng::AbstractRNG, dist::CoarsedObservedStatesMarkovModel) =
     rand(rng, dist.base_dist)
 

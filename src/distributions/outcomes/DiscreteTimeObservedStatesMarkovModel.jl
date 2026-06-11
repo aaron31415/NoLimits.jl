@@ -121,6 +121,32 @@ end
 
 Distributions.pdf(dist::DiscreteTimeObservedStatesMarkovModel, y) = exp(logpdf(dist, y))
 
+# --- Aqua ambiguity disambiguation -------------------------------------------
+# This type is a `Distribution{Univariate,Discrete}`, and its scalar-label
+# `logpdf`/`pdf` take an untyped `y` (labels may be non-`Real`). That is
+# ambiguous with Distributions' generic array overloads (0-dim, n-dim, nested)
+# and `pdf(::UnivariateDistribution, ::Real)`. Real scalars and 1-d vectors
+# already dispatch to the methods above; these forward the remaining array
+# shapes to the untyped handler (via `invoke`, to avoid self-recursion) so
+# behaviour is identical — the observation pipeline never constructs them.
+Distributions.logpdf(dist::DiscreteTimeObservedStatesMarkovModel,
+                     y::AbstractArray{<:Real, 0}) = invoke(
+    Distributions.logpdf, Tuple{DiscreteTimeObservedStatesMarkovModel, Any}, dist, y)
+Distributions.logpdf(dist::DiscreteTimeObservedStatesMarkovModel,
+                     y::AbstractArray{<:Real}) = invoke(
+    Distributions.logpdf, Tuple{DiscreteTimeObservedStatesMarkovModel, Any}, dist, y)
+Distributions.logpdf(dist::DiscreteTimeObservedStatesMarkovModel,
+                     y::AbstractArray{<:AbstractArray{<:Real, 0}}) = invoke(
+    Distributions.logpdf, Tuple{DiscreteTimeObservedStatesMarkovModel, Any}, dist, y)
+Distributions.pdf(dist::DiscreteTimeObservedStatesMarkovModel, y::Real) =
+    exp(logpdf(dist, y))
+Distributions.pdf(dist::DiscreteTimeObservedStatesMarkovModel,
+                  y::AbstractArray{<:Real, 0}) = exp(logpdf(dist, y))
+Distributions.pdf(dist::DiscreteTimeObservedStatesMarkovModel,
+                  y::AbstractArray{<:Real}) = exp(logpdf(dist, y))
+Distributions.pdf(dist::DiscreteTimeObservedStatesMarkovModel,
+                  y::AbstractArray{<:AbstractArray{<:Real, 0}}) = exp(logpdf(dist, y))
+
 function Distributions.rand(rng::AbstractRNG, dist::DiscreteTimeObservedStatesMarkovModel)
     p = probabilities_hidden_states(dist)
     idx = rand(rng, Categorical(p))
