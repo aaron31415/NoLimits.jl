@@ -62,22 +62,22 @@ res = fit_model(dm, SAEM(;
 ```
 """
 struct SaemixMH
-    n_kern1       :: Int
-    n_kern2       :: Int
-    n_kern3       :: Int
-    proba_mcmc    :: Float64
-    stepsize_rw   :: Float64
-    rw_init       :: Float64
+    n_kern1::Int
+    n_kern2::Int
+    n_kern3::Int
+    proba_mcmc::Float64
+    stepsize_rw::Float64
+    rw_init::Float64
 end
 
-function SaemixMH(; n_kern1::Int=2,
-                    n_kern2::Int=2,
-                    n_kern3::Int=2,
-                    proba_mcmc::Float64=0.4,
-                    stepsize_rw::Float64=0.4,
-                    rw_init::Float64=0.5,
-                    target_accept=nothing,
-                    adapt_rate=nothing)
+function SaemixMH(; n_kern1::Int = 2,
+        n_kern2::Int = 2,
+        n_kern3::Int = 2,
+        proba_mcmc::Float64 = 0.4,
+        stepsize_rw::Float64 = 0.4,
+        rw_init::Float64 = 0.5,
+        target_accept = nothing,
+        adapt_rate = nothing)
     p_mcmc = isnothing(target_accept) ? proba_mcmc : Float64(target_accept)
     step_rw = isnothing(adapt_rate) ? stepsize_rw : Float64(adapt_rate)
     return SaemixMH(n_kern1, n_kern2, n_kern3, p_mcmc, step_rw, rw_init)
@@ -90,14 +90,14 @@ end
 # One entry per free RE level in the batch.  Built once during init and reused
 # across SAEM iterations.
 struct _SaemixMHLevel
-    ri        :: Int              # RE group index (1-based into re_names)
-    li        :: Int              # level index within that RE group
-    range     :: UnitRange{Int}   # slice of flat b for this level
-    rep_ind   :: Int              # representative individual index (const_cov access)
-    dim       :: Int              # dimensionality (1 for scalar RE)
-    is_scalar :: Bool             # true only for univariate dists (value fed to logpdf is scalar)
-    group_pos :: Vector{Int}      # positions into batch_info.inds that use this level
-    re_type   :: Symbol           # distribution type symbol (for bijection dispatch)
+    ri::Int              # RE group index (1-based into re_names)
+    li::Int              # level index within that RE group
+    range::UnitRange{Int}   # slice of flat b for this level
+    rep_ind::Int              # representative individual index (const_cov access)
+    dim::Int              # dimensionality (1 for scalar RE)
+    is_scalar::Bool             # true only for univariate dists (value fed to logpdf is scalar)
+    group_pos::Vector{Int}      # positions into batch_info.inds that use this level
+    re_type::Symbol           # distribution type symbol (for bijection dispatch)
 end
 
 # ---------------------------------------------------------------------------
@@ -105,14 +105,14 @@ end
 # ---------------------------------------------------------------------------
 
 mutable struct _SaemixMHState
-    b          :: Vector{Float64}         # current flat b (all free RE levels)
-    b_prop     :: Vector{Float64}         # preallocated proposal buffer (same length as b)
-    indiv_ll   :: Vector{Float64}         # obs log-lik per individual (indexed by pos in inds)
-    level_plp  :: Vector{Float64}         # prior log-pdf per free level
-    levels     :: Vector{_SaemixMHLevel}  # pre-built level metadata
-    domega2    :: Vector{Matrix{Float64}} # per-level saemix RW scales, indexed by (dim, block_size)
-    n_accept   :: Int
-    n_total    :: Int
+    b::Vector{Float64}         # current flat b (all free RE levels)
+    b_prop::Vector{Float64}         # preallocated proposal buffer (same length as b)
+    indiv_ll::Vector{Float64}         # obs log-lik per individual (indexed by pos in inds)
+    level_plp::Vector{Float64}         # prior log-pdf per free level
+    levels::Vector{_SaemixMHLevel}  # pre-built level metadata
+    domega2::Vector{Matrix{Float64}} # per-level saemix RW scales, indexed by (dim, block_size)
+    n_accept::Int
+    n_total::Int
 end
 
 # ---------------------------------------------------------------------------
@@ -121,28 +121,28 @@ end
 
 # Draw an initial b from the RE priors.
 function _saemixmh_init_b!(b::Vector{Float64},
-                            levels::Vector{_SaemixMHLevel},
-                            dm::DataModel,
-                            θ::ComponentArray,
-                            const_cache::LaplaceConstantsCache,
-                            cache::_LLCache,
-                            rng::AbstractRNG,
-                            re_names::Vector{Symbol})
+        levels::Vector{_SaemixMHLevel},
+        dm::DataModel,
+        θ::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        cache::_LLCache,
+        rng::AbstractRNG,
+        re_names::Vector{Symbol})
     θ_re = _symmetrize_psd_params(θ, dm.model.fixed.fixed)
     dists_builder = get_create_random_effect_distribution(dm.model.random.random)
     model_funs = cache.model_funs
-    helpers    = cache.helpers
+    helpers = cache.helpers
     for lv in levels
-        re    = re_names[lv.ri]
+        re = re_names[lv.ri]
         const_cov = dm.individuals[lv.rep_ind].const_cov
         dists = dists_builder(θ_re, const_cov, model_funs, helpers)
-        dist  = getproperty(dists, re)
+        dist = getproperty(dists, re)
         rng_draw = rand(rng, dist)
         r = lv.range
         if lv.dim == 1
             b[first(r)] = Float64(rng_draw isa AbstractVector ? rng_draw[1] : rng_draw)
         else
-            for k in 1:lv.dim
+            for k in 1:(lv.dim)
                 b[r[k]] = Float64(rng_draw isa AbstractVector ? rng_draw[k] : rng_draw)
             end
         end
@@ -152,12 +152,12 @@ end
 
 # Compute initial per-individual obs log-likelihood.
 function _saemixmh_init_indiv_ll!(indiv_ll::Vector{Float64},
-                                   dm::DataModel,
-                                   batch_info::_LaplaceBatchInfo,
-                                   θ::ComponentArray,
-                                   const_cache::LaplaceConstantsCache,
-                                   cache::_LLCache,
-                                   b::Vector{Float64})
+        dm::DataModel,
+        batch_info::_LaplaceBatchInfo,
+        θ::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        cache::_LLCache,
+        b::Vector{Float64})
     θ_re = _symmetrize_psd_params(θ, dm.model.fixed.fixed)
     for (pos, i) in enumerate(batch_info.inds)
         η_ind = _build_eta_ind(dm, i, batch_info, b, const_cache, θ_re)
@@ -167,24 +167,24 @@ function _saemixmh_init_indiv_ll!(indiv_ll::Vector{Float64},
 end
 
 function _saemixmh_level_plp!(level_plp::Vector{Float64},
-                               levels::Vector{_SaemixMHLevel},
-                               dm::DataModel,
-                               θ::ComponentArray,
-                               const_cache::LaplaceConstantsCache,
-                               cache::_LLCache,
-                               b::Vector{Float64};
-                               anneal_sds::NamedTuple=NamedTuple())
+        levels::Vector{_SaemixMHLevel},
+        dm::DataModel,
+        θ::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        cache::_LLCache,
+        b::Vector{Float64};
+        anneal_sds::NamedTuple = NamedTuple())
     θ_re = _symmetrize_psd_params(θ, dm.model.fixed.fixed)
     dists_builder = get_create_random_effect_distribution(dm.model.random.random)
     model_funs = cache.model_funs
-    helpers    = cache.helpers
+    helpers = cache.helpers
     has_anneal = !isempty(anneal_sds)
-    re_names   = dm.re_group_info.laplace_cache.re_names
+    re_names = dm.re_group_info.laplace_cache.re_names
     for (k, lv) in enumerate(levels)
-        re    = re_names[lv.ri]
+        re = re_names[lv.ri]
         const_cov = dm.individuals[lv.rep_ind].const_cov
         dists = dists_builder(θ_re, const_cov, model_funs, helpers)
-        dist  = getproperty(dists, re)
+        dist = getproperty(dists, re)
         if has_anneal && haskey(anneal_sds, re)
             dist = _saem_apply_anneal_dist(dist, getfield(anneal_sds, re))
         end
@@ -200,20 +200,20 @@ end
 
 # Build the _SaemixMHLevel list from batch_info.
 function _saemixmh_build_levels(dm::DataModel,
-                                 batch_info::_LaplaceBatchInfo,
-                                 re_names::Vector{Symbol})
-    cache    = dm.re_group_info.laplace_cache
+        batch_info::_LaplaceBatchInfo,
+        re_names::Vector{Symbol})
+    cache = dm.re_group_info.laplace_cache
     re_types = get_re_types(dm.model.random.random)
-    levels   = _SaemixMHLevel[]
+    levels = _SaemixMHLevel[]
     for (ri, re) in enumerate(re_names)
-        info    = batch_info.re_info[ri]
+        info = batch_info.re_info[ri]
         re_type = get(re_types, re, :Unknown)
         isempty(info.map.levels) && continue
         for li in eachindex(info.map.levels)
-            l_id   = info.map.levels[li]
-            range  = info.ranges[li]
-            rep    = info.reps[li]
-            dim    = info.dim
+            l_id = info.map.levels[li]
+            range = info.ranges[li]
+            rep = info.reps[li]
+            dim = info.dim
             is_scalar = info.is_scalar
 
             # which individuals (by position in batch_info.inds) use this level?
@@ -225,7 +225,8 @@ function _saemixmh_build_levels(dm::DataModel,
                 end
             end
 
-            push!(levels, _SaemixMHLevel(ri, li, range, rep, dim, is_scalar, group_pos, re_type))
+            push!(levels,
+                _SaemixMHLevel(ri, li, range, rep, dim, is_scalar, group_pos, re_type))
         end
     end
     return levels
@@ -237,43 +238,59 @@ end
 function _saemixmh_zspace_std(dist, re_type::Symbol)::Float64
     if re_type == :LogNormal
         # z = log(η) ~ Normal(μ, σ)  →  z-space std = σ
-        s = try Float64(dist.σ) catch; NaN end
+        s = try
+            Float64(dist.σ)
+        catch
+            NaN
+        end
         return isfinite(s) && s > 0 ? s : 1.0
     elseif re_type == :Exponential
         # z = log(η), log(Exp(θ)) has variance π²/6 regardless of θ
         return Float64(π) / sqrt(6.0)
     elseif re_type == :Beta
         # z = logit(η), delta-method: Var[logit(η)] ≈ (α+β+1)/(α*β)
-        α = try Float64(dist.α) catch; NaN end
-        β = try Float64(dist.β) catch; NaN end
+        α = try
+            Float64(dist.α)
+        catch
+            NaN
+        end
+        β = try
+            Float64(dist.β)
+        catch
+            NaN
+        end
         if isfinite(α) && isfinite(β) && α > 0 && β > 0
             return sqrt((α + β + 1.0) / (α * β))
         end
         return 1.0
     else
         # Normal and identity fallback: proposal is in natural space
-        v = try Float64(var(dist)) catch; NaN end
+        v = try
+            Float64(var(dist))
+        catch
+            NaN
+        end
         return isfinite(v) && v > 0 ? sqrt(v) : 1.0
     end
 end
 
 function _saemixmh_init_domega2(levels::Vector{_SaemixMHLevel},
-                                 dm::DataModel,
-                                 θ::ComponentArray,
-                                 const_cache::LaplaceConstantsCache,
-                                 cache::_LLCache,
-                                 re_names::Vector{Symbol},
-                                 rw_init::Float64)
+        dm::DataModel,
+        θ::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        cache::_LLCache,
+        re_names::Vector{Symbol},
+        rw_init::Float64)
     θ_re = _symmetrize_psd_params(θ, dm.model.fixed.fixed)
     dists_builder = get_create_random_effect_distribution(dm.model.random.random)
     model_funs = cache.model_funs
-    helpers    = cache.helpers
+    helpers = cache.helpers
     domega2 = Vector{Matrix{Float64}}(undef, length(levels))
     for (k, lv) in enumerate(levels)
-        re    = re_names[lv.ri]
+        re = re_names[lv.ri]
         const_cov = dm.individuals[lv.rep_ind].const_cov
         dists = dists_builder(θ_re, const_cov, model_funs, helpers)
-        dist  = getproperty(dists, re)
+        dist = getproperty(dists, re)
         d = lv.dim
         scales = Vector{Float64}(undef, d)
         if d == 1
@@ -290,7 +307,7 @@ function _saemixmh_init_domega2(levels::Vector{_SaemixMHLevel},
                 v = V_dist[j, j]
                 scales[j] = isfinite(v) && v > 0 ? rw_init * sqrt(v) : rw_init
             end
-            for j in size(V_dist, 1)+1:d
+            for j in (size(V_dist, 1) + 1):d
                 scales[j] = rw_init
             end
         end
@@ -300,25 +317,25 @@ function _saemixmh_init_domega2(levels::Vector{_SaemixMHLevel},
 end
 
 function _saemixmh_init_state(dm::DataModel,
-                               batch_info::_LaplaceBatchInfo,
-                               θ::ComponentArray,
-                               const_cache::LaplaceConstantsCache,
-                               cache::_LLCache,
-                               rng::AbstractRNG,
-                               re_names::Vector{Symbol},
-                               rw_init::Float64)
-    nb     = batch_info.n_b
+        batch_info::_LaplaceBatchInfo,
+        θ::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        cache::_LLCache,
+        rng::AbstractRNG,
+        re_names::Vector{Symbol},
+        rw_init::Float64)
+    nb = batch_info.n_b
     n_inds = length(batch_info.inds)
     levels = _saemixmh_build_levels(dm, batch_info, re_names)
-    b      = zeros(Float64, nb)
+    b = zeros(Float64, nb)
     _saemixmh_init_b!(b, levels, dm, θ, const_cache, cache, rng, re_names)
-    indiv_ll  = Vector{Float64}(undef, n_inds)
+    indiv_ll = Vector{Float64}(undef, n_inds)
     _saemixmh_init_indiv_ll!(indiv_ll, dm, batch_info, θ, const_cache, cache, b)
     level_plp = Vector{Float64}(undef, length(levels))
     _saemixmh_level_plp!(level_plp, levels, dm, θ, const_cache, cache, b)
     domega2 = _saemixmh_init_domega2(levels, dm, θ, const_cache, cache, re_names, rw_init)
     return _SaemixMHState(b, similar(b), indiv_ll, level_plp, levels,
-                          domega2, 0, 0)
+        domega2, 0, 0)
 end
 
 # ---------------------------------------------------------------------------
@@ -326,24 +343,24 @@ end
 # ---------------------------------------------------------------------------
 
 function _saemixmh_kern1!(state::_SaemixMHState,
-                           dm::DataModel,
-                           batch_info::_LaplaceBatchInfo,
-                           θ::ComponentArray,
-                           const_cache::LaplaceConstantsCache,
-                           cache::_LLCache,
-                           rng::AbstractRNG,
-                           re_names::Vector{Symbol},
-                           n_steps::Int,
-                           anneal_sds::NamedTuple)
+        dm::DataModel,
+        batch_info::_LaplaceBatchInfo,
+        θ::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        cache::_LLCache,
+        rng::AbstractRNG,
+        re_names::Vector{Symbol},
+        n_steps::Int,
+        anneal_sds::NamedTuple)
     n_steps == 0 && return
     θ_re = _symmetrize_psd_params(θ, dm.model.fixed.fixed)
     dists_builder = get_create_random_effect_distribution(dm.model.random.random)
     model_funs = cache.model_funs
-    helpers    = cache.helpers
+    helpers = cache.helpers
     has_anneal = !isempty(anneal_sds)
-    b          = state.b
-    b_prop     = state.b_prop
-    indiv_ll   = state.indiv_ll
+    b = state.b
+    b_prop = state.b_prop
+    indiv_ll = state.indiv_ll
 
     # Note: kernel 1 iterates step-outer / level-inner, so hoisting the (b-independent)
     # prior build out of the step loop would require materialising a per-level vector.
@@ -352,9 +369,9 @@ function _saemixmh_kern1!(state::_SaemixMHState,
     # level-outer, hoist it cheaply).
     for _ in 1:n_steps
         for (k, lv) in enumerate(state.levels)
-            re    = re_names[lv.ri]
+            re = re_names[lv.ri]
             const_cov = dm.individuals[lv.rep_ind].const_cov
-            dist  = getproperty(dists_builder(θ_re, const_cov, model_funs, helpers), re)
+            dist = getproperty(dists_builder(θ_re, const_cov, model_funs, helpers), re)
             if has_anneal && haskey(anneal_sds, re)
                 dist = _saem_apply_anneal_dist(dist, getfield(anneal_sds, re))
             end
@@ -366,10 +383,12 @@ function _saemixmh_kern1!(state::_SaemixMHState,
             copyto!(b_prop, b)
             r = lv.range
             if lv.dim == 1
-                b_prop[first(r)] = Float64(eta_star isa AbstractVector ? eta_star[1] : eta_star)
+                b_prop[first(r)] = Float64(eta_star isa AbstractVector ? eta_star[1] :
+                                           eta_star)
             else
-                for j in 1:lv.dim
-                    b_prop[r[j]] = Float64(eta_star isa AbstractVector ? eta_star[j] : eta_star)
+                for j in 1:(lv.dim)
+                    b_prop[r[j]] = Float64(eta_star isa AbstractVector ? eta_star[j] :
+                                           eta_star)
                 end
             end
 
@@ -377,25 +396,25 @@ function _saemixmh_kern1!(state::_SaemixMHState,
             state.n_total += 1
             if length(lv.group_pos) == 1
                 # Fast path: single individual — no temporary vector allocation
-                pos    = lv.group_pos[1]
-                i      = batch_info.inds[pos]
-                η_ind  = _build_eta_ind(dm, i, batch_info, b_prop, const_cache, θ_re)
+                pos = lv.group_pos[1]
+                i = batch_info.inds[pos]
+                η_ind = _build_eta_ind(dm, i, batch_info, b_prop, const_cache, θ_re)
                 ll_new = _loglikelihood_individual(dm, i, θ_re, η_ind, cache)
                 if log(rand(rng)) < ll_new - indiv_ll[pos]
                     copyto!(b, b_prop)
                     state.level_plp[k] = logpdf(dist, eta_star)
-                    indiv_ll[pos]      = ll_new
-                    state.n_accept     += 1
+                    indiv_ll[pos] = ll_new
+                    state.n_accept += 1
                 end
             else
-                Δ_ll   = 0.0
+                Δ_ll = 0.0
                 new_ll = Vector{Float64}(undef, length(lv.group_pos))
                 for (gi, pos) in enumerate(lv.group_pos)
-                    i      = batch_info.inds[pos]
-                    η_ind  = _build_eta_ind(dm, i, batch_info, b_prop, const_cache, θ_re)
+                    i = batch_info.inds[pos]
+                    η_ind = _build_eta_ind(dm, i, batch_info, b_prop, const_cache, θ_re)
                     ll_new = _loglikelihood_individual(dm, i, θ_re, η_ind, cache)
                     new_ll[gi] = ll_new
-                    Δ_ll      += ll_new - indiv_ll[pos]
+                    Δ_ll += ll_new - indiv_ll[pos]
                 end
                 if log(rand(rng)) < Δ_ll
                     copyto!(b, b_prop)
@@ -416,35 +435,35 @@ end
 # ---------------------------------------------------------------------------
 
 function _saemixmh_kern2!(state::_SaemixMHState,
-                           dm::DataModel,
-                           batch_info::_LaplaceBatchInfo,
-                           θ::ComponentArray,
-                           const_cache::LaplaceConstantsCache,
-                           cache::_LLCache,
-                           rng::AbstractRNG,
-                           re_names::Vector{Symbol},
-                           n_steps::Int,
-                           proba_mcmc::Float64,
-                           stepsize_rw::Float64,
-                           anneal_sds::NamedTuple)
+        dm::DataModel,
+        batch_info::_LaplaceBatchInfo,
+        θ::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        cache::_LLCache,
+        rng::AbstractRNG,
+        re_names::Vector{Symbol},
+        n_steps::Int,
+        proba_mcmc::Float64,
+        stepsize_rw::Float64,
+        anneal_sds::NamedTuple)
     n_steps == 0 && return
     θ_re = _symmetrize_psd_params(θ, dm.model.fixed.fixed)
     dists_builder = get_create_random_effect_distribution(dm.model.random.random)
     model_funs = cache.model_funs
-    helpers    = cache.helpers
+    helpers = cache.helpers
     has_anneal = !isempty(anneal_sds)
-    b          = state.b
-    b_prop     = state.b_prop
-    indiv_ll   = state.indiv_ll
+    b = state.b
+    b_prop = state.b_prop
+    indiv_ll = state.indiv_ll
 
     for (k, lv) in enumerate(state.levels)
         nbc2 = zeros(Int, lv.dim)
-        nt2  = zeros(Int, lv.dim)
+        nt2 = zeros(Int, lv.dim)
         domega2_k = state.domega2[k]
         # Hoist the prior distribution out of the step loop (constant in b across steps).
-        re    = re_names[lv.ri]
+        re = re_names[lv.ri]
         const_cov = dm.individuals[lv.rep_ind].const_cov
-        dist  = getproperty(dists_builder(θ_re, const_cov, model_funs, helpers), re)
+        dist = getproperty(dists_builder(θ_re, const_cov, model_funs, helpers), re)
         if has_anneal && haskey(anneal_sds, re)
             dist = _saem_apply_anneal_dist(dist, getfield(anneal_sds, re))
         end
@@ -452,10 +471,10 @@ function _saemixmh_kern2!(state::_SaemixMHState,
             r = lv.range
 
             # Per-dimension coordinate-wise proposal (in bijected z-space)
-            for d in 1:lv.dim
+            for d in 1:(lv.dim)
                 copyto!(b_prop, b)
-                z_curr_d  = _amh_bij_forward(lv.re_type, b[r[d]])
-                z_prop_d  = z_curr_d + domega2_k[d, 1] * randn(rng)
+                z_curr_d = _amh_bij_forward(lv.re_type, b[r[d]])
+                z_prop_d = z_curr_d + domega2_k[d, 1] * randn(rng)
                 b_prop[r[d]] = _amh_bij_inverse(lv.re_type, z_prop_d)
                 log_jac_d = _amh_bij_log_jac(lv.re_type, z_prop_d, z_curr_d)
 
@@ -467,31 +486,31 @@ function _saemixmh_kern2!(state::_SaemixMHState,
                 end
 
                 # Full log-joint ratio; fast path avoids temporary vector allocation
-                state.n_total  += 1
+                state.n_total += 1
                 nt2[d] += 1
                 if length(lv.group_pos) == 1
                     # Fast path: single individual
-                    pos    = lv.group_pos[1]
-                    i      = batch_info.inds[pos]
-                    η_ind  = _build_eta_ind(dm, i, batch_info, b_prop, const_cache, θ_re)
+                    pos = lv.group_pos[1]
+                    i = batch_info.inds[pos]
+                    η_ind = _build_eta_ind(dm, i, batch_info, b_prop, const_cache, θ_re)
                     ll_new = _loglikelihood_individual(dm, i, θ_re, η_ind, cache)
                     Δ = new_plp - state.level_plp[k] + (ll_new - indiv_ll[pos]) + log_jac_d
                     if log(rand(rng)) < Δ
                         copyto!(b, b_prop)
-                        state.level_plp[k]       = new_plp
-                        indiv_ll[pos]            = ll_new
-                        state.n_accept           += 1
+                        state.level_plp[k] = new_plp
+                        indiv_ll[pos] = ll_new
+                        state.n_accept += 1
                         nbc2[d] += 1
                     end
                 else
-                    Δ_ll   = 0.0
+                    Δ_ll = 0.0
                     new_ll = Vector{Float64}(undef, length(lv.group_pos))
                     for (gi, pos) in enumerate(lv.group_pos)
-                        i      = batch_info.inds[pos]
-                        η_ind  = _build_eta_ind(dm, i, batch_info, b_prop, const_cache, θ_re)
+                        i = batch_info.inds[pos]
+                        η_ind = _build_eta_ind(dm, i, batch_info, b_prop, const_cache, θ_re)
                         ll_new = _loglikelihood_individual(dm, i, θ_re, η_ind, cache)
                         new_ll[gi] = ll_new
-                        Δ_ll      += ll_new - indiv_ll[pos]
+                        Δ_ll += ll_new - indiv_ll[pos]
                     end
                     Δ = new_plp - state.level_plp[k] + Δ_ll + log_jac_d
                     if log(rand(rng)) < Δ
@@ -506,7 +525,7 @@ function _saemixmh_kern2!(state::_SaemixMHState,
                 end
             end
         end
-        for d in 1:lv.dim
+        for d in 1:(lv.dim)
             nt2[d] == 0 && continue
             accept_rate = nbc2[d] / nt2[d]
             domega2_k[d, 1] *= (1.0 + stepsize_rw * (accept_rate - proba_mcmc))
@@ -522,39 +541,39 @@ end
 end
 
 function _saemixmh_kern3!(state::_SaemixMHState,
-                           dm::DataModel,
-                           batch_info::_LaplaceBatchInfo,
-                           θ::ComponentArray,
-                           const_cache::LaplaceConstantsCache,
-                           cache::_LLCache,
-                           rng::AbstractRNG,
-                           re_names::Vector{Symbol},
-                           n_steps::Int,
-                           outer_iter::Int,
-                           proba_mcmc::Float64,
-                           stepsize_rw::Float64,
-                           anneal_sds::NamedTuple)
+        dm::DataModel,
+        batch_info::_LaplaceBatchInfo,
+        θ::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        cache::_LLCache,
+        rng::AbstractRNG,
+        re_names::Vector{Symbol},
+        n_steps::Int,
+        outer_iter::Int,
+        proba_mcmc::Float64,
+        stepsize_rw::Float64,
+        anneal_sds::NamedTuple)
     n_steps == 0 && return
     θ_re = _symmetrize_psd_params(θ, dm.model.fixed.fixed)
     dists_builder = get_create_random_effect_distribution(dm.model.random.random)
     model_funs = cache.model_funs
-    helpers    = cache.helpers
+    helpers = cache.helpers
     has_anneal = !isempty(anneal_sds)
-    b          = state.b
-    b_prop     = state.b_prop
-    indiv_ll   = state.indiv_ll
+    b = state.b
+    b_prop = state.b_prop
+    indiv_ll = state.indiv_ll
 
     for (k, lv) in enumerate(state.levels)
         d = lv.dim
         nrs2 = _saemixmh_nrs2(d, outer_iter)
         nbc2 = zeros(Int, d)
-        nt2  = zeros(Int, d)
+        nt2 = zeros(Int, d)
         VK = vcat(collect(1:d), collect(1:d))
         domega2_k = state.domega2[k]
         # Hoist the prior distribution out of the step loop (constant in b across steps).
-        re    = re_names[lv.ri]
+        re = re_names[lv.ri]
         const_cov = dm.individuals[lv.rep_ind].const_cov
-        dist  = getproperty(dists_builder(θ_re, const_cov, model_funs, helpers), re)
+        dist = getproperty(dists_builder(θ_re, const_cov, model_funs, helpers), re)
         if has_anneal && haskey(anneal_sds, re)
             dist = _saem_apply_anneal_dist(dist, getfield(anneal_sds, re))
         end
@@ -575,7 +594,7 @@ function _saemixmh_kern3!(state::_SaemixMHState,
                     z_curr_c = _amh_bij_forward(lv.re_type, b[r[coord]])
                     z_prop_c = z_curr_c + domega2_k[coord, nrs2] * randn(rng)
                     b_prop[r[coord]] = _amh_bij_inverse(lv.re_type, z_prop_c)
-                    log_jac_block   += _amh_bij_log_jac(lv.re_type, z_prop_c, z_curr_c)
+                    log_jac_block += _amh_bij_log_jac(lv.re_type, z_prop_c, z_curr_c)
                     nt2[coord] += 1
                 end
 
@@ -587,11 +606,12 @@ function _saemixmh_kern3!(state::_SaemixMHState,
 
                 state.n_total += 1
                 if length(lv.group_pos) == 1
-                    pos    = lv.group_pos[1]
-                    i      = batch_info.inds[pos]
-                    η_ind  = _build_eta_ind(dm, i, batch_info, b_prop, const_cache, θ_re)
+                    pos = lv.group_pos[1]
+                    i = batch_info.inds[pos]
+                    η_ind = _build_eta_ind(dm, i, batch_info, b_prop, const_cache, θ_re)
                     ll_new = _loglikelihood_individual(dm, i, θ_re, η_ind, cache)
-                    Δ = new_plp - state.level_plp[k] + (ll_new - indiv_ll[pos]) + log_jac_block
+                    Δ = new_plp - state.level_plp[k] + (ll_new - indiv_ll[pos]) +
+                        log_jac_block
                     if log(rand(rng)) < Δ
                         copyto!(b, b_prop)
                         state.level_plp[k] = new_plp
@@ -602,14 +622,14 @@ function _saemixmh_kern3!(state::_SaemixMHState,
                         end
                     end
                 else
-                    Δ_ll   = 0.0
+                    Δ_ll = 0.0
                     new_ll = Vector{Float64}(undef, length(lv.group_pos))
                     for (gi, pos) in enumerate(lv.group_pos)
-                        i      = batch_info.inds[pos]
-                        η_ind  = _build_eta_ind(dm, i, batch_info, b_prop, const_cache, θ_re)
+                        i = batch_info.inds[pos]
+                        η_ind = _build_eta_ind(dm, i, batch_info, b_prop, const_cache, θ_re)
                         ll_new = _loglikelihood_individual(dm, i, θ_re, η_ind, cache)
                         new_ll[gi] = ll_new
-                        Δ_ll      += ll_new - indiv_ll[pos]
+                        Δ_ll += ll_new - indiv_ll[pos]
                     end
                     Δ = new_plp - state.level_plp[k] + Δ_ll + log_jac_block
                     if log(rand(rng)) < Δ
@@ -641,18 +661,18 @@ end
 # ---------------------------------------------------------------------------
 
 function _mcem_sample_batch(dm::DataModel,
-                             info::_LaplaceBatchInfo,
-                             θ::ComponentArray,
-                             const_cache::LaplaceConstantsCache,
-                             cache::_LLCache,
-                             sampler::SaemixMH,
-                             turing_kwargs,
-                             rng::AbstractRNG,
-                             re_names::Vector{Symbol},
-                             warm_start,
-                             last_params;
-                             anneal_sds::NamedTuple=NamedTuple(),
-                             outer_iter::Int=1)
+        info::_LaplaceBatchInfo,
+        θ::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        cache::_LLCache,
+        sampler::SaemixMH,
+        turing_kwargs,
+        rng::AbstractRNG,
+        re_names::Vector{Symbol},
+        warm_start,
+        last_params;
+        anneal_sds::NamedTuple = NamedTuple(),
+        outer_iter::Int = 1)
     nb = info.n_b
     if nb == 0
         return (zeros(eltype(θ), 0, 0), nothing, eltype(θ)[])
@@ -662,26 +682,27 @@ function _mcem_sample_batch(dm::DataModel,
     state = if warm_start && last_params isa _SaemixMHState
         last_params
     else
-        _saemixmh_init_state(dm, info, θ, const_cache, cache, rng, re_names, sampler.rw_init)
+        _saemixmh_init_state(
+            dm, info, θ, const_cache, cache, rng, re_names, sampler.rw_init)
     end
 
     # Re-sync indiv_ll and level_plp when θ has changed (e.g. M-step update).
     # We check by recomputing — cheap compared to MCMC itself.
     _saemixmh_init_indiv_ll!(state.indiv_ll, dm, info, θ, const_cache, cache, state.b)
     _saemixmh_level_plp!(state.level_plp, state.levels, dm, θ, const_cache, cache,
-                          state.b; anneal_sds=anneal_sds)
+        state.b; anneal_sds = anneal_sds)
 
     # Run n_samples sweeps: each sweep = n_kern1 kernel-1 steps + n_kern2 kernel-2 steps
     n_sweeps = max(1, get(turing_kwargs, :n_samples, 1))
     for _ in 1:n_sweeps
         _saemixmh_kern1!(state, dm, info, θ, const_cache, cache, rng, re_names,
-                          sampler.n_kern1, anneal_sds)
+            sampler.n_kern1, anneal_sds)
         _saemixmh_kern2!(state, dm, info, θ, const_cache, cache, rng, re_names,
-                          sampler.n_kern2, sampler.proba_mcmc, sampler.stepsize_rw,
-                          anneal_sds)
+            sampler.n_kern2, sampler.proba_mcmc, sampler.stepsize_rw,
+            anneal_sds)
         _saemixmh_kern3!(state, dm, info, θ, const_cache, cache, rng, re_names,
-                          sampler.n_kern3, outer_iter, sampler.proba_mcmc,
-                          sampler.stepsize_rw, anneal_sds)
+            sampler.n_kern3, outer_iter, sampler.proba_mcmc,
+            sampler.stepsize_rw, anneal_sds)
     end
 
     b_out = copy(state.b)

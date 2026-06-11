@@ -44,31 +44,37 @@ end
 end
 
 function _compute_uq_chain(res::FitResult;
-                           level::Float64,
-                           constants::Union{Nothing, NamedTuple},
-                           mcmc_warmup::Union{Nothing, Int},
-                           mcmc_draws::Union{Nothing, Int},
-                           default_draws::Int,
-                           rng::AbstractRNG)
+        level::Float64,
+        constants::Union{Nothing, NamedTuple},
+        mcmc_warmup::Union{Nothing, Int},
+        mcmc_draws::Union{Nothing, Int},
+        default_draws::Int,
+        rng::AbstractRNG)
     method = get_method(res)
-    (method isa MCMC || method isa VI) || error("Chain UQ requires an MCMC or VI fit result.")
+    (method isa MCMC || method isa VI) ||
+        error("Chain UQ requires an MCMC or VI fit result.")
 
     dm = get_data_model(res)
-    dm === nothing && error("This fit result does not store a DataModel; pass store_data_model=true when fitting.")
+    dm === nothing &&
+        error("This fit result does not store a DataModel; pass store_data_model=true when fitting.")
 
-    constants_use = constants === nothing ? _fit_kw(res, :constants, NamedTuple()) : constants
+    constants_use = constants === nothing ? _fit_kw(res, :constants, NamedTuple()) :
+                    constants
     fe = dm.model.fixed.fixed
     free_names = _free_fixed_names(fe, constants_use)
-    isempty(free_names) && error("No free fixed effects are available for UQ after applying constants.")
+    isempty(free_names) &&
+        error("No free fixed effects are available for UQ after applying constants.")
 
     active_mask = _active_mask_for_free(fe, free_names)
     active_idx = findall(identity, active_mask)
-    isempty(active_idx) && error("No UQ-eligible fixed-effect coordinates found. Mark parameters with calculate_se=true and ensure they are not fixed via constants.")
+    isempty(active_idx) &&
+        error("No UQ-eligible fixed-effect coordinates found. Mark parameters with calculate_se=true and ensure they are not fixed via constants.")
 
     free_flat_names = _flat_names_for_free(fe, free_names)
     active_names = free_flat_names[active_idx]
     chain_keys = _chain_keys_for_free(fe, free_names)
-    length(chain_keys) == length(active_mask) || error("Internal UQ error: chain-key layout does not match fixed-effect layout.")
+    length(chain_keys) == length(active_mask) ||
+        error("Internal UQ error: chain-key layout does not match fixed-effect layout.")
     active_keys = chain_keys[active_idx]
 
     draws_n = Matrix{Float64}(undef, 0, 0)
@@ -118,26 +124,28 @@ function _compute_uq_chain(res::FitResult;
         for (i, (it, ch)) in enumerate(draw_pairs)
             for (j, key) in enumerate(active_keys)
                 idx = _lookup_chain_index(idx_map, key)
-                idx == 0 && error("MCMC chain is missing fixed-effect coordinate $(key). Available chain names include $(collect(keys(idx_map))[1:min(end, 10)]).")
+                idx == 0 &&
+                    error("MCMC chain is missing fixed-effect coordinate $(key). Available chain names include $(collect(keys(idx_map))[1:min(end, 10)]).")
                 draws_n[i, j] = Float64(arr[it, idx, ch])
             end
         end
         diag = (;
-            chain_scale=:natural,
-            warmup=warmup,
-            n_samples=size(draws_n, 1),
-            requested_draws=requested_draws,
-            available_draws=available_draws,
-            used_draws=used_draws,
-            n_iter=n_iter,
-            n_chains=n_chains,
-            n_active_parameters=length(active_idx),
-            source=:mcmc_chain,
+            chain_scale = :natural,
+            warmup = warmup,
+            n_samples = size(draws_n, 1),
+            requested_draws = requested_draws,
+            available_draws = available_draws,
+            used_draws = used_draws,
+            n_iter = n_iter,
+            n_chains = n_chains,
+            n_active_parameters = length(active_idx),
+            source = :mcmc_chain
         )
     else
         requested_draws = mcmc_draws === nothing ? Int(default_draws) : Int(mcmc_draws)
         requested_draws > 0 || error("mcmc_draws must be positive.")
-        vi_draws = sample_posterior(res; n_draws=requested_draws, rng=rng, return_names=true)
+        vi_draws = sample_posterior(
+            res; n_draws = requested_draws, rng = rng, return_names = true)
         raw_draws = vi_draws.draws
         coord_names = vi_draws.names
         size(raw_draws, 1) >= 1 || error("VI posterior sampling returned no draws.")
@@ -150,27 +158,28 @@ function _compute_uq_chain(res::FitResult;
         draws_n = Matrix{Float64}(undef, size(raw_draws, 1), length(active_keys))
         for (j, key) in enumerate(active_keys)
             idx = _lookup_chain_index(idx_map, key)
-            idx == 0 && error("VI posterior is missing fixed-effect coordinate $(key). Available coordinates include $(collect(keys(idx_map))[1:min(end, 10)]).")
+            idx == 0 &&
+                error("VI posterior is missing fixed-effect coordinate $(key). Available coordinates include $(collect(keys(idx_map))[1:min(end, 10)]).")
             draws_n[:, j] .= Float64.(raw_draws[:, idx])
         end
 
         n_draws_used = size(draws_n, 1)
         @info "VI UQ draws" requested=requested_draws used=n_draws_used n_active_parameters=length(active_idx)
         diag = (;
-            chain_scale=:natural,
-            warmup=0,
-            n_samples=n_draws_used,
-            requested_draws=requested_draws,
-            available_draws=n_draws_used,
-            used_draws=n_draws_used,
-            n_iter=missing,
-            n_chains=1,
-            n_active_parameters=length(active_idx),
-            source=:vi_posterior,
+            chain_scale = :natural,
+            warmup = 0,
+            n_samples = n_draws_used,
+            requested_draws = requested_draws,
+            available_draws = n_draws_used,
+            used_draws = n_draws_used,
+            n_iter = missing,
+            n_chains = 1,
+            n_active_parameters = length(active_idx),
+            source = :vi_posterior
         )
     end
 
-    est_n = vec(mean(draws_n; dims=1))
+    est_n = vec(mean(draws_n; dims = 1))
     intervals_n = _intervals_from_draws(draws_n, level)
     Vn = _cov_from_draws(draws_n)
 

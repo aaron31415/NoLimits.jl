@@ -26,35 +26,34 @@ using Statistics
 #   missing dv) so it must be dropped by `_prepare_warfarin_df`.
 function _make_raw_warfarin()
     return DataFrame(
-        id   = [1, 1, 1, 1,
-                2, 2, 2,
-                3, 3],
+        id = [1, 1, 1, 1,
+            2, 2, 2,
+            3, 3],
         time = [0.0, 0.0, 1.0, 1.0,
-                0.0, 0.0, 1.0,
-                0.0, 1.0],
-        amt  = [100.0, missing, missing, missing,
-                50.0, missing, missing,
-                75.0, missing],
-        dv   = [missing, 1.0, 2.0, 0.5,
-                missing, 0.8, 1.5,
-                missing, 0.9],
+            0.0, 0.0, 1.0,
+            0.0, 1.0],
+        amt = [100.0, missing, missing, missing,
+            50.0, missing, missing,
+            75.0, missing],
+        dv = [missing, 1.0, 2.0, 0.5,
+            missing, 0.8, 1.5,
+            missing, 0.9],
         dvid = [1, 2, 1, 2,
-                1, 2, 1,
-                2, 1],
-        wt   = [70.0, 70.0, 70.0, 70.0,
-                80.0, 80.0, 80.0,
-                90.0, 90.0],
-        sex  = [1, 1, 1, 1,
-                0, 0, 0,
-                1, 1],
-        age  = [40.0, 40.0, 40.0, 40.0,
-                50.0, 50.0, 50.0,
-                60.0, 60.0],
+            1, 2, 1,
+            2, 1],
+        wt = [70.0, 70.0, 70.0, 70.0,
+            80.0, 80.0, 80.0,
+            90.0, 90.0],
+        sex = [1, 1, 1, 1,
+            0, 0, 0,
+            1, 1],
+        age = [40.0, 40.0, 40.0, 40.0,
+            50.0, 50.0, 50.0,
+            60.0, 60.0]
     )
 end
 
 @testset "datasets.jl" begin
-
     @testset "_prepare_warfarin_df basic reshaping" begin
         raw = _make_raw_warfarin()
         out = NoLimits._prepare_warfarin_df(raw)
@@ -122,14 +121,14 @@ end
     @testset "duplicate dv values averaged by mean" begin
         # Two PK measurements at the same (id, t, dvid) must be averaged.
         raw = DataFrame(
-            id   = [1, 1, 1, 1],
+            id = [1, 1, 1, 1],
             time = [0.0, 1.0, 1.0, 1.0],
-            amt  = [100.0, missing, missing, missing],
-            dv   = [2.0, 4.0, 6.0, 5.0],   # baseline INR=2.0; two PK at t=1
+            amt = [100.0, missing, missing, missing],
+            dv = [2.0, 4.0, 6.0, 5.0],   # baseline INR=2.0; two PK at t=1
             dvid = [2, 1, 1, 2],
-            wt   = [70.0, 70.0, 70.0, 70.0],
-            sex  = [1, 1, 1, 1],
-            age  = [40.0, 40.0, 40.0, 40.0],
+            wt = [70.0, 70.0, 70.0, 70.0],
+            sex = [1, 1, 1, 1],
+            age = [40.0, 40.0, 40.0, 40.0]
         )
         out = NoLimits._prepare_warfarin_df(raw)
         row = out[(out.id .== "1") .& (out.t .== 1.0), :]

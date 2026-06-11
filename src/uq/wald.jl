@@ -6,8 +6,8 @@ using Random
 end
 
 function _resolve_wald_re_approx_method(source_method::FittingMethod;
-                                        re_approx::Symbol,
-                                        re_approx_method::Union{Nothing, FittingMethod})
+        re_approx::Symbol,
+        re_approx_method::Union{Nothing, FittingMethod})
     if _is_re_laplace_family(source_method) || source_method isa GHQuadrature ||
        source_method isa GHQuadratureMAP ||
        source_method isa FOCEI || source_method isa FOCEIMAP
@@ -36,22 +36,23 @@ function _resolve_wald_re_approx_method(source_method::FittingMethod;
 end
 
 function _compute_uq_wald_no_re(res::FitResult;
-                                level::Float64,
-                                vcov::Symbol,
-                                pseudo_inverse::Bool,
-                                hessian_backend::Symbol,
-                                fd_abs_step::Real,
-                                fd_rel_step::Real,
-                                fd_max_tries::Int,
-                                n_draws::Int,
-                                constants::Union{Nothing, NamedTuple},
-                                penalty::Union{Nothing, NamedTuple},
-                                ode_args::Union{Nothing, Tuple},
-                                ode_kwargs::Union{Nothing, NamedTuple},
-                                serialization::Union{Nothing, SciMLBase.EnsembleAlgorithm},
-                                rng::AbstractRNG)
+        level::Float64,
+        vcov::Symbol,
+        pseudo_inverse::Bool,
+        hessian_backend::Symbol,
+        fd_abs_step::Real,
+        fd_rel_step::Real,
+        fd_max_tries::Int,
+        n_draws::Int,
+        constants::Union{Nothing, NamedTuple},
+        penalty::Union{Nothing, NamedTuple},
+        ode_args::Union{Nothing, Tuple},
+        ode_kwargs::Union{Nothing, NamedTuple},
+        serialization::Union{Nothing, SciMLBase.EnsembleAlgorithm},
+        rng::AbstractRNG)
     dm = get_data_model(res)
-    dm === nothing && error("This fit result does not store a DataModel; pass store_data_model=true when fitting.")
+    dm === nothing &&
+        error("This fit result does not store a DataModel; pass store_data_model=true when fitting.")
     method = get_method(res)
     is_pooled = method isa Pooled || method isa PooledMap
     (method isa MLE || method isa MAP || is_pooled) ||
@@ -64,26 +65,31 @@ function _compute_uq_wald_no_re(res::FitResult;
                   "fixing them via constants."
     end
 
-    constants_use = constants === nothing ? _fit_kw(res, :constants, NamedTuple()) : constants
+    constants_use = constants === nothing ? _fit_kw(res, :constants, NamedTuple()) :
+                    constants
     penalty_use = penalty === nothing ? _fit_kw(res, :penalty, NamedTuple()) : penalty
     ode_args_use = ode_args === nothing ? _fit_kw(res, :ode_args, ()) : ode_args
-    ode_kwargs_use = ode_kwargs === nothing ? _fit_kw(res, :ode_kwargs, NamedTuple()) : ode_kwargs
-    serialization_use = serialization === nothing ? _fit_kw(res, :serialization, EnsembleSerial()) : serialization
+    ode_kwargs_use = ode_kwargs === nothing ? _fit_kw(res, :ode_kwargs, NamedTuple()) :
+                     ode_kwargs
+    serialization_use = serialization === nothing ?
+                        _fit_kw(res, :serialization, EnsembleSerial()) : serialization
 
     fe = dm.model.fixed.fixed
     free_names = _free_fixed_names(fe, constants_use)
-    isempty(free_names) && error("No free fixed effects are available for UQ after applying constants.")
+    isempty(free_names) &&
+        error("No free fixed effects are available for UQ after applying constants.")
 
     active_mask = _active_mask_for_free(fe, free_names)
     active_idx = findall(identity, active_mask)
-    isempty(active_idx) && error("No UQ-eligible fixed-effect coordinates found. Mark parameters with calculate_se=true and ensure they are not fixed via constants.")
+    isempty(active_idx) &&
+        error("No UQ-eligible fixed-effect coordinates found. Mark parameters with calculate_se=true and ensure they are not fixed via constants.")
 
     free_flat_names = _flat_names_for_free(fe, free_names)
     active_names = free_flat_names[active_idx]
     free_flat_kinds = _flat_transform_kinds_for_free(fe, free_names)
     active_kinds = free_flat_kinds[active_idx]
 
-    θ_hat_u = get_params(res; scale=:untransformed)
+    θ_hat_u = get_params(res; scale = :untransformed)
     transform = get_transform(fe)
     inv_transform = get_inverse_transform(fe)
     θ_hat_t = transform(θ_hat_u)
@@ -129,7 +135,7 @@ function _compute_uq_wald_no_re(res::FitResult;
         catch
             return Inf
         end
-        ll = loglikelihood(dm, θu, η; cache=ll_cache, serialization=serialization_use)
+        ll = loglikelihood(dm, θu, η; cache = ll_cache, serialization = serialization_use)
         ll == -Inf && return Inf
 
         obj = -ll
@@ -143,17 +149,19 @@ function _compute_uq_wald_no_re(res::FitResult;
     end
 
     H_active, backend_used = _hessian_from_objective(obj_active, xhat_active;
-                                                     backend=hessian_backend,
-                                                     fd_abs_step=fd_abs_step,
-                                                     fd_rel_step=fd_rel_step,
-                                                     fd_max_tries=fd_max_tries)
+        backend = hessian_backend,
+        fd_abs_step = fd_abs_step,
+        fd_rel_step = fd_rel_step,
+        fd_max_tries = fd_max_tries)
     H_active = 0.5 .* (H_active .+ H_active')
 
     bread = try
         pseudo_inverse ? pinv(H_active) : inv(H_active)
     catch err
-        pseudo_inverse || error("Failed to invert Hessian for Wald covariance. Consider pseudo_inverse=true. Original error: $(sprint(showerror, err))")
-        @warn "Falling back to pseudo-inverse for Hessian inversion in UQ." error=sprint(showerror, err)
+        pseudo_inverse ||
+            error("Failed to invert Hessian for Wald covariance. Consider pseudo_inverse=true. Original error: $(sprint(showerror, err))")
+        @warn "Falling back to pseudo-inverse for Hessian inversion in UQ." error=sprint(
+            showerror, err)
         pinv(H_active)
     end
     bread = Matrix{Float64}(0.5 .* (bread .+ bread'))
@@ -181,9 +189,9 @@ function _compute_uq_wald_no_re(res::FitResult;
                 return Float64(-ll_i)
             end
             g = _gradient_from_objective(obj_i, xhat_active;
-                                         fd_abs_step=fd_abs_step,
-                                         fd_rel_step=fd_rel_step,
-                                         fd_max_tries=fd_max_tries)
+                fd_abs_step = fd_abs_step,
+                fd_rel_step = fd_rel_step,
+                fd_max_tries = fd_max_tries)
             B .+= g * g'
         end
         B = 0.5 .* (B .+ B')
@@ -193,8 +201,8 @@ function _compute_uq_wald_no_re(res::FitResult;
     end
     Vt, vcov_diag = _project_psd_covariance(Vt_raw)
 
-    θ_coords_t = _coords_on_transformed_layout(fe, θ_hat_t, free_names; natural=false)
-    θ_coords_u = _coords_on_transformed_layout(fe, θ_hat_u, free_names; natural=true)
+    θ_coords_t = _coords_on_transformed_layout(fe, θ_hat_t, free_names; natural = false)
+    θ_coords_u = _coords_on_transformed_layout(fe, θ_hat_u, free_names; natural = true)
     est_t = θ_coords_t[active_idx]
     est_n = θ_coords_u[active_idx]
 
@@ -202,7 +210,7 @@ function _compute_uq_wald_no_re(res::FitResult;
     draws_n = Matrix{Float64}(undef, size(draws_t, 1), size(draws_t, 2))
     for i in 1:size(draws_t, 1)
         θu_i = _θu_from_active(@view(draws_t[i, :]))
-        coords_u_i = _coords_on_transformed_layout(fe, θu_i, free_names; natural=true)
+        coords_u_i = _coords_on_transformed_layout(fe, θu_i, free_names; natural = true)
         draws_n[i, :] .= coords_u_i[active_idx]
     end
 
@@ -211,23 +219,25 @@ function _compute_uq_wald_no_re(res::FitResult;
     Vn = _cov_from_draws(draws_n)
 
     ext = _extend_natural_stickbreak(fe, free_names, active_names, active_kinds,
-                                     est_n, draws_n, intervals_n)
-    names_n    = ext !== nothing ? ext[1] : nothing
-    est_n_use  = ext !== nothing ? ext[2] : est_n
+        est_n, draws_n, intervals_n)
+    names_n = ext !== nothing ? ext[1] : nothing
+    est_n_use = ext !== nothing ? ext[2] : est_n
     draws_n_use = ext !== nothing ? ext[3] : draws_n
     intervals_n_use = ext !== nothing ? ext[4] : intervals_n
     Vn_use = draws_n_use !== nothing ? _cov_from_draws(draws_n_use) : Vn
 
-    diag = merge((;
-        hessian_backend=backend_used,
-        hessian_reduced=true,
-        inactive_fixed_effects_held_constant=true,
-        vcov=vcov,
-        pseudo_inverse=pseudo_inverse,
-        n_draws=n_draws,
-        n_active_parameters=length(active_idx),
-        coordinate_transforms=active_kinds,
-    ), vcov_diag)
+    diag = merge(
+        (;
+            hessian_backend = backend_used,
+            hessian_reduced = true,
+            inactive_fixed_effects_held_constant = true,
+            vcov = vcov,
+            pseudo_inverse = pseudo_inverse,
+            n_draws = n_draws,
+            n_active_parameters = length(active_idx),
+            coordinate_transforms = active_kinds
+        ),
+        vcov_diag)
 
     return UQResult(
         :wald,
@@ -247,51 +257,58 @@ function _compute_uq_wald_no_re(res::FitResult;
 end
 
 function _compute_uq_wald_re(res::FitResult;
-                             level::Float64,
-                             vcov::Symbol,
-                             re_approx::Symbol,
-                             re_approx_method::Union{Nothing, FittingMethod},
-                             pseudo_inverse::Bool,
-                             hessian_backend::Symbol,
-                             fd_abs_step::Real,
-                             fd_rel_step::Real,
-                             fd_max_tries::Int,
-                             n_draws::Int,
-                             constants::Union{Nothing, NamedTuple},
-                             constants_re::Union{Nothing, NamedTuple},
-                             penalty::Union{Nothing, NamedTuple},
-                             ode_args::Union{Nothing, Tuple},
-                             ode_kwargs::Union{Nothing, NamedTuple},
-                             serialization::Union{Nothing, SciMLBase.EnsembleAlgorithm},
-                             rng::AbstractRNG)
+        level::Float64,
+        vcov::Symbol,
+        re_approx::Symbol,
+        re_approx_method::Union{Nothing, FittingMethod},
+        pseudo_inverse::Bool,
+        hessian_backend::Symbol,
+        fd_abs_step::Real,
+        fd_rel_step::Real,
+        fd_max_tries::Int,
+        n_draws::Int,
+        constants::Union{Nothing, NamedTuple},
+        constants_re::Union{Nothing, NamedTuple},
+        penalty::Union{Nothing, NamedTuple},
+        ode_args::Union{Nothing, Tuple},
+        ode_kwargs::Union{Nothing, NamedTuple},
+        serialization::Union{Nothing, SciMLBase.EnsembleAlgorithm},
+        rng::AbstractRNG)
     dm = get_data_model(res)
-    dm === nothing && error("This fit result does not store a DataModel; pass store_data_model=true when fitting.")
+    dm === nothing &&
+        error("This fit result does not store a DataModel; pass store_data_model=true when fitting.")
     source_method = get_method(res)
     approx_method = _resolve_wald_re_approx_method(source_method;
-                                                   re_approx=re_approx,
-                                                   re_approx_method=re_approx_method)
+        re_approx = re_approx,
+        re_approx_method = re_approx_method)
 
-    constants_use = constants === nothing ? _fit_kw(res, :constants, NamedTuple()) : constants
-    constants_re_use = constants_re === nothing ? _fit_kw(res, :constants_re, NamedTuple()) : constants_re
+    constants_use = constants === nothing ? _fit_kw(res, :constants, NamedTuple()) :
+                    constants
+    constants_re_use = constants_re === nothing ?
+                       _fit_kw(res, :constants_re, NamedTuple()) : constants_re
     penalty_use = penalty === nothing ? _fit_kw(res, :penalty, NamedTuple()) : penalty
     ode_args_use = ode_args === nothing ? _fit_kw(res, :ode_args, ()) : ode_args
-    ode_kwargs_use = ode_kwargs === nothing ? _fit_kw(res, :ode_kwargs, NamedTuple()) : ode_kwargs
-    serialization_use = serialization === nothing ? _fit_kw(res, :serialization, EnsembleSerial()) : serialization
+    ode_kwargs_use = ode_kwargs === nothing ? _fit_kw(res, :ode_kwargs, NamedTuple()) :
+                     ode_kwargs
+    serialization_use = serialization === nothing ?
+                        _fit_kw(res, :serialization, EnsembleSerial()) : serialization
 
     fe = dm.model.fixed.fixed
     free_names = _free_fixed_names(fe, constants_use)
-    isempty(free_names) && error("No free fixed effects are available for UQ after applying constants.")
+    isempty(free_names) &&
+        error("No free fixed effects are available for UQ after applying constants.")
 
     active_mask = _active_mask_for_free(fe, free_names)
     active_idx = findall(identity, active_mask)
-    isempty(active_idx) && error("No UQ-eligible fixed-effect coordinates found. Mark parameters with calculate_se=true and ensure they are not fixed via constants.")
+    isempty(active_idx) &&
+        error("No UQ-eligible fixed-effect coordinates found. Mark parameters with calculate_se=true and ensure they are not fixed via constants.")
 
     free_flat_names = _flat_names_for_free(fe, free_names)
     active_names = free_flat_names[active_idx]
     free_flat_kinds = _flat_transform_kinds_for_free(fe, free_names)
     active_kinds = free_flat_kinds[active_idx]
 
-    θ_hat_u = get_params(res; scale=:untransformed)
+    θ_hat_u = get_params(res; scale = :untransformed)
     transform = get_transform(fe)
     inv_transform = get_inverse_transform(fe)
     θ_hat_t = transform(θ_hat_u)
@@ -340,21 +357,21 @@ function _compute_uq_wald_re(res::FitResult;
             total = 0.0
             for info in batch_infos
                 bll = _ghq_batch_ll(dm, info,
-                          _symmetrize_psd_params(θu, fe),
-                          const_cache, ll_cache_local, approx_method.level)
+                    _symmetrize_psd_params(θu, fe),
+                    const_cache, ll_cache_local, approx_method.level)
                 bll == -Inf && return Inf
                 total += bll
             end
             -total
         else
             _laplace_objective_only(dm, batch_infos, θu, const_cache, ll_cache, ebe_cache;
-                                    inner=approx_method.inner,
-                                    hessian=approx_method.hessian,
-                                    cache_opts=cache_opts,
-                                    multistart=approx_method.multistart,
-                                    rng=Random.Xoshiro(seed),
-                                    serialization=serialization_use,
-                                    hmode=hmode_use)
+                inner = approx_method.inner,
+                hessian = approx_method.hessian,
+                cache_opts = cache_opts,
+                multistart = approx_method.multistart,
+                rng = Random.Xoshiro(seed),
+                serialization = serialization_use,
+                hmode = hmode_use)
         end
         obj == Inf && return Inf
 
@@ -375,17 +392,19 @@ function _compute_uq_wald_re(res::FitResult;
         :fd_gradient
     end
     H_active, backend_used = _hessian_from_objective(obj_active, xhat_active;
-                                                     backend=hess_backend_use,
-                                                     fd_abs_step=fd_abs_step,
-                                                     fd_rel_step=fd_rel_step,
-                                                     fd_max_tries=fd_max_tries)
+        backend = hess_backend_use,
+        fd_abs_step = fd_abs_step,
+        fd_rel_step = fd_rel_step,
+        fd_max_tries = fd_max_tries)
     H_active = 0.5 .* (H_active .+ H_active')
 
     bread = try
         pseudo_inverse ? pinv(H_active) : inv(H_active)
     catch err
-        pseudo_inverse || error("Failed to invert Hessian for Wald covariance. Consider pseudo_inverse=true. Original error: $(sprint(showerror, err))")
-        @warn "Falling back to pseudo-inverse for Hessian inversion in UQ." error=sprint(showerror, err)
+        pseudo_inverse ||
+            error("Failed to invert Hessian for Wald covariance. Consider pseudo_inverse=true. Original error: $(sprint(showerror, err))")
+        @warn "Falling back to pseudo-inverse for Hessian inversion in UQ." error=sprint(
+            showerror, err)
         pinv(H_active)
     end
     bread = Matrix{Float64}(0.5 .* (bread .+ bread'))
@@ -400,28 +419,30 @@ function _compute_uq_wald_re(res::FitResult;
             seed_i = seed + UInt64(bi)
             obj_b = function (x_active::AbstractVector)
                 θu = _θu_from_active(x_active)
-                obj_bi = if approx_method isa GHQuadrature || approx_method isa GHQuadratureMAP
+                obj_bi = if approx_method isa GHQuadrature ||
+                            approx_method isa GHQuadratureMAP
                     ll_cache_local = ll_cache isa AbstractVector ? ll_cache[1] : ll_cache
                     bll = _ghq_batch_ll(dm, info_single[1],
-                              _symmetrize_psd_params(θu, fe),
-                              const_cache, ll_cache_local, approx_method.level)
+                        _symmetrize_psd_params(θu, fe),
+                        const_cache, ll_cache_local, approx_method.level)
                     bll == -Inf ? Inf : -bll
                 else
-                    _laplace_objective_only(dm, info_single, θu, const_cache, ll_cache, ebe_cache_i;
-                                            inner=approx_method.inner,
-                                            hessian=approx_method.hessian,
-                                            cache_opts=cache_opts,
-                                            multistart=approx_method.multistart,
-                                            rng=Random.Xoshiro(seed_i),
-                                            serialization=serialization_use,
-                                            hmode=hmode_use)
+                    _laplace_objective_only(
+                        dm, info_single, θu, const_cache, ll_cache, ebe_cache_i;
+                        inner = approx_method.inner,
+                        hessian = approx_method.hessian,
+                        cache_opts = cache_opts,
+                        multistart = approx_method.multistart,
+                        rng = Random.Xoshiro(seed_i),
+                        serialization = serialization_use,
+                        hmode = hmode_use)
                 end
                 return obj_bi == Inf ? Inf : Float64(obj_bi)
             end
             g = _gradient_fd_from_obj(obj_b, xhat_active;
-                                      abs_step=fd_abs_step,
-                                      rel_step=fd_rel_step,
-                                      max_tries=fd_max_tries)
+                abs_step = fd_abs_step,
+                rel_step = fd_rel_step,
+                max_tries = fd_max_tries)
             B .+= g * g'
         end
         B = 0.5 .* (B .+ B')
@@ -431,8 +452,8 @@ function _compute_uq_wald_re(res::FitResult;
     end
     Vt, vcov_diag = _project_psd_covariance(Vt_raw)
 
-    θ_coords_t = _coords_on_transformed_layout(fe, θ_hat_t, free_names; natural=false)
-    θ_coords_u = _coords_on_transformed_layout(fe, θ_hat_u, free_names; natural=true)
+    θ_coords_t = _coords_on_transformed_layout(fe, θ_hat_t, free_names; natural = false)
+    θ_coords_u = _coords_on_transformed_layout(fe, θ_hat_u, free_names; natural = true)
     est_t = θ_coords_t[active_idx]
     est_n = θ_coords_u[active_idx]
 
@@ -440,7 +461,7 @@ function _compute_uq_wald_re(res::FitResult;
     draws_n = Matrix{Float64}(undef, size(draws_t, 1), size(draws_t, 2))
     for i in 1:size(draws_t, 1)
         θu_i = _θu_from_active(@view(draws_t[i, :]))
-        coords_u_i = _coords_on_transformed_layout(fe, θu_i, free_names; natural=true)
+        coords_u_i = _coords_on_transformed_layout(fe, θu_i, free_names; natural = true)
         draws_n[i, :] .= coords_u_i[active_idx]
     end
 
@@ -449,24 +470,26 @@ function _compute_uq_wald_re(res::FitResult;
     Vn = _cov_from_draws(draws_n)
 
     ext = _extend_natural_stickbreak(fe, free_names, active_names, active_kinds,
-                                     est_n, draws_n, intervals_n)
-    names_n    = ext !== nothing ? ext[1] : nothing
-    est_n_use  = ext !== nothing ? ext[2] : est_n
+        est_n, draws_n, intervals_n)
+    names_n = ext !== nothing ? ext[1] : nothing
+    est_n_use = ext !== nothing ? ext[2] : est_n
     draws_n_use = ext !== nothing ? ext[3] : draws_n
     intervals_n_use = ext !== nothing ? ext[4] : intervals_n
     Vn_use = draws_n_use !== nothing ? _cov_from_draws(draws_n_use) : Vn
 
-    diag = merge((;
-        hessian_backend=backend_used,
-        hessian_reduced=true,
-        inactive_fixed_effects_held_constant=true,
-        vcov=vcov,
-        approximation_method=_method_symbol(approx_method),
-        pseudo_inverse=pseudo_inverse,
-        n_draws=n_draws,
-        n_active_parameters=length(active_idx),
-        coordinate_transforms=active_kinds,
-    ), vcov_diag)
+    diag = merge(
+        (;
+            hessian_backend = backend_used,
+            hessian_reduced = true,
+            inactive_fixed_effects_held_constant = true,
+            vcov = vcov,
+            approximation_method = _method_symbol(approx_method),
+            pseudo_inverse = pseudo_inverse,
+            n_draws = n_draws,
+            n_active_parameters = length(active_idx),
+            coordinate_transforms = active_kinds
+        ),
+        vcov_diag)
 
     return UQResult(
         :wald,

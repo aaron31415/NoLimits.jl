@@ -30,21 +30,21 @@ behaviour.
 struct DiscreteTimeObservedStatesMarkovModel{
     M <: AbstractMatrix{<:Real},
     D <: Distributions.Categorical,
-    T,
+    T
 } <: Distribution{Univariate, Discrete}
-    n_states          :: Int
-    transition_matrix :: M
-    initial_dist      :: D
-    state_labels      :: Vector{T}
+    n_states::Int
+    transition_matrix::M
+    initial_dist::D
+    state_labels::Vector{T}
 end
 
 # --- Constructors ---
 
 function DiscreteTimeObservedStatesMarkovModel(
-    transition_matrix :: AbstractMatrix{<:Real},
-    initial_dist      :: Distributions.Categorical,
-    state_labels      :: Vector{T}
-) where T
+        transition_matrix::AbstractMatrix{<:Real},
+        initial_dist::Distributions.Categorical,
+        state_labels::Vector{T}
+) where {T}
     n_states = size(transition_matrix, 1)
     size(transition_matrix, 2) == n_states ||
         error("transition_matrix must be square, got $(size(transition_matrix)).")
@@ -60,8 +60,8 @@ end
 
 # Default constructor: integer labels 1..n_states
 function DiscreteTimeObservedStatesMarkovModel(
-    transition_matrix :: AbstractMatrix{<:Real},
-    initial_dist      :: Distributions.Categorical
+        transition_matrix::AbstractMatrix{<:Real},
+        initial_dist::Distributions.Categorical
 )
     n_states = size(transition_matrix, 1)
     return DiscreteTimeObservedStatesMarkovModel(
@@ -100,7 +100,8 @@ function posterior_hidden_states(dist::DiscreteTimeObservedStatesMarkovModel, y)
     return post
 end
 
-function posterior_hidden_states(dist::DiscreteTimeObservedStatesMarkovModel, y::AbstractVector)
+function posterior_hidden_states(
+        dist::DiscreteTimeObservedStatesMarkovModel, y::AbstractVector)
     _omm_scalar_observation_index(dist.state_labels, y)
     return zeros(eltype(probabilities_hidden_states(dist)), dist.n_states)
 end
@@ -114,7 +115,8 @@ function Distributions.logpdf(dist::DiscreteTimeObservedStatesMarkovModel, y)
     return log(p[idx])
 end
 
-function Distributions.logpdf(dist::DiscreteTimeObservedStatesMarkovModel, y::AbstractVector)
+function Distributions.logpdf(
+        dist::DiscreteTimeObservedStatesMarkovModel, y::AbstractVector)
     _omm_scalar_observation_index(dist.state_labels, y)
     return -Inf
 end
@@ -129,23 +131,36 @@ Distributions.pdf(dist::DiscreteTimeObservedStatesMarkovModel, y) = exp(logpdf(d
 # already dispatch to the methods above; these forward the remaining array
 # shapes to the untyped handler (via `invoke`, to avoid self-recursion) so
 # behaviour is identical — the observation pipeline never constructs them.
-Distributions.logpdf(dist::DiscreteTimeObservedStatesMarkovModel,
-                     y::AbstractArray{<:Real, 0}) = invoke(
-    Distributions.logpdf, Tuple{DiscreteTimeObservedStatesMarkovModel, Any}, dist, y)
-Distributions.logpdf(dist::DiscreteTimeObservedStatesMarkovModel,
-                     y::AbstractArray{<:Real}) = invoke(
-    Distributions.logpdf, Tuple{DiscreteTimeObservedStatesMarkovModel, Any}, dist, y)
-Distributions.logpdf(dist::DiscreteTimeObservedStatesMarkovModel,
-                     y::AbstractArray{<:AbstractArray{<:Real, 0}}) = invoke(
-    Distributions.logpdf, Tuple{DiscreteTimeObservedStatesMarkovModel, Any}, dist, y)
-Distributions.pdf(dist::DiscreteTimeObservedStatesMarkovModel, y::Real) =
+function Distributions.logpdf(dist::DiscreteTimeObservedStatesMarkovModel,
+        y::AbstractArray{<:Real, 0})
+    invoke(
+        Distributions.logpdf, Tuple{DiscreteTimeObservedStatesMarkovModel, Any}, dist, y)
+end
+function Distributions.logpdf(dist::DiscreteTimeObservedStatesMarkovModel,
+        y::AbstractArray{<:Real})
+    invoke(
+        Distributions.logpdf, Tuple{DiscreteTimeObservedStatesMarkovModel, Any}, dist, y)
+end
+function Distributions.logpdf(dist::DiscreteTimeObservedStatesMarkovModel,
+        y::AbstractArray{<:AbstractArray{<:Real, 0}})
+    invoke(
+        Distributions.logpdf, Tuple{DiscreteTimeObservedStatesMarkovModel, Any}, dist, y)
+end
+function Distributions.pdf(dist::DiscreteTimeObservedStatesMarkovModel, y::Real)
     exp(logpdf(dist, y))
-Distributions.pdf(dist::DiscreteTimeObservedStatesMarkovModel,
-                  y::AbstractArray{<:Real, 0}) = exp(logpdf(dist, y))
-Distributions.pdf(dist::DiscreteTimeObservedStatesMarkovModel,
-                  y::AbstractArray{<:Real}) = exp(logpdf(dist, y))
-Distributions.pdf(dist::DiscreteTimeObservedStatesMarkovModel,
-                  y::AbstractArray{<:AbstractArray{<:Real, 0}}) = exp(logpdf(dist, y))
+end
+function Distributions.pdf(dist::DiscreteTimeObservedStatesMarkovModel,
+        y::AbstractArray{<:Real, 0})
+    exp(logpdf(dist, y))
+end
+function Distributions.pdf(dist::DiscreteTimeObservedStatesMarkovModel,
+        y::AbstractArray{<:Real})
+    exp(logpdf(dist, y))
+end
+function Distributions.pdf(dist::DiscreteTimeObservedStatesMarkovModel,
+        y::AbstractArray{<:AbstractArray{<:Real, 0}})
+    exp(logpdf(dist, y))
+end
 
 function Distributions.rand(rng::AbstractRNG, dist::DiscreteTimeObservedStatesMarkovModel)
     p = probabilities_hidden_states(dist)
@@ -154,32 +169,37 @@ function Distributions.rand(rng::AbstractRNG, dist::DiscreteTimeObservedStatesMa
 end
 
 # mean/var/cdf only defined for numeric (Real) label types
-function Distributions.mean(dist::DiscreteTimeObservedStatesMarkovModel{M, D, T}) where {M, D, T}
+function Distributions.mean(dist::DiscreteTimeObservedStatesMarkovModel{
+        M, D, T}) where {M, D, T}
     T <: Real || throw(ArgumentError(
         "mean is not defined for DiscreteTimeObservedStatesMarkovModel with label type $T. " *
         "Only Real-valued labels are supported."))
     p = probabilities_hidden_states(dist)
-    return sum(p[k] * dist.state_labels[k] for k in 1:dist.n_states)
+    return sum(p[k] * dist.state_labels[k] for k in 1:(dist.n_states))
 end
 
-function Distributions.var(dist::DiscreteTimeObservedStatesMarkovModel{M, D, T}) where {M, D, T}
+function Distributions.var(dist::DiscreteTimeObservedStatesMarkovModel{
+        M, D, T}) where {M, D, T}
     T <: Real || throw(ArgumentError(
         "var is not defined for DiscreteTimeObservedStatesMarkovModel with label type $T. " *
         "Only Real-valued labels are supported."))
-    p  = probabilities_hidden_states(dist)
-    μ  = sum(p[k] * dist.state_labels[k] for k in 1:dist.n_states)
-    return sum(p[k] * (dist.state_labels[k] - μ)^2 for k in 1:dist.n_states)
+    p = probabilities_hidden_states(dist)
+    μ = sum(p[k] * dist.state_labels[k] for k in 1:(dist.n_states))
+    return sum(p[k] * (dist.state_labels[k] - μ)^2 for k in 1:(dist.n_states))
 end
 
-function Distributions.cdf(dist::DiscreteTimeObservedStatesMarkovModel{M, D, T}, y::Real) where {M, D, T}
+function Distributions.cdf(
+        dist::DiscreteTimeObservedStatesMarkovModel{M, D, T}, y::Real) where {M, D, T}
     T <: Real || throw(ArgumentError(
         "cdf is not defined for DiscreteTimeObservedStatesMarkovModel with label type $T. " *
         "Only Real-valued labels are supported."))
     p = probabilities_hidden_states(dist)
-    return sum((p[k] for k in 1:dist.n_states if dist.state_labels[k] <= y); init=zero(eltype(p)))
+    return sum((p[k] for k in 1:(dist.n_states) if dist.state_labels[k] <= y);
+        init = zero(eltype(p)))
 end
 
-Distributions.params(dist::DiscreteTimeObservedStatesMarkovModel) =
+function Distributions.params(dist::DiscreteTimeObservedStatesMarkovModel)
     (dist.transition_matrix, dist.initial_dist, dist.state_labels)
+end
 
 Base.length(dist::DiscreteTimeObservedStatesMarkovModel) = 1

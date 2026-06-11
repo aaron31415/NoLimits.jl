@@ -7,7 +7,7 @@ using Distributions, LinearAlgebra
 # Number of outcomes
 # ---------------------------------------------------------------------------
 
-_mv_n_outcomes(dists::Tuple)                     = length(dists)
+_mv_n_outcomes(dists::Tuple) = length(dists)
 _mv_n_outcomes(dist::Distribution{Multivariate}) = length(dist)
 
 # ---------------------------------------------------------------------------
@@ -17,8 +17,9 @@ _mv_n_outcomes(dist::Distribution{Multivariate}) = length(dist)
 # Conditionally independent emissions: inner element is a Tuple of M scalar
 # distributions. Missing entries contribute false (≡ 0, promotes to any
 # numeric type, AD-safe).
-_mv_emission_logpdf(dists::Tuple, y::AbstractVector) =
+function _mv_emission_logpdf(dists::Tuple, y::AbstractVector)
     sum(ismissing(y[m]) ? false : logpdf(dists[m], y[m]) for m in eachindex(y))
+end
 
 # Joint MvNormal emission: handles missings via analytic marginalization.
 function _mv_emission_logpdf(dist::MvNormal, y::AbstractVector)
@@ -43,7 +44,7 @@ end
 # Emission mean
 # ---------------------------------------------------------------------------
 
-_mv_emission_mean(dists::Tuple)                     = [mean(dists[m]) for m in eachindex(dists)]
+_mv_emission_mean(dists::Tuple) = [mean(dists[m]) for m in eachindex(dists)]
 _mv_emission_mean(dist::Distribution{Multivariate}) = mean(dist)
 
 # ---------------------------------------------------------------------------
@@ -51,12 +52,12 @@ _mv_emission_mean(dist::Distribution{Multivariate}) = mean(dist)
 # ---------------------------------------------------------------------------
 
 # Independent case: diagonal matrix of per-outcome variances.
-_mv_emission_cov(dists::Tuple)                     = Diagonal([var(dists[m]) for m in eachindex(dists)])
+_mv_emission_cov(dists::Tuple) = Diagonal([var(dists[m]) for m in eachindex(dists)])
 _mv_emission_cov(dist::Distribution{Multivariate}) = cov(dist)
 
 # ---------------------------------------------------------------------------
 # Emission rand
 # ---------------------------------------------------------------------------
 
-_mv_emission_rand(rng, dists::Tuple)                     = [rand(rng, dists[m]) for m in eachindex(dists)]
+_mv_emission_rand(rng, dists::Tuple) = [rand(rng, dists[m]) for m in eachindex(dists)]
 _mv_emission_rand(rng, dist::Distribution{Multivariate}) = rand(rng, dist)

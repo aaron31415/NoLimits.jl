@@ -20,5 +20,4 @@ end
 
     val_fwd, grad_fwd = value_and_gradient(f, AutoForwardDiff(), coeffs)
     @test length(grad_fwd) == length(coeffs)
-
 end

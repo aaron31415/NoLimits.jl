@@ -29,12 +29,13 @@ using Optimisers
 
     # Custom base distribution: MvNormal with non-zero mean and non-identity covariance
     q0_custom = MvNormal([0.5, -0.5], [2.0 0.3; 0.3 1.5])
-    gθ_custom = ForwardDiff.gradient(θv -> logpdf(NormalizingPlanarFlow(θv, rebuild, q0_custom), x), θ)
+    gθ_custom = ForwardDiff.gradient(
+        θv -> logpdf(NormalizingPlanarFlow(θv, rebuild, q0_custom), x), θ)
     @test length(gθ_custom) == length(θ)
     @test all(isfinite, gθ_custom)
 
     # Gradient w.r.t. observation x with custom MvNormal base
-    flow_custom = NormalizingPlanarFlow(n, 2; base_dist=q0_custom)
+    flow_custom = NormalizingPlanarFlow(n, 2; base_dist = q0_custom)
     gx_custom = ForwardDiff.gradient(xv -> logpdf(flow_custom, xv), x)
     @test length(gx_custom) == length(x)
     @test all(isfinite, gx_custom)
@@ -44,12 +45,13 @@ using Optimisers
 
     # MvTDist base: ForwardDiff through theta (passthrough _adapt_base_dist)
     q0_t = MvTDist(3, zeros(n), Matrix{Float64}(I, n, n))
-    gθ_t = ForwardDiff.gradient(θv -> logpdf(NormalizingPlanarFlow(θv, rebuild, q0_t), x), θ)
+    gθ_t = ForwardDiff.gradient(
+        θv -> logpdf(NormalizingPlanarFlow(θv, rebuild, q0_t), x), θ)
     @test length(gθ_t) == length(θ)
     @test all(isfinite, gθ_t)
 
     # MvTDist base: ForwardDiff through x
-    flow_t = NormalizingPlanarFlow(n, 2; base_dist=q0_t)
+    flow_t = NormalizingPlanarFlow(n, 2; base_dist = q0_t)
     gx_t = ForwardDiff.gradient(xv -> logpdf(flow_t, xv), x)
     @test length(gx_t) == length(x)
     @test all(isfinite, gx_t)

@@ -34,13 +34,13 @@ end
         return ll_cache
     elseif ll_cache isa _LLCache
         caches = build_ll_cache(dm;
-                                ode_args=ll_cache.ode_args,
-                                ode_kwargs=ll_cache.ode_kwargs,
-                                force_saveat=ll_cache.saveat_cache !== nothing,
-                                nthreads=nthreads)
+            ode_args = ll_cache.ode_args,
+            ode_kwargs = ll_cache.ode_kwargs,
+            force_saveat = ll_cache.saveat_cache !== nothing,
+            nthreads = nthreads)
         return caches isa Vector ? caches : [caches]
     else
-        caches = build_ll_cache(dm; nthreads=nthreads)
+        caches = build_ll_cache(dm; nthreads = nthreads)
         return caches isa Vector ? caches : [caches]
     end
 end
@@ -80,10 +80,10 @@ struct MCEM_MCMC{S, K, SS} <: AbstractMCEMEStep
     warm_start::Bool
 end
 
-function MCEM_MCMC(; sampler=Turing.NUTS(0.75),
-                     turing_kwargs=NamedTuple(),
-                     sample_schedule=250,
-                     warm_start::Bool=true)
+function MCEM_MCMC(; sampler = Turing.NUTS(0.75),
+        turing_kwargs = NamedTuple(),
+        sample_schedule = 250,
+        warm_start::Bool = true)
     return MCEM_MCMC(sampler, turing_kwargs, sample_schedule, warm_start)
 end
 
@@ -118,11 +118,11 @@ struct MCEM_IS{PR, WM} <: AbstractMCEMEStep
     mcmc_warmup::WM   # MCEM_MCMC or nothing
 end
 
-function MCEM_IS(; n_samples::Int=500,
-                   proposal=:gaussian,
-                   adapt::Bool=true,
-                   warm_start_mcmc_iters::Int=0,
-                   mcmc_warmup=nothing)
+function MCEM_IS(; n_samples::Int = 500,
+        proposal = :gaussian,
+        adapt::Bool = true,
+        warm_start_mcmc_iters::Int = 0,
+        mcmc_warmup = nothing)
     n_samples > 0 || throw(ArgumentError("n_samples must be > 0"))
     warm_start_mcmc_iters >= 0 || throw(ArgumentError("warm_start_mcmc_iters must be ≥ 0"))
     if warm_start_mcmc_iters > 0 && mcmc_warmup === nothing
@@ -211,41 +211,42 @@ struct MCEM{O, K, A, ES, EO, EB, ER, L, U} <: FittingMethod
     diagnostics_every::Int
 end
 
-MCEM(; optimizer=OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking()),
-     optim_kwargs=(; iterations=50, g_abstol=1e-4, f_reltol=1e-6),
-     adtype=Optimization.AutoForwardDiff(),
-     e_step=nothing,
-     sampler=Turing.NUTS(0.75),
-     turing_kwargs=NamedTuple(),
-     sample_schedule=250,
-     warm_start=true,
-     verbose=false,
-     progress=true,
-     maxiters=100,
-     rtol_theta=1e-4,
-     atol_theta=1e-6,
-     rtol_Q=1e-4,
-     atol_Q=1e-6,
-     consecutive_params=3,
-     ebe_optimizer=OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking()),
-     ebe_optim_kwargs=NamedTuple(),
-     ebe_adtype=Optimization.AutoForwardDiff(),
-     ebe_grad_tol=:auto,
-     ebe_multistart_n=50,
-     ebe_multistart_k=1,
-     ebe_multistart_max_rounds=5,
-     ebe_multistart_sampling=:lhs,
-     ebe_rescue_on_high_grad=false,
-     ebe_rescue_multistart_n=128,
-     ebe_rescue_multistart_k=32,
-     ebe_rescue_max_rounds=8,
-     ebe_rescue_grad_tol=ebe_grad_tol,
-     ebe_rescue_multistart_sampling=ebe_multistart_sampling,
-     lb=nothing,
-     ub=nothing,
-     store_diagnostics::Bool=false,
-     diagnostics_every::Int=1,
-     ) = begin
+function MCEM(;
+        optimizer = OptimizationOptimJL.LBFGS(linesearch = LineSearches.BackTracking()),
+        optim_kwargs = (; iterations = 50, g_abstol = 1e-4, f_reltol = 1e-6),
+        adtype = Optimization.AutoForwardDiff(),
+        e_step = nothing,
+        sampler = Turing.NUTS(0.75),
+        turing_kwargs = NamedTuple(),
+        sample_schedule = 250,
+        warm_start = true,
+        verbose = false,
+        progress = true,
+        maxiters = 100,
+        rtol_theta = 1e-4,
+        atol_theta = 1e-6,
+        rtol_Q = 1e-4,
+        atol_Q = 1e-6,
+        consecutive_params = 3,
+        ebe_optimizer = OptimizationOptimJL.LBFGS(linesearch = LineSearches.BackTracking()),
+        ebe_optim_kwargs = NamedTuple(),
+        ebe_adtype = Optimization.AutoForwardDiff(),
+        ebe_grad_tol = :auto,
+        ebe_multistart_n = 50,
+        ebe_multistart_k = 1,
+        ebe_multistart_max_rounds = 5,
+        ebe_multistart_sampling = :lhs,
+        ebe_rescue_on_high_grad = false,
+        ebe_rescue_multistart_n = 128,
+        ebe_rescue_multistart_k = 32,
+        ebe_rescue_max_rounds = 8,
+        ebe_rescue_grad_tol = ebe_grad_tol,
+        ebe_rescue_multistart_sampling = ebe_multistart_sampling,
+        lb = nothing,
+        ub = nothing,
+        store_diagnostics::Bool = false,
+        diagnostics_every::Int = 1
+)
     diagnostics_every >= 1 ||
         error("MCEM: diagnostics_every must be ≥ 1. Got: $diagnostics_every")
     # When e_step is not provided, build MCEM_MCMC from legacy kwargs (backward compat)
@@ -256,13 +257,13 @@ MCEM(; optimizer=OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking(
     end
     em = EMOptions(maxiters, rtol_theta, atol_theta, rtol_Q, atol_Q, consecutive_params)
     ebe = EBEOptions(ebe_optimizer, ebe_optim_kwargs, ebe_adtype, ebe_grad_tol,
-                     ebe_multistart_n, ebe_multistart_k, ebe_multistart_max_rounds,
-                     ebe_multistart_sampling)
+        ebe_multistart_n, ebe_multistart_k, ebe_multistart_max_rounds,
+        ebe_multistart_sampling)
     ebe_rescue = EBERescueOptions(ebe_rescue_on_high_grad, ebe_rescue_multistart_n,
-                                   ebe_rescue_multistart_k, ebe_rescue_max_rounds,
-                                   ebe_rescue_grad_tol, ebe_rescue_multistart_sampling)
+        ebe_rescue_multistart_k, ebe_rescue_max_rounds,
+        ebe_rescue_grad_tol, ebe_rescue_multistart_sampling)
     MCEM(optimizer, optim_kwargs, adtype, e_step_actual, em, ebe, ebe_rescue,
-         lb, ub, verbose, progress, store_diagnostics, diagnostics_every)
+        lb, ub, verbose, progress, store_diagnostics, diagnostics_every)
 end
 
 """
@@ -379,17 +380,17 @@ function _build_mcem_batch_model(re_names::Vector{Symbol})
         push!(sample_blocks.args, :(local $reps_sym = $reps_get))
         push!(sample_blocks.args, :(local $ranges_sym = $ranges_get))
         push!(sample_blocks.args, :(if $is_scalar
-                                         $scalar_block
-                                     else
-                                         $vector_block
-                                     end))
+            $scalar_block
+        else
+            $vector_block
+        end))
     end
     re_samples_expr = Expr(:call,
-                           Expr(:curly, :NamedTuple, Expr(:tuple, QuoteNode.(re_names)...)),
-                           Expr(:tuple, re_val_syms...))
+        Expr(:curly, :NamedTuple, Expr(:tuple, QuoteNode.(re_names)...)),
+        Expr(:tuple, re_val_syms...))
 
     ex = quote
-        @model function $(fname)(dm, info, θ, const_cache, cache, anneal_sds=NamedTuple())
+        @model function $(fname)(dm, info, θ, const_cache, cache, anneal_sds = NamedTuple())
             θ_re = _symmetrize_psd_params(θ, dm.model.fixed.fixed)
             dists_builder = get_create_random_effect_distribution(dm.model.random.random)
             model_funs = cache.model_funs
@@ -514,16 +515,17 @@ function _extract_b_samples(chain, info::_LaplaceBatchInfo, re_names::Vector{Sym
 end
 
 function _re_dists_for_info(dm::DataModel,
-                            info::_LaplaceBatchInfo,
-                            θ::ComponentArray,
-                            cache::_LLCache)
+        info::_LaplaceBatchInfo,
+        θ::ComponentArray,
+        cache::_LLCache)
     model_funs = cache.model_funs
     helpers = cache.helpers
     θ_re = _symmetrize_psd_params(θ, dm.model.fixed.fixed)
     dists_builder = get_create_random_effect_distribution(dm.model.random.random)
     cache_re = dm.re_group_info.laplace_cache
     re_names = cache_re.re_names
-    pairs = Vector{Pair{Symbol, Vector{Distributions.Distribution}}}(undef, length(re_names))
+    pairs = Vector{Pair{Symbol, Vector{Distributions.Distribution}}}(
+        undef, length(re_names))
     for (ri, re) in enumerate(re_names)
         info_re = info.re_info[ri]
         levels = getproperty(getproperty(info_re, :map), :levels)
@@ -540,11 +542,11 @@ function _re_dists_for_info(dm::DataModel,
 end
 
 function _filter_b_samples_by_prior(dm::DataModel,
-                                    info::_LaplaceBatchInfo,
-                                    θ::ComponentArray,
-                                    const_cache::LaplaceConstantsCache,
-                                    cache::_LLCache,
-                                    samples::AbstractMatrix)
+        info::_LaplaceBatchInfo,
+        θ::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        cache::_LLCache,
+        samples::AbstractMatrix)
     size(samples, 2) == 0 && return samples
     dists_by_re = _re_dists_for_info(dm, info, θ, cache)
     keep = trues(size(samples, 2))
@@ -575,9 +577,9 @@ function _filter_b_samples_by_prior(dm::DataModel,
 end
 
 function _mcem_sample_batch(dm, info, θ, const_cache, cache, sampler, turing_kwargs, rng,
-                            re_names, warm_start, last_params;
-                            anneal_sds::NamedTuple=NamedTuple(),
-                            outer_iter::Int=1)
+        re_names, warm_start, last_params;
+        anneal_sds::NamedTuple = NamedTuple(),
+        outer_iter::Int = 1)
     if sampler isa SaemixMH
         error("SAEM internal error: SaemixMH dispatched to generic _mcem_sample_batch with cache type $(typeof(cache)). This usually means a threaded SAEM path passed a cache vector instead of a per-thread cache.")
     end
@@ -590,19 +592,19 @@ function _mcem_sample_batch(dm, info, θ, const_cache, cache, sampler, turing_kw
     model = Base.invokelatest(model_fn, dm, info, θ, const_cache, cache, anneal_sds)
     n_samples = get(turing_kwargs, :n_samples, 100)
     n_adapt = get(turing_kwargs, :n_adapt, 50)
-    tkwargs = Base.structdiff(turing_kwargs, (n_samples=0, n_adapt=0))
-    haskey(tkwargs, :progress) || (tkwargs = merge(tkwargs, (progress=false,)))
-    haskey(tkwargs, :verbose) || (tkwargs = merge(tkwargs, (verbose=false,)))
+    tkwargs = Base.structdiff(turing_kwargs, (n_samples = 0, n_adapt = 0))
+    haskey(tkwargs, :progress) || (tkwargs = merge(tkwargs, (progress = false,)))
+    haskey(tkwargs, :verbose) || (tkwargs = merge(tkwargs, (verbose = false,)))
     # Turing ≥ 0.45 defaults to FlexiChains; `_extract_b_samples` consumes the chain via
     # the MCMCChains API (`names`/`Array`), so force an MCMCChains.Chains result here.
-    tkwargs = merge(tkwargs, (chain_type=MCMCChains.Chains,))
+    tkwargs = merge(tkwargs, (chain_type = MCMCChains.Chains,))
     chain = if warm_start && last_params isa NamedTuple && !isempty(last_params)
         init = DynamicPPL.InitFromParams(last_params)
         Base.invokelatest(Turing.sample, rng, model, sampler, n_samples;
-                          adapt=n_adapt, initial_params=init, tkwargs...)
+            adapt = n_adapt, initial_params = init, tkwargs...)
     else
         Base.invokelatest(Turing.sample, rng, model, sampler, n_samples;
-                          adapt=n_adapt, tkwargs...)
+            adapt = n_adapt, tkwargs...)
     end
     samples, lastp, lastb = _extract_b_samples(chain, info, re_names)
     samples = _filter_b_samples_by_prior(dm, info, θ, const_cache, cache, samples)
@@ -622,25 +624,25 @@ end
 # lp_offset and level_inds are set to dummy values — they are only used by
 # _amh_step_block! (MH path), not by _amh_haario_update! (reused here).
 function _is_init_proposal_blocks(dm::DataModel,
-                                   info::_LaplaceBatchInfo,
-                                   θ::ComponentArray,
-                                   cache::_LLCache,
-                                   re_names::Vector{Symbol},
-                                   re_types::NamedTuple;
-                                   init_scale::Float64=1.0,
-                                   eps_reg::Float64=1e-6)
+        info::_LaplaceBatchInfo,
+        θ::ComponentArray,
+        cache::_LLCache,
+        re_names::Vector{Symbol},
+        re_types::NamedTuple;
+        init_scale::Float64 = 1.0,
+        eps_reg::Float64 = 1e-6)
     dists_builder = get_create_random_effect_distribution(dm.model.random.random)
-    model_funs    = cache.model_funs
-    helpers       = cache.helpers
+    model_funs = cache.model_funs
+    helpers = cache.helpers
     blocks = Vector{_REAdaptBlock}(undef, length(re_names))
     for (ri, re) in enumerate(re_names)
-        re_info  = info.re_info[ri]
-        dim      = re_info.dim
+        re_info = info.re_info[ri]
+        dim = re_info.dim
         n_levels = length(re_info.map.levels)
-        re_type  = getproperty(re_types, re)
+        re_type = getproperty(re_types, re)
         # Get representative distribution from first active level
         dist = if n_levels > 0
-            rep_idx  = re_info.reps[1]
+            rep_idx = re_info.reps[1]
             const_cov = dm.individuals[rep_idx].const_cov
             dists = dists_builder(θ, const_cov, model_funs, helpers)
             getproperty(dists, re)
@@ -648,7 +650,7 @@ function _is_init_proposal_blocks(dm::DataModel,
             nothing
         end
         C = dist !== nothing ? _amh_init_cov(dist, dim, init_scale, eps_reg) :
-                               (init_scale + eps_reg) .* Matrix{Float64}(I(max(dim, 1)))
+            (init_scale + eps_reg) .* Matrix{Float64}(I(max(dim, 1)))
         blocks[ri] = _REAdaptBlock(
             re, re_type, dim, n_levels, ri,
             0,           # lp_offset — unused for IS
@@ -657,7 +659,7 @@ function _is_init_proposal_blocks(dm::DataModel,
             _amh_chol_L(C, dim),
             zeros(Float64, dim),
             zeros(Float64, dim, dim),
-            0,
+            0
         )
     end
     return blocks
@@ -666,36 +668,36 @@ end
 # Draw n_samples from the prior proposal for a single batch.
 # Returns (samples::Matrix{Float64}(n_b, n_samples), log_qs::Vector{Float64}).
 function _is_prior_sample_batch(dm::DataModel,
-                                 info::_LaplaceBatchInfo,
-                                 θ::ComponentArray,
-                                 const_cache::LaplaceConstantsCache,
-                                 cache::_LLCache,
-                                 rng::AbstractRNG,
-                                 n_samples::Int,
-                                 re_names::Vector{Symbol})
+        info::_LaplaceBatchInfo,
+        θ::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        cache::_LLCache,
+        rng::AbstractRNG,
+        n_samples::Int,
+        re_names::Vector{Symbol})
     nb = info.n_b
     if nb == 0
         return (zeros(Float64, 0, n_samples), zeros(Float64, n_samples))
     end
     dists_builder = get_create_random_effect_distribution(dm.model.random.random)
-    model_funs    = cache.model_funs
-    helpers       = cache.helpers
+    model_funs = cache.model_funs
+    helpers = cache.helpers
     samples = Matrix{Float64}(undef, nb, n_samples)
-    log_qs  = zeros(Float64, n_samples)
+    log_qs = zeros(Float64, n_samples)
     for m in 1:n_samples
         b = view(samples, :, m)
         lq = 0.0
         for (ri, re) in enumerate(re_names)
             re_info = info.re_info[ri]
-            levels  = re_info.map.levels
+            levels = re_info.map.levels
             isempty(levels) && continue
             for (li, _) in enumerate(levels)
-                r         = re_info.ranges[li]
-                rep_idx   = re_info.reps[li]
+                r = re_info.ranges[li]
+                rep_idx = re_info.reps[li]
                 const_cov = dm.individuals[rep_idx].const_cov
-                dists     = dists_builder(θ, const_cov, model_funs, helpers)
-                dist      = getproperty(dists, re)
-                draw      = rand(rng, dist)
+                dists = dists_builder(θ, const_cov, model_funs, helpers)
+                dist = getproperty(dists, re)
+                draw = rand(rng, dist)
                 if re_info.is_scalar
                     b[first(r)] = draw isa AbstractVector ? draw[1] : Float64(draw)
                     lq += logpdf(dist, b[first(r)])
@@ -713,22 +715,22 @@ end
 # Build a b vector at the prior mean (or median fallback) for each RE level in a batch.
 # Used to initialize b_current and Turing's starting state before the main SAEM/MCEM loop.
 function _re_prior_mean_b(dm::DataModel,
-                          info::_LaplaceBatchInfo,
-                          θ::ComponentArray,
-                          const_cache::LaplaceConstantsCache,
-                          cache::_LLCache,
-                          re_names::Vector{Symbol})
+        info::_LaplaceBatchInfo,
+        θ::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        cache::_LLCache,
+        re_names::Vector{Symbol})
     nb = info.n_b
-    b  = zeros(Float64, nb)
+    b = zeros(Float64, nb)
     nb == 0 && return b
     dists_by_re = _re_dists_for_info(dm, info, θ, cache)
     for (ri, re) in enumerate(re_names)
-        meta   = info.re_info[ri]
+        meta = info.re_info[ri]
         levels = meta.map.levels
         isempty(levels) && continue
-        dists  = getproperty(dists_by_re, re)
+        dists = getproperty(dists_by_re, re)
         for (li, _) in enumerate(levels)
-            r    = meta.ranges[li]
+            r = meta.ranges[li]
             dist = dists[li]
             # Try mean, then median — both are generic Distributions.jl API
             val = try
@@ -764,11 +766,11 @@ end
 # Key names match those produced by `_extract_b_samples`: level 1 → `η_v1` (or `η_v1[k]`
 # for vectors), level li>1 → `η_vals[li]` (or `η_vals[li][k]` for vectors).
 function _b_to_last_params(b::AbstractVector,
-                            info::_LaplaceBatchInfo,
-                            re_names::Vector{Symbol})
+        info::_LaplaceBatchInfo,
+        re_names::Vector{Symbol})
     pairs = Pair{Symbol, Float64}[]
     for (ri, re) in enumerate(re_names)
-        meta   = info.re_info[ri]
+        meta = info.re_info[ri]
         levels = meta.map.levels
         for (li, _) in enumerate(levels)
             r = meta.ranges[li]
@@ -778,8 +780,8 @@ function _b_to_last_params(b::AbstractVector,
             else
                 for k in eachindex(r)
                     key = li == 1 ?
-                        Symbol(string(re, "_v1[", k, "]")) :
-                        Symbol(string(re, "_vals[", li, "][", k, "]"))
+                          Symbol(string(re, "_v1[", k, "]")) :
+                          Symbol(string(re, "_vals[", li, "][", k, "]"))
                     push!(pairs, key => Float64(b[r[k]]))
                 end
             end
@@ -796,30 +798,30 @@ end
 # sampling from the initial covariance (blocks.μ_run starts at zero = prior mean
 # in z-space for symmetric distributions like Normal).
 function _is_gaussian_sample_batch(dm::DataModel,
-                                    info::_LaplaceBatchInfo,
-                                    rng::AbstractRNG,
-                                    n_samples::Int,
-                                    re_names::Vector{Symbol},
-                                    re_types::NamedTuple,
-                                    blocks::Vector{_REAdaptBlock})
+        info::_LaplaceBatchInfo,
+        rng::AbstractRNG,
+        n_samples::Int,
+        re_names::Vector{Symbol},
+        re_types::NamedTuple,
+        blocks::Vector{_REAdaptBlock})
     nb = info.n_b
     if nb == 0
         return (zeros(Float64, 0, n_samples), zeros(Float64, n_samples))
     end
     samples = Matrix{Float64}(undef, nb, n_samples)
-    log_qs  = zeros(Float64, n_samples)
+    log_qs = zeros(Float64, n_samples)
     for m in 1:n_samples
-        b  = view(samples, :, m)
+        b = view(samples, :, m)
         lq = 0.0
         for (ri, re) in enumerate(re_names)
             re_info = info.re_info[ri]
-            levels  = re_info.map.levels
+            levels = re_info.map.levels
             isempty(levels) && continue
-            block   = blocks[ri]
+            block = blocks[ri]
             re_type = getproperty(re_types, re)
-            L       = block.C_chol_L
-            μ       = block.μ_run
-            dim     = block.dim
+            L = block.C_chol_L
+            μ = block.μ_run
+            dim = block.dim
             for li in eachindex(levels)
                 r = re_info.ranges[li]
                 # Draw z ~ N(μ, C) in bijected space
@@ -831,14 +833,14 @@ function _is_gaussian_sample_batch(dm::DataModel,
                     b[first(r)] = η_val
                     z_val = dim == 1 ? z[1] : z[1]
                     lq += logpdf(Normal(μ[1], sqrt(max(block.C[1, 1], 1e-14))), z_val) +
-                           _bij_log_jac_forward(re_type, z_val)
+                          _bij_log_jac_forward(re_type, z_val)
                 else
                     b[r] .= η
                     # Multivariate Gaussian log-density: -0.5*(z-μ)'C⁻¹(z-μ) - 0.5*logdet(2πC)
-                    zv   = Vector{Float64}(z)
+                    zv = Vector{Float64}(z)
                     Cfull = Symmetric(block.C .+ 1e-14 .* I(dim))
                     lq += logpdf(MvNormal(μ, Cfull), zv) +
-                           _bij_log_jac_forward(re_type, zv)
+                          _bij_log_jac_forward(re_type, zv)
                 end
             end
         end
@@ -851,12 +853,12 @@ end
 # log_ws[m] = log p(y, b_m | θ_k) - log_qs[m], then log-normalized (logsumexp = 0).
 # Returns (log_ws::Vector{Float64}, ess::Float64).
 function _is_compute_log_weights(dm::DataModel,
-                                  info::_LaplaceBatchInfo,
-                                  θ::ComponentArray,
-                                  const_cache::LaplaceConstantsCache,
-                                  cache::_LLCache,
-                                  samples::AbstractMatrix,
-                                  log_qs::AbstractVector{Float64})
+        info::_LaplaceBatchInfo,
+        θ::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        cache::_LLCache,
+        samples::AbstractMatrix,
+        log_qs::AbstractVector{Float64})
     n = size(samples, 2)
     if n == 0
         return (Float64[], NaN)
@@ -864,8 +866,8 @@ function _is_compute_log_weights(dm::DataModel,
     log_ws_unnorm = Vector{Float64}(undef, n)
     tctx = _safe_theta_ctx(dm, info, θ, cache)
     for m in 1:n
-        b      = view(samples, :, m)
-        log_f  = _laplace_logf_batch(dm, info, θ, b, const_cache, cache; tctx=tctx)
+        b = view(samples, :, m)
+        log_f = _laplace_logf_batch(dm, info, θ, b, const_cache, cache; tctx = tctx)
         log_ws_unnorm[m] = isfinite(log_f) ? log_f - log_qs[m] : -Inf
     end
     # logsumexp normalization
@@ -876,10 +878,10 @@ function _is_compute_log_weights(dm::DataModel,
         return (log_ws_unnorm, 1.0)
     end
     log_sum = lmax + log(sum(exp(lw - lmax) for lw in log_ws_unnorm))
-    log_ws  = log_ws_unnorm .- log_sum
+    log_ws = log_ws_unnorm .- log_sum
     # ESS = 1 / sum(w_m^2)  in log domain: -logsumexp(2 .* log_ws)
-    lmax2   = 2.0 * maximum(log_ws)
-    ess     = exp(-(lmax2 + log(sum(exp(2.0 * lw - lmax2) for lw in log_ws))))
+    lmax2 = 2.0 * maximum(log_ws)
+    ess = exp(-(lmax2 + log(sum(exp(2.0 * lw - lmax2) for lw in log_ws))))
     return (log_ws, ess)
 end
 
@@ -888,13 +890,13 @@ end
 # estimated directly; otherwise uniform weights (MCMC posterior samples) are assumed.
 # Pooling across all levels within the batch is intentional — they share the proposal.
 function _is_update_blocks!(blocks::Vector{_REAdaptBlock},
-                             samples::AbstractMatrix,
-                             info::_LaplaceBatchInfo,
-                             re_names::Vector{Symbol},
-                             re_types::NamedTuple,
-                             adapt_start::Int,
-                             eps_reg::Float64;
-                             log_ws::Union{Nothing, AbstractVector{Float64}}=nothing)
+        samples::AbstractMatrix,
+        info::_LaplaceBatchInfo,
+        re_names::Vector{Symbol},
+        re_types::NamedTuple,
+        adapt_start::Int,
+        eps_reg::Float64;
+        log_ws::Union{Nothing, AbstractVector{Float64}} = nothing)
     n_samp = size(samples, 2)
     n_samp == 0 && return
     # Build sample weights (normalized, sum to 1 per batch)
@@ -905,24 +907,24 @@ function _is_update_blocks!(blocks::Vector{_REAdaptBlock},
     end
     for (ri, re) in enumerate(re_names)
         re_info = info.re_info[ri]
-        levels  = re_info.map.levels
+        levels = re_info.map.levels
         isempty(levels) && continue
-        block   = blocks[ri]
+        block = blocks[ri]
         re_type = getproperty(re_types, re)
-        dim     = block.dim
-        n_lev   = length(levels)
-        n_pts   = n_lev * n_samp
+        dim = block.dim
+        n_lev = length(levels)
+        n_pts = n_lev * n_samp
         # Collect z-vectors (in bijected space) and pooled weights
-        zs        = Matrix{Float64}(undef, dim, n_pts)
+        zs = Matrix{Float64}(undef, dim, n_pts)
         ws_pooled = Vector{Float64}(undef, n_pts)
         k = 0
         for m in 1:n_samp
             b = view(samples, :, m)
             for li in eachindex(levels)
                 k += 1
-                r   = re_info.ranges[li]
-                η   = re_info.is_scalar ? b[first(r)] : Vector{Float64}(view(b, r))
-                z   = _amh_bij_forward(re_type, η)
+                r = re_info.ranges[li]
+                η = re_info.is_scalar ? b[first(r)] : Vector{Float64}(view(b, r))
+                z = _amh_bij_forward(re_type, η)
                 z_v = dim == 1 ? Float64(z isa AbstractVector ? z[1] : z) : nothing
                 if dim == 1
                     zs[1, k] = z_v
@@ -940,13 +942,13 @@ function _is_update_blocks!(blocks::Vector{_REAdaptBlock},
         μ = vec(zs * ws_pooled)
         # Weighted covariance
         dz = zs .- μ                         # dim × n_pts deviations
-        C  = Symmetric((dz .* ws_pooled') * dz')  # dim × dim
+        C = Symmetric((dz .* ws_pooled') * dz')  # dim × dim
         # Regularize and re-Cholesky
         C_reg = Symmetric(Matrix(C) + eps_reg * I(dim))
         try
             L = cholesky(C_reg).L
-            block.μ_run    .= μ
-            block.C        .= Matrix(C_reg)
+            block.μ_run .= μ
+            block.C .= Matrix(C_reg)
             block.C_chol_L .= Matrix(L)
             block.n_samples += n_pts
         catch
@@ -958,17 +960,17 @@ end
 # Unified IS E-step dispatcher for a single batch.
 # Returns (samples, log_ws, ess) — log_ws are log-normalized weights.
 function _is_sample_batch(dm::DataModel,
-                           info::_LaplaceBatchInfo,
-                           θ::ComponentArray,
-                           const_cache::LaplaceConstantsCache,
-                           cache::_LLCache,
-                           rng::AbstractRNG,
-                           re_names::Vector{Symbol},
-                           re_types::NamedTuple,
-                           e_step::MCEM_IS,
-                           blocks::Vector{_REAdaptBlock})
+        info::_LaplaceBatchInfo,
+        θ::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        cache::_LLCache,
+        rng::AbstractRNG,
+        re_names::Vector{Symbol},
+        re_types::NamedTuple,
+        e_step::MCEM_IS,
+        blocks::Vector{_REAdaptBlock})
     n_samples = e_step.n_samples
-    proposal  = e_step.proposal
+    proposal = e_step.proposal
     # Choose sampling strategy
     samples, log_qs = if proposal === :prior
         _is_prior_sample_batch(dm, info, θ, const_cache, cache, rng, n_samples, re_names)
@@ -976,7 +978,7 @@ function _is_sample_batch(dm::DataModel,
         # Fall back to prior-based initial covariance until blocks have data
         if isempty(blocks) || blocks[1].n_samples < 2
             _is_prior_sample_batch(dm, info, θ, const_cache, cache, rng, n_samples,
-                                    re_names)
+                re_names)
         else
             _is_gaussian_sample_batch(dm, info, rng, n_samples, re_names, re_types, blocks)
         end
@@ -996,17 +998,17 @@ _use_mcmc_this_iter(iter::Int, es::MCEM_IS) = iter <= es.warm_start_mcmc_iters
 
 # Helper: get the MCMC e_step options for warm-up (or the method itself for MCEM_MCMC)
 _mcmc_e_step(es::MCEM_MCMC) = es
-_mcmc_e_step(es::MCEM_IS)   = es.mcmc_warmup
+_mcmc_e_step(es::MCEM_IS) = es.mcmc_warmup
 
 function _mcem_Q_array(dm::DataModel,
-                       batch_infos::Vector{_LaplaceBatchInfo},
-                       θ::ComponentArray,
-                       const_cache::LaplaceConstantsCache,
-                       ll_cache,
-                       samples_by_batch::AbstractVector{<:AbstractMatrix},
-                       weights_by_batch::Union{Nothing, AbstractVector{<:AbstractVector}}=nothing;
-                       serialization::SciMLBase.EnsembleAlgorithm=EnsembleThreads(),
-                       q_cache::Union{Nothing, _MCEMQCache}=nothing)
+        batch_infos::Vector{_LaplaceBatchInfo},
+        θ::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        ll_cache,
+        samples_by_batch::AbstractVector{<:AbstractMatrix},
+        weights_by_batch::Union{Nothing, AbstractVector{<:AbstractVector}} = nothing;
+        serialization::SciMLBase.EnsembleAlgorithm = EnsembleThreads(),
+        q_cache::Union{Nothing, _MCEMQCache} = nothing)
     Tθ = eltype(θ)
     total = zero(Tθ)
     # Constant-RE batches (n_b == 0): logf is independent of samples — evaluate once.
@@ -1040,7 +1042,8 @@ function _mcem_Q_array(dm::DataModel,
             tctx = _safe_theta_ctx(dm, info, θ, caches[tid])
             for s in 1:size(samples, 2)
                 b = view(samples, :, s)
-                logf = _laplace_logf_batch(dm, info, θ, b, const_cache, caches[tid]; tctx=tctx)
+                logf = _laplace_logf_batch(
+                    dm, info, θ, b, const_cache, caches[tid]; tctx = tctx)
                 !isfinite(logf) && (bad[] = true; break)
                 w = ws === nothing ? one(Tθ) : Tθ(ws[s])
                 acc += w * logf
@@ -1066,7 +1069,8 @@ function _mcem_Q_array(dm::DataModel,
             tctx = _safe_theta_ctx(dm, info, θ, ll_cache_local)
             for s in 1:size(samples, 2)
                 b = view(samples, :, s)
-                logf = _laplace_logf_batch(dm, info, θ, b, const_cache, ll_cache_local; tctx=tctx)
+                logf = _laplace_logf_batch(
+                    dm, info, θ, b, const_cache, ll_cache_local; tctx = tctx)
                 !isfinite(logf) && return Tθ(Inf)
                 w = ws === nothing ? one(Tθ) : Tθ(ws[s])
                 acc += w * logf
@@ -1081,41 +1085,41 @@ function _mcem_Q_array(dm::DataModel,
 end
 
 function _mcem_Q(dm::DataModel,
-                 batch_infos::Vector{_LaplaceBatchInfo},
-                 θ::ComponentArray,
-                 const_cache::LaplaceConstantsCache,
-                 ll_cache,
-                 samples_by_batch::AbstractVector{<:AbstractMatrix},
-                 weights_by_batch::Union{Nothing, AbstractVector{<:AbstractVector}}=nothing;
-                 serialization::SciMLBase.EnsembleAlgorithm=EnsembleThreads(),
-                 q_cache::Union{Nothing, _MCEMQCache}=nothing)
+        batch_infos::Vector{_LaplaceBatchInfo},
+        θ::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        ll_cache,
+        samples_by_batch::AbstractVector{<:AbstractMatrix},
+        weights_by_batch::Union{Nothing, AbstractVector{<:AbstractVector}} = nothing;
+        serialization::SciMLBase.EnsembleAlgorithm = EnsembleThreads(),
+        q_cache::Union{Nothing, _MCEMQCache} = nothing)
     return _mcem_Q_array(dm, batch_infos, θ, const_cache, ll_cache, samples_by_batch,
-                         weights_by_batch; serialization=serialization, q_cache=q_cache)
+        weights_by_batch; serialization = serialization, q_cache = q_cache)
 end
 
 function _mcem_Q(dm::DataModel,
-                 batch_infos::Vector{_LaplaceBatchInfo},
-                 θ::ComponentVector,
-                 const_cache::LaplaceConstantsCache,
-                 ll_cache,
-                 samples_by_batch::AbstractVector{<:AbstractMatrix},
-                 weights_by_batch::Union{Nothing, AbstractVector{<:AbstractVector}}=nothing;
-                 serialization::SciMLBase.EnsembleAlgorithm=EnsembleThreads(),
-                 q_cache::Union{Nothing, _MCEMQCache}=nothing)
+        batch_infos::Vector{_LaplaceBatchInfo},
+        θ::ComponentVector,
+        const_cache::LaplaceConstantsCache,
+        ll_cache,
+        samples_by_batch::AbstractVector{<:AbstractMatrix},
+        weights_by_batch::Union{Nothing, AbstractVector{<:AbstractVector}} = nothing;
+        serialization::SciMLBase.EnsembleAlgorithm = EnsembleThreads(),
+        q_cache::Union{Nothing, _MCEMQCache} = nothing)
     return _mcem_Q_array(dm, batch_infos, θ, const_cache, ll_cache, samples_by_batch,
-                         weights_by_batch; serialization=serialization, q_cache=q_cache)
+        weights_by_batch; serialization = serialization, q_cache = q_cache)
 end
 
 # Q2 counterpart to _mcem_Q: evaluates only log p(η|θ_re) — no ODE calls.
 # Used for the Q2 M-step (parameters that appear only in RE distribution expressions).
 function _mcem_Q2(dm::DataModel,
-                  batch_infos::Vector{_LaplaceBatchInfo},
-                  θ::ComponentArray,
-                  const_cache::LaplaceConstantsCache,
-                  ll_cache,
-                  samples_by_batch::AbstractVector{<:AbstractMatrix},
-                  weights_by_batch::Union{Nothing, AbstractVector{<:AbstractVector}}=nothing;
-                  serialization::SciMLBase.EnsembleAlgorithm=EnsembleThreads())
+        batch_infos::Vector{_LaplaceBatchInfo},
+        θ::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        ll_cache,
+        samples_by_batch::AbstractVector{<:AbstractMatrix},
+        weights_by_batch::Union{Nothing, AbstractVector{<:AbstractVector}} = nothing;
+        serialization::SciMLBase.EnsembleAlgorithm = EnsembleThreads())
     Tθ = eltype(θ)
     total = zero(Tθ)
     # Constant-RE batches: RE prior is deterministic — evaluate once outside the sample loop.
@@ -1176,30 +1180,30 @@ function _mcem_Q2(dm::DataModel,
     return total
 end
 
-
 function _fit_model(dm::DataModel, method::MCEM, args...;
-                    constants::NamedTuple=NamedTuple(),
-                    constants_re::NamedTuple=NamedTuple(),
-                    penalty::NamedTuple=NamedTuple(),
-                    ode_args::Tuple=(),
-                    ode_kwargs::NamedTuple=NamedTuple(),
-                    serialization::SciMLBase.EnsembleAlgorithm=EnsembleThreads(),
-                    rng::AbstractRNG=Xoshiro(0),
-                    theta_0_untransformed::Union{Nothing, ComponentArray}=nothing,
-                    store_eb_modes::Bool=true,
-                    store_data_model::Bool=true)
-    fit_kwargs = (constants=constants,
-                  constants_re=constants_re,
-                  penalty=penalty,
-                  ode_args=ode_args,
-                  ode_kwargs=ode_kwargs,
-                  serialization=serialization,
-                  rng=rng,
-                  theta_0_untransformed=theta_0_untransformed,
-                  store_eb_modes=store_eb_modes,
-                  store_data_model=store_data_model)
+        constants::NamedTuple = NamedTuple(),
+        constants_re::NamedTuple = NamedTuple(),
+        penalty::NamedTuple = NamedTuple(),
+        ode_args::Tuple = (),
+        ode_kwargs::NamedTuple = NamedTuple(),
+        serialization::SciMLBase.EnsembleAlgorithm = EnsembleThreads(),
+        rng::AbstractRNG = Xoshiro(0),
+        theta_0_untransformed::Union{Nothing, ComponentArray} = nothing,
+        store_eb_modes::Bool = true,
+        store_data_model::Bool = true)
+    fit_kwargs = (constants = constants,
+        constants_re = constants_re,
+        penalty = penalty,
+        ode_args = ode_args,
+        ode_kwargs = ode_kwargs,
+        serialization = serialization,
+        rng = rng,
+        theta_0_untransformed = theta_0_untransformed,
+        store_eb_modes = store_eb_modes,
+        store_data_model = store_data_model)
     re_names = get_re_names(dm.model.random.random)
-    isempty(re_names) && error("MCEM requires random effects. Use MLE/MAP for fixed-effects models.")
+    isempty(re_names) &&
+        error("MCEM requires random effects. Use MLE/MAP for fixed-effects models.")
     fe = dm.model.fixed.fixed
     priors = get_priors(fe)
     if any(!(getfield(priors, k) isa Priorless) for k in keys(priors))
@@ -1219,7 +1223,8 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
     θ0_u = get_θ0_untransformed(fe)
     if theta_0_untransformed !== nothing
         for n in fixed_names
-            hasproperty(theta_0_untransformed, n) || error("theta_0_untransformed is missing parameter $(n).")
+            hasproperty(theta_0_untransformed, n) ||
+                error("theta_0_untransformed is missing parameter $(n).")
         end
         θ0_u = theta_0_untransformed
     end
@@ -1234,10 +1239,13 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
     const_cache = _build_constants_cache(dm, constants_re)
     pairing, batch_infos, _ = _build_laplace_batch_infos(dm, constants_re)
     ll_cache = serialization isa SciMLBase.EnsembleThreads ?
-               build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs, nthreads=Threads.maxthreadid(), force_saveat=true) :
-               build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs, force_saveat=true)
+               build_ll_cache(dm; ode_args = ode_args, ode_kwargs = ode_kwargs,
+        nthreads = Threads.maxthreadid(), force_saveat = true) :
+               build_ll_cache(
+        dm; ode_args = ode_args, ode_kwargs = ode_kwargs, force_saveat = true)
 
-    θt_free = ComponentArray(NamedTuple{Tuple(free_names)}(Tuple(getproperty(θ0_t, n) for n in free_names)))
+    θt_free = ComponentArray(NamedTuple{Tuple(free_names)}(Tuple(getproperty(θ0_t, n)
+    for n in free_names)))
     axs_free = getaxes(θt_free)
     axs_full = getaxes(θ_const_t)
     T0 = eltype(θt_free)
@@ -1248,17 +1256,19 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
     end
 
     diag = _MCEMDiagnostics{T0}(Vector{AbstractVector{T0}}(),
-                               Vector{T0}(),
-                               Vector{T0}(),
-                               Vector{T0}(),
-                               Vector{T0}(),
-                               Vector{T0}(),
-                               Int[],
-                               Float64[])
+        Vector{T0}(),
+        Vector{T0}(),
+        Vector{T0}(),
+        Vector{T0}(),
+        Vector{T0}(),
+        Int[],
+        Float64[])
 
     q_cache = _init_mcem_q_cache(T0, serialization)
 
-    last_params = Vector{Union{Nothing, NamedTuple, AbstractVector, _AdaptiveMHState, _SaemixMHState}}(undef, length(batch_infos))
+    last_params = Vector{Union{
+        Nothing, NamedTuple, AbstractVector, _AdaptiveMHState, _SaemixMHState}}(
+        undef, length(batch_infos))
     fill!(last_params, nothing)
     batch_rngs = _mcem_thread_rngs(rng, length(batch_infos))
 
@@ -1270,14 +1280,16 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
             info = batch_infos[bi]
             info.n_b == 0 && continue
             b_init = _re_prior_mean_b(dm, info, θ0_u, const_cache, cache_init, re_names)
-            logf   = _laplace_logf_batch(dm, info, θ0_u, b_init, const_cache, cache_init)
+            logf = _laplace_logf_batch(dm, info, θ0_u, b_init, const_cache, cache_init)
             if !isfinite(logf)
                 b_init = nothing
                 for _ in 1:10
-                    samp, _ = _is_prior_sample_batch(dm, info, θ0_u, const_cache, cache_init,
-                                                     rng, 1, re_names)
+                    samp, _ = _is_prior_sample_batch(
+                        dm, info, θ0_u, const_cache, cache_init,
+                        rng, 1, re_names)
                     b_cand = samp[:, 1]
-                    if isfinite(_laplace_logf_batch(dm, info, θ0_u, b_cand, const_cache, cache_init))
+                    if isfinite(_laplace_logf_batch(
+                        dm, info, θ0_u, b_cand, const_cache, cache_init))
                         b_init = b_cand
                         break
                     end
@@ -1297,7 +1309,7 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
     ll_cache_single = ll_cache isa Vector ? ll_cache[1] : ll_cache
     proposal_blocks = if method.e_step isa MCEM_IS
         [_is_init_proposal_blocks(dm, batch_infos[bi], θ0_u, ll_cache_single, re_names,
-                                   re_types) for bi in eachindex(batch_infos)]
+             re_types) for bi in eachindex(batch_infos)]
     else
         nothing
     end
@@ -1308,10 +1320,10 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
     param_streak = 0
     q_streak = 0
     converged = false
-    progress_bar = ProgressMeter.Progress(method.em.maxiters; desc="MCEM",
-                                           enabled=method.progress)
+    progress_bar = ProgressMeter.Progress(method.em.maxiters; desc = "MCEM",
+        enabled = method.progress)
 
-    for iter in 1:method.em.maxiters
+    for iter in 1:(method.em.maxiters)
         θt_curr = θ_prev isa ComponentArray ? θ_prev : ComponentArray(θ_prev, axs_free)
         θt_full_curr = ComponentArray(T0.(θ_const_t), axs_full)
 
@@ -1321,10 +1333,10 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
         θu_curr = inv_transform(θt_full_curr)
 
         use_mcmc = _use_mcmc_this_iter(iter, method.e_step)
-        samples_by_batch  = Vector{Matrix{T0}}(undef, length(batch_infos))
-        weights_by_batch  = use_mcmc ? nothing :
-                            Vector{Vector{Float64}}(undef, length(batch_infos))
-        ess_by_batch      = use_mcmc ? nothing : Vector{Float64}(undef, length(batch_infos))
+        samples_by_batch = Vector{Matrix{T0}}(undef, length(batch_infos))
+        weights_by_batch = use_mcmc ? nothing :
+                           Vector{Vector{Float64}}(undef, length(batch_infos))
+        ess_by_batch = use_mcmc ? nothing : Vector{Float64}(undef, length(batch_infos))
 
         if use_mcmc
             # --- MCMC E-step (MCEM_MCMC or warm-up phase of MCEM_IS) ---
@@ -1333,7 +1345,7 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
             if S <= 0
                 S = get(mcmc_es.turing_kwargs, :n_samples, 100)
             end
-            tkwargs = merge(mcmc_es.turing_kwargs, (n_samples=S,))
+            tkwargs = merge(mcmc_es.turing_kwargs, (n_samples = S,))
 
             if serialization isa SciMLBase.EnsembleThreads
                 nthreads = Threads.maxthreadid()
@@ -1344,7 +1356,7 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
                         dm, info, θu_curr, const_cache, caches[Threads.threadid()],
                         mcmc_es.sampler, tkwargs, batch_rngs[bi],
                         re_names, mcmc_es.warm_start, last_params[bi];
-                        outer_iter=iter)
+                        outer_iter = iter)
                     samples_by_batch[bi] = samples
                     last_params[bi] = lastp
                 end
@@ -1354,7 +1366,7 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
                         dm, info, θu_curr, const_cache, ll_cache,
                         mcmc_es.sampler, tkwargs, batch_rngs[bi],
                         re_names, mcmc_es.warm_start, last_params[bi];
-                        outer_iter=iter)
+                        outer_iter = iter)
                     samples_by_batch[bi] = samples
                     last_params[bi] = lastp
                 end
@@ -1366,7 +1378,7 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
                method.e_step.adapt
                 for bi in eachindex(batch_infos)
                     _is_update_blocks!(proposal_blocks[bi], samples_by_batch[bi],
-                                       batch_infos[bi], re_names, re_types, 2, 1e-6)
+                        batch_infos[bi], re_names, re_types, 2, 1e-6)
                 end
             end
             push!(diag.ess_hist, NaN)
@@ -1387,7 +1399,7 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
                     ess_by_batch[bi] = ess
                     if is_es.adapt
                         _is_update_blocks!(proposal_blocks[bi], samps, info,
-                                           re_names, re_types, 2, 1e-6; log_ws=log_ws)
+                            re_names, re_types, 2, 1e-6; log_ws = log_ws)
                     end
                 end
             else
@@ -1400,7 +1412,7 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
                     ess_by_batch[bi] = ess
                     if is_es.adapt
                         _is_update_blocks!(proposal_blocks[bi], samps, info,
-                                           re_names, re_types, 2, 1e-6; log_ws=log_ws)
+                            re_names, re_types, 2, 1e-6; log_ws = log_ws)
                     end
                 end
             end
@@ -1414,7 +1426,7 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
 
         # ── M-step ───────────────────────────────────────────────────────────
         θu_new = nothing
-        Q_new  = T0(Inf)
+        Q_new = T0(Inf)
 
         # Q2 sub-step: optimise parameters that appear only in RE distribution
         # expressions (no ODE needed).  Results are folded into mstep_constants so the
@@ -1436,8 +1448,8 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
                     end
                     θu_q2 = inv_transform(θt_full_q2)
                     Q2val = _mcem_Q2(dm, batch_infos, θu_q2, const_cache, ll_cache,
-                                     samples_by_batch, weights_by_batch;
-                                     serialization=serialization)
+                        samples_by_batch, weights_by_batch;
+                        serialization = serialization)
                     isfinite(Q2val) || return T(Inf)
                     return -Q2val
                 end
@@ -1449,9 +1461,10 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
                 θ0_q2 = collect(θt_q2)
                 optf_q2 = OptimizationFunction(obj_q2, method.adtype)
                 prob_q2 = use_bounds_q2 ?
-                    OptimizationProblem(optf_q2, θ0_q2; lb=lb_q2, ub=ub_q2) :
-                    OptimizationProblem(optf_q2, θ0_q2)
-                sol_q2 = Optimization.solve(prob_q2, method.optimizer; method.optim_kwargs...)
+                          OptimizationProblem(optf_q2, θ0_q2; lb = lb_q2, ub = ub_q2) :
+                          OptimizationProblem(optf_q2, θ0_q2)
+                sol_q2 = Optimization.solve(
+                    prob_q2, method.optimizer; method.optim_kwargs...)
                 if all(isfinite, sol_q2.u)
                     θt_q2_opt = ComponentArray(sol_q2.u, axs_q2)
                     θt_full_q2_opt = ComponentArray(collect(θt_full_curr), axs_full)
@@ -1478,13 +1491,14 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
             Tuple(getproperty(θt_full_curr, n) for n in free_names_q1)))
         axs_free_iter = getaxes(θt_free_iter)
 
-        obj_cache = (θ=Ref{Any}(nothing), obj=Ref{Any}(nothing))
+        obj_cache = (θ = Ref{Any}(nothing), obj = Ref{Any}(nothing))
         function obj_only(θt, p)
             any(isnan.(θt)) && return Inf
             θt_free_loc = θt isa ComponentArray ? θt : ComponentArray(θt, axs_free_iter)
             θt_vec = θt_free_loc
             use_cache = !(eltype(θt_free_loc) <: ForwardDiff.Dual)
-            if use_cache && obj_cache.θ[] !== nothing && length(obj_cache.θ[]) == length(θt_vec)
+            if use_cache && obj_cache.θ[] !== nothing &&
+               length(obj_cache.θ[]) == length(θt_vec)
                 _maxabsdiff(θt_vec, obj_cache.θ[]) == 0.0 && return obj_cache.obj[]
             end
             T = eltype(θt_free_loc)
@@ -1494,7 +1508,7 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
             end
             θu = inv_transform(θt_full_loc)
             Q = _mcem_Q(dm, batch_infos, θu, const_cache, ll_cache, samples_by_batch,
-                        weights_by_batch; serialization=serialization, q_cache=q_cache)
+                weights_by_batch; serialization = serialization, q_cache = q_cache)
             !isfinite(Q) && return Inf
             obj = -Q + _penalty_value(θu, penalty)
             !isfinite(obj) && return Inf
@@ -1508,8 +1522,14 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
         optf = OptimizationFunction(obj_only, method.adtype)
         lower_t, upper_t = get_bounds_transformed(fe)
 
-        lower_t_free_iter = ComponentArray(NamedTuple{Tuple(free_names_q1)}(Tuple(getproperty(lower_t, n) for n in free_names_q1)))
-        upper_t_free_iter = ComponentArray(NamedTuple{Tuple(free_names_q1)}(Tuple(getproperty(upper_t, n) for n in free_names_q1)))
+        lower_t_free_iter = ComponentArray(NamedTuple{Tuple(free_names_q1)}(Tuple(getproperty(
+                                                                                      lower_t,
+                                                                                      n)
+        for n in free_names_q1)))
+        upper_t_free_iter = ComponentArray(NamedTuple{Tuple(free_names_q1)}(Tuple(getproperty(
+                                                                                      upper_t,
+                                                                                      n)
+        for n in free_names_q1)))
         lower_t_free_vec = collect(lower_t_free_iter)
         upper_t_free_vec = collect(upper_t_free_iter)
         use_bounds = !(all(isinf, lower_t_free_vec) && all(isinf, upper_t_free_vec))
@@ -1521,10 +1541,14 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
             lb_m = method.lb
             ub_m = method.ub
             if lb_m isa ComponentArray
-                lb_m = ComponentArray(NamedTuple{Tuple(free_names_q1)}(Tuple(getproperty(lb_m, n) for n in free_names_q1)))
+                lb_m = ComponentArray(NamedTuple{Tuple(free_names_q1)}(Tuple(getproperty(
+                                                                                 lb_m, n)
+                for n in free_names_q1)))
             end
             if ub_m isa ComponentArray
-                ub_m = ComponentArray(NamedTuple{Tuple(free_names_q1)}(Tuple(getproperty(ub_m, n) for n in free_names_q1)))
+                ub_m = ComponentArray(NamedTuple{Tuple(free_names_q1)}(Tuple(getproperty(
+                                                                                 ub_m, n)
+                for n in free_names_q1)))
             end
             lb_m = lb_m === nothing ? lower_t_free_vec : collect(lb_m)
             ub_m = ub_m === nothing ? upper_t_free_vec : collect(ub_m)
@@ -1537,27 +1561,28 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
             error("BlackBoxOptim methods require finite bounds. Add lower/upper bounds in @fixedEffects (on transformed scale) or pass them via MCEM(lb=..., ub=...). A quick helper is default_bounds_from_start(dm; margin=...).")
         end
         θ0_init = collect(θt_free_iter)
-        prob = use_bounds ? OptimizationProblem(optf, θ0_init; lb=lb_m, ub=ub_m) :
-                            OptimizationProblem(optf, θ0_init)
+        prob = use_bounds ? OptimizationProblem(optf, θ0_init; lb = lb_m, ub = ub_m) :
+               OptimizationProblem(optf, θ0_init)
 
         sol = Optimization.solve(prob, method.optimizer; method.optim_kwargs...)
 
         if any(!isfinite, sol.u)
             @warn "MCEM M-step iter $iter: optimizer returned non-finite parameters; skipping update."
             θu_new = θu_curr
-            Q_new  = Q_prev
+            Q_new = Q_prev
         else
-            θ_hat_t_raw  = sol.u
+            θ_hat_t_raw = sol.u
             θ_hat_t_free = θ_hat_t_raw isa ComponentArray ? θ_hat_t_raw :
-                            ComponentArray(θ_hat_t_raw, axs_free_iter)
+                           ComponentArray(θ_hat_t_raw, axs_free_iter)
 
             θt_full_new = ComponentArray(eltype(θ_hat_t_free).(θ_const_t_q1), axs_full_q1)
             for name in free_names_q1
                 setproperty!(θt_full_new, name, getproperty(θ_hat_t_free, name))
             end
             θu_new = inv_transform(θt_full_new)
-            Q_new = _mcem_Q(dm, batch_infos, θu_new, const_cache, ll_cache, samples_by_batch,
-                            weights_by_batch; serialization=serialization, q_cache=q_cache)
+            Q_new = _mcem_Q(
+                dm, batch_infos, θu_new, const_cache, ll_cache, samples_by_batch,
+                weights_by_batch; serialization = serialization, q_cache = q_cache)
             Q_new = Q_new == Inf ? T0(Inf) : Q_new
         end
 
@@ -1586,7 +1611,7 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
             @info "MCEM iteration" iter=iter samples=S_diag Q=Q_new dθ_abs=dθ_abs dθ_rel=dθ_rel dQ_abs=dQ_abs dQ_rel=dQ_rel
         end
         ProgressMeter.next!(progress_bar;
-                            showvalues=[(:iter, iter), (:samples, S_diag), (:Q, Q_new)])
+            showvalues = [(:iter, iter), (:samples, S_diag), (:Q, Q_new)])
 
         θ_prev = θ_prev_new
         Q_prev = Q_new
@@ -1616,27 +1641,29 @@ function _fit_model(dm::DataModel, method::MCEM, args...;
     θ_hat_t = transform(θ_hat_u)
 
     summary = FitSummary(Q_prev, converged,
-                         FitParameters(θ_hat_t, θ_hat_u),
-                         NamedTuple())
-    diagnostics = FitDiagnostics((;), (optimizer=method.optimizer,),
-                                 (em_iters=length(diag.Q_hist),
-                                  dθ_abs=isempty(diag.dθ_abs) ? T0(NaN) : diag.dθ_abs[end],
-                                  dQ_abs=isempty(diag.dQ_abs) ? T0(NaN) : diag.dQ_abs[end]),
-                                 NamedTuple())
+        FitParameters(θ_hat_t, θ_hat_u),
+        NamedTuple())
+    diagnostics = FitDiagnostics((;), (optimizer = method.optimizer,),
+        (em_iters = length(diag.Q_hist),
+            dθ_abs = isempty(diag.dθ_abs) ? T0(NaN) : diag.dθ_abs[end],
+            dQ_abs = isempty(diag.dQ_abs) ? T0(NaN) : diag.dQ_abs[end]),
+        NamedTuple())
     last_b_candidates = @isdefined(samples_by_batch) ? samples_by_batch : nothing
-    eb_modes = store_eb_modes ? _compute_bstars(dm, θ_hat_u, constants_re, ll_cache, method.ebe, rng;
-                                                rescue=method.ebe_rescue,
-                                                progress=method.progress,
-                                                progress_desc="MCEM Final EBE",
-                                                mcmc_candidates_by_batch=last_b_candidates)[1] : nothing
+    eb_modes = store_eb_modes ?
+               _compute_bstars(dm, θ_hat_u, constants_re, ll_cache, method.ebe, rng;
+        rescue = method.ebe_rescue,
+        progress = method.progress,
+        progress_desc = "MCEM Final EBE",
+        mcmc_candidates_by_batch = last_b_candidates)[1] : nothing
 
-    notes = (diagnostics=diag,)
+    notes = (diagnostics = diag,)
 
     result = MCEMResult(nothing, Q_prev, length(diag.Q_hist), nothing, notes, eb_modes)
-    return FitResult(method, result, summary, diagnostics, store_data_model ? dm : nothing, args, fit_kwargs)
+    return FitResult(method, result, summary, diagnostics,
+        store_data_model ? dm : nothing, args, fit_kwargs)
 end
 
 function _with_eb_modes(result::MCEMResult, eb_modes)
     return MCEMResult(result.solution, result.objective, result.iterations,
-                      result.raw, result.notes, eb_modes)
+        result.raw, result.notes, eb_modes)
 end

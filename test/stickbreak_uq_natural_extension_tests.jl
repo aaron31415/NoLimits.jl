@@ -13,14 +13,14 @@ using Random
     # -----------------------------------------------------------------------
     @testset "_extend_natural_stickbreak ProbabilityVector k=3" begin
         fe = @fixedEffects begin
-            pi = ProbabilityVector([0.3, 0.4, 0.3]; calculate_se=true)
+            pi = ProbabilityVector([0.3, 0.4, 0.3]; calculate_se = true)
         end
 
         # active_names = [:pi_1, :pi_2], active_kinds = [:stickbreak, :stickbreak]
-        free_names   = [:pi]
+        free_names = [:pi]
         active_names = [:pi_1, :pi_2]
         active_kinds = [:stickbreak, :stickbreak]
-        est_n        = [0.3, 0.4]   # first k-1 probabilities
+        est_n = [0.3, 0.4]   # first k-1 probabilities
 
         # Build fake draws
         rng = MersenneTwister(1)
@@ -43,14 +43,14 @@ using Random
 
         # Estimates: derived = 1 - 0.3 - 0.4 = 0.3
         @test length(ext_est) == 3
-        @test isapprox(ext_est[3], 0.3; atol=1e-12)
-        @test isapprox(sum(ext_est), 1.0; atol=1e-12)
+        @test isapprox(ext_est[3], 0.3; atol = 1e-12)
+        @test isapprox(sum(ext_est), 1.0; atol = 1e-12)
 
         # Draws: extended matrix has 3 columns
         @test size(ext_draws) == (3, 3)
         # Each row sums to 1
         for i in 1:3
-            @test isapprox(sum(ext_draws[i, :]), 1.0; atol=1e-12)
+            @test isapprox(sum(ext_draws[i, :]), 1.0; atol = 1e-12)
         end
 
         # Intervals: 3 lower/upper
@@ -58,8 +58,8 @@ using Random
         @test length(ext_ints.upper) == 3
         # Derived interval is from quantile of derived column
         derived_col = 1.0 .- (draws_n[:, 1] .+ draws_n[:, 2])
-        @test isapprox(ext_ints.lower[3], quantile(derived_col, 0.025); atol=1e-12)
-        @test isapprox(ext_ints.upper[3], quantile(derived_col, 0.975); atol=1e-12)
+        @test isapprox(ext_ints.lower[3], quantile(derived_col, 0.025); atol = 1e-12)
+        @test isapprox(ext_ints.upper[3], quantile(derived_col, 0.975); atol = 1e-12)
     end
 
     # -----------------------------------------------------------------------
@@ -67,14 +67,14 @@ using Random
     # -----------------------------------------------------------------------
     @testset "_extend_natural_stickbreak DiscreteTransitionMatrix n=2" begin
         fe = @fixedEffects begin
-            T = DiscreteTransitionMatrix([0.8 0.2; 0.3 0.7]; calculate_se=true)
+            T = DiscreteTransitionMatrix([0.8 0.2; 0.3 0.7]; calculate_se = true)
         end
 
         # n=2: n*(n-1)=2 active coords, ordered: T[1,1], T[2,1]
-        free_names   = [:T]
+        free_names = [:T]
         active_names = [:T_1, :T_2]
         active_kinds = [:stickbreakrows, :stickbreakrows]
-        est_n        = [0.8, 0.3]  # T[1,1] and T[2,1]
+        est_n = [0.8, 0.3]  # T[1,1] and T[2,1]
 
         draws_n = [0.75 0.28; 0.80 0.30; 0.85 0.32]  # 3 draws × 2
 
@@ -93,18 +93,18 @@ using Random
         @test ext_names[4] == :T_4  # T[2,2]
 
         # est: T[1,2] = 1 - 0.8 = 0.2, T[2,2] = 1 - 0.3 = 0.7
-        @test isapprox(ext_est[3], 0.2; atol=1e-12)
-        @test isapprox(ext_est[4], 0.7; atol=1e-12)
+        @test isapprox(ext_est[3], 0.2; atol = 1e-12)
+        @test isapprox(ext_est[4], 0.7; atol = 1e-12)
 
         # Each "row pair" sums to 1
-        @test isapprox(ext_est[1] + ext_est[3], 1.0; atol=1e-12)  # row 1
-        @test isapprox(ext_est[2] + ext_est[4], 1.0; atol=1e-12)  # row 2
+        @test isapprox(ext_est[1] + ext_est[3], 1.0; atol = 1e-12)  # row 1
+        @test isapprox(ext_est[2] + ext_est[4], 1.0; atol = 1e-12)  # row 2
 
         # Draws: 4 columns
         @test size(ext_draws) == (3, 4)
         for i in 1:3
-            @test isapprox(ext_draws[i, 1] + ext_draws[i, 3], 1.0; atol=1e-12)
-            @test isapprox(ext_draws[i, 2] + ext_draws[i, 4], 1.0; atol=1e-12)
+            @test isapprox(ext_draws[i, 1] + ext_draws[i, 3], 1.0; atol = 1e-12)
+            @test isapprox(ext_draws[i, 2] + ext_draws[i, 4], 1.0; atol = 1e-12)
         end
     end
 
@@ -113,7 +113,7 @@ using Random
     # -----------------------------------------------------------------------
     @testset "_extend_natural_stickbreak returns nothing for non-stickbreak" begin
         fe = @fixedEffects begin
-            a = RealNumber(1.0; scale=:log, calculate_se=true)
+            a = RealNumber(1.0; scale = :log, calculate_se = true)
         end
         result = NoLimits._extend_natural_stickbreak(
             fe, [:a], [:a], [:log],
@@ -127,7 +127,7 @@ using Random
     # -----------------------------------------------------------------------
     @testset "_extend_natural_stickbreak skips calculate_se=false" begin
         fe = @fixedEffects begin
-            pi = ProbabilityVector([0.3, 0.4, 0.3]; calculate_se=false)
+            pi = ProbabilityVector([0.3, 0.4, 0.3]; calculate_se = false)
         end
         # When calculate_se=false, the active array is empty — no stickbreak coords
         result = NoLimits._extend_natural_stickbreak(
@@ -169,8 +169,8 @@ using Random
             nothing, nothing,
             NamedTuple()
         )
-        names_t = get_uq_parameter_names(uq; scale=:transformed)
-        names_n = get_uq_parameter_names(uq; scale=:natural)
+        names_t = get_uq_parameter_names(uq; scale = :transformed)
+        names_n = get_uq_parameter_names(uq; scale = :natural)
         @test names_t == [:pi_1, :pi_2]
         @test names_n == [:pi_1, :pi_2, :pi_3]
 
@@ -184,8 +184,8 @@ using Random
             nothing, nothing,
             NamedTuple()
         )
-        @test get_uq_parameter_names(uq2; scale=:transformed) == [:a, :b]
-        @test get_uq_parameter_names(uq2; scale=:natural) == [:a, :b]
+        @test get_uq_parameter_names(uq2; scale = :transformed) == [:a, :b]
+        @test get_uq_parameter_names(uq2; scale = :natural) == [:a, :b]
     end
 
     # -----------------------------------------------------------------------
@@ -203,17 +203,17 @@ using Random
             nothing, nothing,
             NamedTuple()
         )
-        est_t = get_uq_estimates(uq; scale=:transformed)
+        est_t = get_uq_estimates(uq; scale = :transformed)
         @test length(est_t) == 2
         @test hasproperty(est_t, :pi_1)
         @test hasproperty(est_t, :pi_2)
 
-        est_n = get_uq_estimates(uq; scale=:natural)
+        est_n = get_uq_estimates(uq; scale = :natural)
         @test length(est_n) == 3
         @test hasproperty(est_n, :pi_1)
         @test hasproperty(est_n, :pi_2)
         @test hasproperty(est_n, :pi_3)
-        @test isapprox(est_n.pi_1 + est_n.pi_2 + est_n.pi_3, 1.0; atol=1e-12)
+        @test isapprox(est_n.pi_1 + est_n.pi_2 + est_n.pi_3, 1.0; atol = 1e-12)
     end
 
     # -----------------------------------------------------------------------
@@ -222,8 +222,8 @@ using Random
     @testset "Wald UQ ProbabilityVector: natural scale has k elements" begin
         model = @Model begin
             @fixedEffects begin
-                pi = ProbabilityVector([0.35, 0.40, 0.25]; calculate_se=true)
-                sigma = RealNumber(0.4; scale=:log, calculate_se=true)
+                pi = ProbabilityVector([0.35, 0.40, 0.25]; calculate_se = true)
+                sigma = RealNumber(0.4; scale = :log, calculate_se = true)
             end
             @covariates begin
                 t = Covariate()
@@ -233,18 +233,18 @@ using Random
             end
         end
         df = DataFrame(
-            ID=vcat(fill(1, 6), fill(2, 6)),
-            t=vcat(1:6, 1:6) .* 1.0,
-            y=vcat(randn(MersenneTwister(1), 6) .+ 1.3,
-                   randn(MersenneTwister(2), 6) .+ 1.3)
+            ID = vcat(fill(1, 6), fill(2, 6)),
+            t = vcat(1:6, 1:6) .* 1.0,
+            y = vcat(randn(MersenneTwister(1), 6) .+ 1.3,
+                randn(MersenneTwister(2), 6) .+ 1.3)
         )
-        dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-        res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
+        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
 
-        uq = compute_uq(res; n_draws=30, rng=MersenneTwister(42))
+        uq = compute_uq(res; n_draws = 30, rng = MersenneTwister(42))
 
         # Transformed scale: k-1=2 pi coords + 1 sigma = 3
-        names_t = get_uq_parameter_names(uq; scale=:transformed)
+        names_t = get_uq_parameter_names(uq; scale = :transformed)
         @test :pi_1 in names_t
         @test :pi_2 in names_t
         @test !(:pi_3 in names_t)
@@ -252,7 +252,7 @@ using Random
         @test length(names_t) == 3
 
         # Natural scale: k=3 pi coords + 1 sigma = 4
-        names_n = get_uq_parameter_names(uq; scale=:natural)
+        names_n = get_uq_parameter_names(uq; scale = :natural)
         @test :pi_1 in names_n
         @test :pi_2 in names_n
         @test :pi_3 in names_n
@@ -260,30 +260,30 @@ using Random
         @test length(names_n) == 4
 
         # Estimates on natural scale: pi sums to 1
-        est_n = get_uq_estimates(uq; scale=:natural)
-        @test isapprox(est_n.pi_1 + est_n.pi_2 + est_n.pi_3, 1.0; atol=1e-6)
+        est_n = get_uq_estimates(uq; scale = :natural)
+        @test isapprox(est_n.pi_1 + est_n.pi_2 + est_n.pi_3, 1.0; atol = 1e-6)
         @test est_n.pi_1 >= 0
         @test est_n.pi_2 >= 0
         @test est_n.pi_3 >= 0
 
         # Draws on natural scale: shape is n_draws × 4, each draw's pi sums to 1
         # Column layout: pi_1(1), pi_2(2), sigma(3), pi_3(4)  — derived appended last
-        draws_n = get_uq_draws(uq; scale=:natural)
+        draws_n = get_uq_draws(uq; scale = :natural)
         @test draws_n !== nothing
         @test size(draws_n, 2) == 4
         pi_sum = draws_n[:, 1] .+ draws_n[:, 2] .+ draws_n[:, 4]
-        @test all(isapprox.(pi_sum, 1.0; atol=1e-10))
+        @test all(isapprox.(pi_sum, 1.0; atol = 1e-10))
 
         # Intervals on natural scale: 4 elements
-        ints_n = get_uq_intervals(uq; scale=:natural, as_component=false)
+        ints_n = get_uq_intervals(uq; scale = :natural, as_component = false)
         @test ints_n !== nothing
         @test length(ints_n.lower) == 4
         @test length(ints_n.upper) == 4
 
         # Transformed scale: 3 elements (unchanged)
-        draws_t = get_uq_draws(uq; scale=:transformed)
+        draws_t = get_uq_draws(uq; scale = :transformed)
         @test size(draws_t, 2) == 3
-        ints_t = get_uq_intervals(uq; scale=:transformed, as_component=false)
+        ints_t = get_uq_intervals(uq; scale = :transformed, as_component = false)
         @test length(ints_t.lower) == 3
     end
 
@@ -293,8 +293,8 @@ using Random
     @testset "Wald UQ DiscreteTransitionMatrix: natural scale has n^2 elements" begin
         model = @Model begin
             @fixedEffects begin
-                T = DiscreteTransitionMatrix([0.8 0.2; 0.3 0.7]; calculate_se=true)
-                sigma = RealNumber(0.4; scale=:log, calculate_se=true)
+                T = DiscreteTransitionMatrix([0.8 0.2; 0.3 0.7]; calculate_se = true)
+                sigma = RealNumber(0.4; scale = :log, calculate_se = true)
             end
             @covariates begin
                 t = Covariate()
@@ -304,22 +304,22 @@ using Random
             end
         end
         df = DataFrame(
-            ID=vcat(fill(1, 6), fill(2, 6)),
-            t=vcat(1:6, 1:6) .* 1.0,
-            y=vcat(randn(MersenneTwister(3), 6) .+ 0.5,
-                   randn(MersenneTwister(4), 6) .+ 0.5)
+            ID = vcat(fill(1, 6), fill(2, 6)),
+            t = vcat(1:6, 1:6) .* 1.0,
+            y = vcat(randn(MersenneTwister(3), 6) .+ 0.5,
+                randn(MersenneTwister(4), 6) .+ 0.5)
         )
-        dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-        res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
+        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
 
-        uq = compute_uq(res; n_draws=30, rng=MersenneTwister(42))
+        uq = compute_uq(res; n_draws = 30, rng = MersenneTwister(42))
 
         # n=2: n*(n-1)=2 transformed + 1 sigma = 3 transformed coords
-        names_t = get_uq_parameter_names(uq; scale=:transformed)
+        names_t = get_uq_parameter_names(uq; scale = :transformed)
         @test length(names_t) == 3
 
         # Natural scale: n^2=4 T coords + 1 sigma = 5
-        names_n = get_uq_parameter_names(uq; scale=:natural)
+        names_n = get_uq_parameter_names(uq; scale = :natural)
         @test length(names_n) == 5
         @test :T_1 in names_n  # T[1,1]
         @test :T_2 in names_n  # T[2,1]
@@ -327,7 +327,7 @@ using Random
         @test :T_4 in names_n  # T[2,2] (derived)
 
         # Draws: shape n_draws × 5
-        draws_n = get_uq_draws(uq; scale=:natural)
+        draws_n = get_uq_draws(uq; scale = :natural)
         @test draws_n !== nothing
         @test size(draws_n, 2) == 5
 
@@ -335,11 +335,11 @@ using Random
         # derived appended last. Row sums: T[1,1]+T[1,2]=1, T[2,1]+T[2,2]=1
         row1_sum = draws_n[:, 1] .+ draws_n[:, 4]
         row2_sum = draws_n[:, 2] .+ draws_n[:, 5]
-        @test all(isapprox.(row1_sum, 1.0; atol=1e-10))
-        @test all(isapprox.(row2_sum, 1.0; atol=1e-10))
+        @test all(isapprox.(row1_sum, 1.0; atol = 1e-10))
+        @test all(isapprox.(row2_sum, 1.0; atol = 1e-10))
 
         # Intervals: 5 elements
-        ints_n = get_uq_intervals(uq; scale=:natural, as_component=false)
+        ints_n = get_uq_intervals(uq; scale = :natural, as_component = false)
         @test length(ints_n.lower) == 5
     end
 
@@ -349,9 +349,9 @@ using Random
     @testset "Wald UQ mixed model: ProbabilityVector + RealNumber" begin
         model = @Model begin
             @fixedEffects begin
-                a = RealNumber(1.0; scale=:log, calculate_se=true)
-                pi = ProbabilityVector([0.3, 0.4, 0.3]; calculate_se=true)
-                sigma = RealNumber(0.5; scale=:log, calculate_se=true)
+                a = RealNumber(1.0; scale = :log, calculate_se = true)
+                pi = ProbabilityVector([0.3, 0.4, 0.3]; calculate_se = true)
+                sigma = RealNumber(0.5; scale = :log, calculate_se = true)
             end
             @covariates begin
                 t = Covariate()
@@ -361,33 +361,33 @@ using Random
             end
         end
         df = DataFrame(
-            ID=vcat(fill(1, 5), fill(2, 5)),
-            t=vcat(1:5, 1:5) .* 1.0,
-            y=vcat(randn(MersenneTwister(5), 5) .+ 0.0,
-                   randn(MersenneTwister(6), 5) .+ 0.0)
+            ID = vcat(fill(1, 5), fill(2, 5)),
+            t = vcat(1:5, 1:5) .* 1.0,
+            y = vcat(randn(MersenneTwister(5), 5) .+ 0.0,
+                randn(MersenneTwister(6), 5) .+ 0.0)
         )
-        dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-        res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
+        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
 
-        uq = compute_uq(res; n_draws=30, rng=MersenneTwister(99))
+        uq = compute_uq(res; n_draws = 30, rng = MersenneTwister(99))
 
         # Transformed: a(1) + pi_1,pi_2(2) + sigma(1) = 4
-        names_t = get_uq_parameter_names(uq; scale=:transformed)
+        names_t = get_uq_parameter_names(uq; scale = :transformed)
         @test length(names_t) == 4
 
         # Natural: a(1) + pi_1,pi_2,pi_3(3) + sigma(1) = 5
-        names_n = get_uq_parameter_names(uq; scale=:natural)
+        names_n = get_uq_parameter_names(uq; scale = :natural)
         @test length(names_n) == 5
         @test :pi_3 in names_n
 
-        est_n = get_uq_estimates(uq; scale=:natural)
-        @test isapprox(est_n.pi_1 + est_n.pi_2 + est_n.pi_3, 1.0; atol=1e-6)
+        est_n = get_uq_estimates(uq; scale = :natural)
+        @test isapprox(est_n.pi_1 + est_n.pi_2 + est_n.pi_3, 1.0; atol = 1e-6)
 
-        draws_n = get_uq_draws(uq; scale=:natural)
+        draws_n = get_uq_draws(uq; scale = :natural)
         @test size(draws_n, 2) == 5
         # Column layout: a(1), pi_1(2), pi_2(3), sigma(4), pi_3(5) — derived appended last
         pi_sum = draws_n[:, 2] .+ draws_n[:, 3] .+ draws_n[:, 5]
-        @test all(isapprox.(pi_sum, 1.0; atol=1e-10))
+        @test all(isapprox.(pi_sum, 1.0; atol = 1e-10))
     end
 
     # -----------------------------------------------------------------------
@@ -396,8 +396,8 @@ using Random
     @testset "Wald UQ ProbabilityVector calculate_se=false: no extension" begin
         model = @Model begin
             @fixedEffects begin
-                pi = ProbabilityVector([0.3, 0.4, 0.3]; calculate_se=false)
-                sigma = RealNumber(0.5; scale=:log, calculate_se=true)
+                pi = ProbabilityVector([0.3, 0.4, 0.3]; calculate_se = false)
+                sigma = RealNumber(0.5; scale = :log, calculate_se = true)
             end
             @covariates begin
                 t = Covariate()
@@ -407,20 +407,19 @@ using Random
             end
         end
         df = DataFrame(
-            ID=vcat(fill(1, 5), fill(2, 5)),
-            t=vcat(1:5, 1:5) .* 1.0,
-            y=vcat(randn(MersenneTwister(7), 5) .+ 0.5,
-                   randn(MersenneTwister(8), 5) .+ 0.5)
+            ID = vcat(fill(1, 5), fill(2, 5)),
+            t = vcat(1:5, 1:5) .* 1.0,
+            y = vcat(randn(MersenneTwister(7), 5) .+ 0.5,
+                randn(MersenneTwister(8), 5) .+ 0.5)
         )
-        dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-        res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
-        uq = compute_uq(res; n_draws=30, rng=MersenneTwister(10))
+        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
+        uq = compute_uq(res; n_draws = 30, rng = MersenneTwister(10))
 
         # Only sigma is active; parameter_names_natural should be nothing
         @test uq.parameter_names_natural === nothing
-        names_t = get_uq_parameter_names(uq; scale=:transformed)
-        names_n = get_uq_parameter_names(uq; scale=:natural)
+        names_t = get_uq_parameter_names(uq; scale = :transformed)
+        names_n = get_uq_parameter_names(uq; scale = :natural)
         @test names_t == names_n == [:sigma]
     end
-
 end

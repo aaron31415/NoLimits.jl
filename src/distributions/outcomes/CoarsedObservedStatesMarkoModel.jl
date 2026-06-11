@@ -48,8 +48,9 @@ function coarsed(dist::D) where {D <: Distribution{Univariate, Discrete}}
     return CoarsedObservedStatesMarkovModel(dist)
 end
 
-probabilities_hidden_states(dist::CoarsedObservedStatesMarkovModel) =
+function probabilities_hidden_states(dist::CoarsedObservedStatesMarkovModel)
     probabilities_hidden_states(dist.base_dist)
+end
 
 function posterior_hidden_states(dist::CoarsedObservedStatesMarkovModel, y::AbstractVector)
     idxs = _omm_coarsed_observation_indices(dist.base_dist.state_labels, y)
@@ -71,7 +72,8 @@ end
 
 function posterior_hidden_states(dist::CoarsedObservedStatesMarkovModel, y)
     _omm_coarsed_observation_indices(dist.base_dist.state_labels, y)
-    return zeros(eltype(probabilities_hidden_states(dist.base_dist)), dist.base_dist.n_states)
+    return zeros(
+        eltype(probabilities_hidden_states(dist.base_dist)), dist.base_dist.n_states)
 end
 
 function Distributions.logpdf(dist::CoarsedObservedStatesMarkovModel, y::AbstractVector)
@@ -101,26 +103,38 @@ Distributions.pdf(dist::CoarsedObservedStatesMarkovModel, y) = exp(logpdf(dist, 
 # array shapes forward to the untyped handler (via `invoke`, to avoid
 # self-recursion), which errors as before — the observation pipeline never
 # constructs the array shapes caught here.
-Distributions.logpdf(dist::CoarsedObservedStatesMarkovModel,
-                     y::AbstractArray{<:Real, 0}) = invoke(
-    Distributions.logpdf, Tuple{CoarsedObservedStatesMarkovModel, Any}, dist, y)
-Distributions.logpdf(dist::CoarsedObservedStatesMarkovModel,
-                     y::AbstractArray{<:Real}) = invoke(
-    Distributions.logpdf, Tuple{CoarsedObservedStatesMarkovModel, Any}, dist, y)
-Distributions.logpdf(dist::CoarsedObservedStatesMarkovModel,
-                     y::AbstractArray{<:AbstractArray{<:Real, 0}}) = invoke(
-    Distributions.logpdf, Tuple{CoarsedObservedStatesMarkovModel, Any}, dist, y)
-Distributions.pdf(dist::CoarsedObservedStatesMarkovModel, y::Real) =
+function Distributions.logpdf(dist::CoarsedObservedStatesMarkovModel,
+        y::AbstractArray{<:Real, 0})
+    invoke(
+        Distributions.logpdf, Tuple{CoarsedObservedStatesMarkovModel, Any}, dist, y)
+end
+function Distributions.logpdf(dist::CoarsedObservedStatesMarkovModel,
+        y::AbstractArray{<:Real})
+    invoke(
+        Distributions.logpdf, Tuple{CoarsedObservedStatesMarkovModel, Any}, dist, y)
+end
+function Distributions.logpdf(dist::CoarsedObservedStatesMarkovModel,
+        y::AbstractArray{<:AbstractArray{<:Real, 0}})
+    invoke(
+        Distributions.logpdf, Tuple{CoarsedObservedStatesMarkovModel, Any}, dist, y)
+end
+Distributions.pdf(dist::CoarsedObservedStatesMarkovModel, y::Real) = exp(logpdf(dist, y))
+function Distributions.pdf(dist::CoarsedObservedStatesMarkovModel,
+        y::AbstractArray{<:Real, 0})
     exp(logpdf(dist, y))
-Distributions.pdf(dist::CoarsedObservedStatesMarkovModel,
-                  y::AbstractArray{<:Real, 0}) = exp(logpdf(dist, y))
-Distributions.pdf(dist::CoarsedObservedStatesMarkovModel,
-                  y::AbstractArray{<:Real}) = exp(logpdf(dist, y))
-Distributions.pdf(dist::CoarsedObservedStatesMarkovModel,
-                  y::AbstractArray{<:AbstractArray{<:Real, 0}}) = exp(logpdf(dist, y))
+end
+function Distributions.pdf(dist::CoarsedObservedStatesMarkovModel,
+        y::AbstractArray{<:Real})
+    exp(logpdf(dist, y))
+end
+function Distributions.pdf(dist::CoarsedObservedStatesMarkovModel,
+        y::AbstractArray{<:AbstractArray{<:Real, 0}})
+    exp(logpdf(dist, y))
+end
 
-Distributions.rand(rng::AbstractRNG, dist::CoarsedObservedStatesMarkovModel) =
+function Distributions.rand(rng::AbstractRNG, dist::CoarsedObservedStatesMarkovModel)
     rand(rng, dist.base_dist)
+end
 
 Distributions.mean(dist::CoarsedObservedStatesMarkovModel) = mean(dist.base_dist)
 Distributions.var(dist::CoarsedObservedStatesMarkovModel) = var(dist.base_dist)

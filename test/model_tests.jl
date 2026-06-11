@@ -23,11 +23,11 @@ using DataInterpolations
             t = Covariate()
             x = ConstantCovariateVector([:Age])
             z = Covariate()
-            w1 = DynamicCovariate(; interpolation=LinearInterpolation)
+            w1 = DynamicCovariate(; interpolation = LinearInterpolation)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:id)
+            η = RandomEffect(Normal(0.0, 1.0); column = :id)
         end
 
         @preDifferentialEquation begin
@@ -59,7 +59,8 @@ using DataInterpolations
     pc = (vars = (pre = pre.pre,), funs = (w1 = varying_covariates.w1,))
     sol_accessors = get_de_accessors_builder(model.de.de)(sol, pc)
 
-    obs = calculate_formulas_obs(model, θ, η, const_covariates_i, varying_covariates, sol_accessors)
+    obs = calculate_formulas_obs(
+        model, θ, η, const_covariates_i, varying_covariates, sol_accessors)
     @test obs.obs isa Normal
 end
 
@@ -78,7 +79,7 @@ end
         @covariates begin
             t = Covariate()
             x = ConstantCovariateVector([:Age])
-            w1 = DynamicCovariate(; interpolation=LinearInterpolation)
+            w1 = DynamicCovariate(; interpolation = LinearInterpolation)
         end
 
         @preDifferentialEquation begin
@@ -119,10 +120,11 @@ end
     u0 = calculate_initial_state(model, θ, η, const_covariates_i)
     tspan = (0.0, 1.0)
     prob = ODEProblem(get_de_f!(model.de.de), u0, tspan, compiled)
-    sol = solve(prob, Tsit5(); abstol=1e-9, reltol=1e-9)
+    sol = solve(prob, Tsit5(); abstol = 1e-9, reltol = 1e-9)
     sol_accessors = get_de_accessors_builder(model.de.de)(sol, compiled)
 
-    obs = calculate_formulas_obs(model, θ, η, const_covariates_i, varying_covariates, sol_accessors)
+    obs = calculate_formulas_obs(
+        model, θ, η, const_covariates_i, varying_covariates, sol_accessors)
     @test obs.obs isa Normal
 end
 
@@ -143,11 +145,11 @@ end
             t = Covariate()
             x = ConstantCovariateVector([:Age])
             z = Covariate()
-            w1 = DynamicCovariate(; interpolation=LinearInterpolation)
+            w1 = DynamicCovariate(; interpolation = LinearInterpolation)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:id)
+            η = RandomEffect(Normal(0.0, 1.0); column = :id)
         end
 
         @preDifferentialEquation begin
@@ -196,16 +198,17 @@ end
     cb = ContinuousCallback(condition, affect!)
 
     prob = ODEProblem(get_de_f!(model.de.de), u0, tspan, compiled)
-    sol = solve(prob, Tsit5(); callback=cb, abstol=1e-9, reltol=1e-9)
-    sol_accessors = get_de_accessors_builder(model.de.de)(sol, compiled);
+    sol = solve(prob, Tsit5(); callback = cb, abstol = 1e-9, reltol = 1e-9)
+    sol_accessors = get_de_accessors_builder(model.de.de)(sol, compiled)
 
-    obs = calculate_formulas_obs(model, θ, η, const_covariates_i, varying_covariates, sol_accessors)
+    obs = calculate_formulas_obs(
+        model, θ, η, const_covariates_i, varying_covariates, sol_accessors)
     @test obs.obs isa Normal
 end
 
 @testset "Model example (NN + SoftTree + Spline + NPF)" begin
     chain = Chain(Dense(2, 4, tanh), Dense(4, 1))
-    knots = collect(range(0.0, 1.0; length=6))
+    knots = collect(range(0.0, 1.0; length = 6))
 
     model = @Model begin
         @helpers begin
@@ -214,10 +217,11 @@ end
 
         @fixedEffects begin
             σ = RealNumber(0.5)
-            ζ = NNParameters(chain; function_name=:NN1, calculate_se=false)
-            Γ = SoftTreeParameters(2, 2; function_name=:ST, calculate_se=false)
-            sp = SplineParameters(knots; function_name=:SP1, degree=2, calculate_se=false)
-            ψ = NPFParameter(1, 3, seed=1, calculate_se=false)
+            ζ = NNParameters(chain; function_name = :NN1, calculate_se = false)
+            Γ = SoftTreeParameters(2, 2; function_name = :ST, calculate_se = false)
+            sp = SplineParameters(
+                knots; function_name = :SP1, degree = 2, calculate_se = false)
+            ψ = NPFParameter(1, 3, seed = 1, calculate_se = false)
         end
 
         @covariates begin
@@ -226,7 +230,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(NormalizingPlanarFlow(ψ); column=:id)
+            η = RandomEffect(NormalizingPlanarFlow(ψ); column = :id)
         end
 
         @formulas begin
@@ -287,13 +291,14 @@ end
     y_obs = [1.0, 0.9, 0.8]
 
     prob = ODEProblem(get_de_f!(model.de.de), u0, tspan, compiled)
-    sol = solve(prob, Tsit5(); saveat=t_obs, save_everystep=false, dense=false)
+    sol = solve(prob, Tsit5(); saveat = t_obs, save_everystep = false, dense = false)
     sol_accessors = get_de_accessors_builder(model.de.de)(sol, compiled)
 
     loglik = 0.0
     for (t, y) in zip(t_obs, y_obs)
         varying_covariates = (t = t,)
-        obs = calculate_formulas_obs(model, θ, η, const_covariates_i, varying_covariates, sol_accessors)
+        obs = calculate_formulas_obs(
+            model, θ, η, const_covariates_i, varying_covariates, sol_accessors)
         loglik += logpdf(obs.y, y)
     end
 end
@@ -333,7 +338,7 @@ end
 
         @covariates begin
             t = Covariate()
-            w = DynamicCovariate(; interpolation=LinearInterpolation)
+            w = DynamicCovariate(; interpolation = LinearInterpolation)
         end
 
         @DifferentialEquation begin
@@ -376,7 +381,6 @@ end
     end
 end
 
-
 @testset "Model ODE logpdf with covariate interpolation" begin
     model = @Model begin
         @fixedEffects begin
@@ -386,7 +390,7 @@ end
 
         @covariates begin
             t = Covariate()
-            w1 = DynamicCovariate(; interpolation=LinearInterpolation)
+            w1 = DynamicCovariate(; interpolation = LinearInterpolation)
         end
 
         @DifferentialEquation begin
@@ -428,13 +432,14 @@ end
     y_obs = [1.0, 1.1, 1.2]
 
     prob = ODEProblem(get_de_f!(model.de.de), u0, tspan, compiled)
-    sol = solve(prob, Tsit5(); saveat=t_obs, save_everystep=false, dense=false)
+    sol = solve(prob, Tsit5(); saveat = t_obs, save_everystep = false, dense = false)
     sol_accessors = get_de_accessors_builder(model.de.de)(sol, compiled)
 
     loglik = 0.0
     for (t, y) in zip(t_obs, y_obs)
         varying_covariates = (t = t, w1 = w1_itp)
-        obs = calculate_formulas_obs(model, θ, η, const_covariates_i, varying_covariates, sol_accessors)
+        obs = calculate_formulas_obs(
+            model, θ, η, const_covariates_i, varying_covariates, sol_accessors)
         loglik += logpdf(obs.y, y)
     end
 end

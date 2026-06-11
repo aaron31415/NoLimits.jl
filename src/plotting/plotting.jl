@@ -116,10 +116,11 @@ const PLOT_LEFT_MARGIN = 10mm
 const PLOT_BOTTOM_MARGIN = 8mm
 const DEFAULT_DPI = 300
 
-function calculate_plot_size(nplots::Int, ncols::Int, style::PlotStyle=PlotStyle())
+function calculate_plot_size(nplots::Int, ncols::Int, style::PlotStyle = PlotStyle())
     ncols = min(ncols, nplots)
     nrows = ceil(Int, nplots / ncols)
-    scale = nplots <= 4 ? 1.0 : nplots <= 9 ? 0.95 : nplots <= 16 ? 0.85 : nplots <= 25 ? 0.75 : 0.65
+    scale = nplots <= 4 ? 1.0 :
+            nplots <= 9 ? 0.95 : nplots <= 16 ? 0.85 : nplots <= 25 ? 0.75 : 0.65
     width = round(Int, ncols * style.base_subplot_width * scale)
     height = round(Int, nrows * style.base_subplot_height * scale)
     width = clamp(width, MIN_FIGURE_WIDTH, MAX_FIGURE_WIDTH)
@@ -127,7 +128,7 @@ function calculate_plot_size(nplots::Int, ncols::Int, style::PlotStyle=PlotStyle
     return (width, height)
 end
 
-function default_plot_kwargs(style::PlotStyle=PlotStyle())
+function default_plot_kwargs(style::PlotStyle = PlotStyle())
     return (
         framestyle = :box,
         grid = :y,
@@ -135,14 +136,14 @@ function default_plot_kwargs(style::PlotStyle=PlotStyle())
         gridlinewidth = 0.5,
         foreground_color_grid = :gray,
         legend = :best,
-        titlefontsize  = style.font_size_title,
-        guidefontsize  = style.font_size_label,
-        tickfontsize   = style.font_size_tick,
+        titlefontsize = style.font_size_title,
+        guidefontsize = style.font_size_label,
+        tickfontsize = style.font_size_tick,
         legendfontsize = style.font_size_legend,
         margin = PLOT_MARGIN,
         left_margin = style.left_margin,
         bottom_margin = style.bottom_margin,
-        fontfamily = style.font_family,
+        fontfamily = style.font_family
     )
 end
 
@@ -161,59 +162,66 @@ function _axis_label(label)
     return join(words, " ")
 end
 
-function create_styled_plot(; title="", xlabel="", ylabel="", style::PlotStyle=PlotStyle(), kwargs...)
-    return plot(; title=title, xlabel=xlabel, ylabel=ylabel, default_plot_kwargs(style)..., kwargs...)
+function create_styled_plot(;
+        title = "", xlabel = "", ylabel = "", style::PlotStyle = PlotStyle(), kwargs...)
+    return plot(; title = title, xlabel = xlabel, ylabel = ylabel,
+        default_plot_kwargs(style)..., kwargs...)
 end
 
-function create_styled_scatter!(p, x, y; label="", color=COLOR_PRIMARY, style::PlotStyle=PlotStyle(), kwargs...)
+function create_styled_scatter!(p, x, y; label = "", color = COLOR_PRIMARY,
+        style::PlotStyle = PlotStyle(), kwargs...)
     return scatter!(p, x, y;
-                    label=label,
-                    color=color,
-                    markersize=style.marker_size,
-                    markeralpha=style.marker_alpha,
-                    markerstrokewidth=style.marker_stroke_width,
-                    kwargs...)
+        label = label,
+        color = color,
+        markersize = style.marker_size,
+        markeralpha = style.marker_alpha,
+        markerstrokewidth = style.marker_stroke_width,
+        kwargs...)
 end
 
-function create_styled_line!(p, x, y; label="", color=COLOR_SECONDARY, style::PlotStyle=PlotStyle(), kwargs...)
+function create_styled_line!(p, x, y; label = "", color = COLOR_SECONDARY,
+        style::PlotStyle = PlotStyle(), kwargs...)
     return plot!(p, x, y;
-                 label=label,
-                 color=color,
-                 linewidth=style.line_width_primary,
-                 kwargs...)
+        label = label,
+        color = color,
+        linewidth = style.line_width_primary,
+        kwargs...)
 end
 
-function add_reference_line!(p, value; orientation=:horizontal, color=COLOR_REFERENCE, kwargs...)
+function add_reference_line!(
+        p, value; orientation = :horizontal, color = COLOR_REFERENCE, kwargs...)
     if orientation == :horizontal
-        hline!(p, [value]; color=color, linestyle=:dash, kwargs...)
+        hline!(p, [value]; color = color, linestyle = :dash, kwargs...)
     else
-        vline!(p, [value]; color=color, linestyle=:dash, kwargs...)
+        vline!(p, [value]; color = color, linestyle = :dash, kwargs...)
     end
     return p
 end
 
-function add_annotation!(p, x, y, text; fontsize=7, halign=:right)
-    annotate!(p, x, y, text, halign=halign, fontsize=fontsize)
+function add_annotation!(p, x, y, text; fontsize = 7, halign = :right)
+    annotate!(p, x, y, text, halign = halign, fontsize = fontsize)
     return p
 end
 
-function combine_plots(plots::Vector; ncols::Int=DEFAULT_PLOT_COLS, style::PlotStyle=PlotStyle(), kwargs...)
+function combine_plots(plots::Vector; ncols::Int = DEFAULT_PLOT_COLS,
+        style::PlotStyle = PlotStyle(), kwargs...)
     nrows = ceil(Int, length(plots) / ncols)
     font_kw = (
-        titlefontsize  = style.font_size_title,
-        guidefontsize  = style.font_size_label,
-        tickfontsize   = style.font_size_tick,
+        titlefontsize = style.font_size_title,
+        guidefontsize = style.font_size_label,
+        tickfontsize = style.font_size_tick,
         legendfontsize = style.font_size_legend,
-        fontfamily     = style.font_family,
+        fontfamily = style.font_family
     )
-    auto_kw = merge(font_kw, (layout=(nrows, ncols), size=calculate_plot_size(length(plots), ncols, style)))
+    auto_kw = merge(font_kw,
+        (layout = (nrows, ncols), size = calculate_plot_size(length(plots), ncols, style)))
     return plot(plots...; merge(auto_kw, NamedTuple(kwargs))...)
 end
 
 function _apply_shared_axes!(plots::AbstractVector, xlim, ylim)
     for p in plots
-        xlim !== nothing && plot!(p; xlims=xlim)
-        ylim !== nothing && plot!(p; ylims=ylim)
+        xlim !== nothing && plot!(p; xlims = xlim)
+        ylim !== nothing && plot!(p; ylims = ylim)
     end
     return plots
 end
@@ -236,7 +244,7 @@ function _save_plot!(p, save_path::Union{Nothing, String})
     _, ext = splitext(save_path)
     if ext == ".png"
         try
-            savefig(p, save_path; dpi=DEFAULT_DPI)
+            savefig(p, save_path; dpi = DEFAULT_DPI)
         catch err
             if err isa MethodError
                 savefig(p, save_path)
@@ -251,7 +259,7 @@ function _save_plot!(p, save_path::Union{Nothing, String})
 end
 
 function _resolve_plot_path(save_path::Union{Nothing, String},
-                            plot_path::Union{Nothing, String})
+        plot_path::Union{Nothing, String})
     if save_path !== nothing && plot_path !== nothing && save_path != plot_path
         error("Specify only one of save_path or plot_path when saving plots.")
     end
@@ -271,10 +279,10 @@ Plot the objective values of all successful multistart runs in ascending order
 - `save_path::Union{Nothing, String} = nothing`: file path to save the plot, or `nothing`.
 """
 function plot_multistart_waterfall(res::MultistartFitResult;
-                                   style::PlotStyle=PlotStyle(),
-                                   kwargs_subplot=NamedTuple(),
-                                   save_path::Union{Nothing, String}=nothing,
-                                   plot_path::Union{Nothing, String}=nothing)
+        style::PlotStyle = PlotStyle(),
+        kwargs_subplot = NamedTuple(),
+        save_path::Union{Nothing, String} = nothing,
+        plot_path::Union{Nothing, String} = nothing)
     save_path = _resolve_plot_path(save_path, plot_path)
 
     n_ok = length(res.results_ok)
@@ -293,22 +301,25 @@ function plot_multistart_waterfall(res::MultistartFitResult;
         end
     end
 
-    isempty(objectives) && error("No finite objective values available among successful multistart runs.")
+    isempty(objectives) &&
+        error("No finite objective values available among successful multistart runs.")
 
     n_failed = length(res.errors_err)
     p = create_styled_plot(;
-        title="Multistart Objectives (best → worst; successful starts only)",
-        xlabel="Rank",
-        ylabel="Objective",
-        style=style,
-        kwargs_subplot...,
+        title = "Multistart Objectives (best → worst; successful starts only)",
+        xlabel = "Rank",
+        ylabel = "Objective",
+        style = style,
+        kwargs_subplot...
     )
-    create_styled_scatter!(p, ranks, objectives; label="", color=style.color_primary, style=style)
-    plot!(p; xticks=collect(1:length(objectives)))
+    create_styled_scatter!(
+        p, ranks, objectives; label = "", color = style.color_primary, style = style)
+    plot!(p; xticks = collect(1:length(objectives)))
 
     if n_failed > 0
-        add_annotation!(p, maximum(ranks), maximum(objectives), "Failed starts omitted: $(n_failed)";
-                        fontsize=style.font_size_annotation)
+        add_annotation!(
+            p, maximum(ranks), maximum(objectives), "Failed starts omitted: $(n_failed)";
+            fontsize = style.font_size_annotation)
     end
     return _save_plot!(p, save_path)
 end
@@ -367,7 +378,8 @@ end
 function _multistart_data_model(res::MultistartFitResult, dm::Union{Nothing, DataModel})
     dm !== nothing && return dm
     dm_res = get_data_model(res)
-    dm_res === nothing && error("This multistart result does not store a DataModel; pass dm=... explicitly.")
+    dm_res === nothing &&
+        error("This multistart result does not store a DataModel; pass dm=... explicitly.")
     return dm_res
 end
 
@@ -393,20 +405,21 @@ the lowest objective values.
 - `save_path::Union{Nothing, String} = nothing`: file path to save the plot.
 """
 function plot_multistart_fixed_effect_variability(res::MultistartFitResult;
-                                                  dm::Union{Nothing, DataModel}=nothing,
-                                                  k_best::Int=20,
-                                                  mode::Symbol=:points,
-                                                  quantiles::AbstractVector{<:Real}=[0.1, 0.5, 0.9],
-                                                  scale::Symbol=:untransformed,
-                                                  include_parameters=nothing,
-                                                  exclude_parameters=nothing,
-                                                  style::PlotStyle=PlotStyle(),
-                                                  kwargs_subplot=NamedTuple(),
-                                                  save_path::Union{Nothing, String}=nothing,
-                                                  plot_path::Union{Nothing, String}=nothing)
+        dm::Union{Nothing, DataModel} = nothing,
+        k_best::Int = 20,
+        mode::Symbol = :points,
+        quantiles::AbstractVector{<:Real} = [0.1, 0.5, 0.9],
+        scale::Symbol = :untransformed,
+        include_parameters = nothing,
+        exclude_parameters = nothing,
+        style::PlotStyle = PlotStyle(),
+        kwargs_subplot = NamedTuple(),
+        save_path::Union{Nothing, String} = nothing,
+        plot_path::Union{Nothing, String} = nothing)
     save_path = _resolve_plot_path(save_path, plot_path)
     mode in (:points, :quantiles) || error("mode must be :points or :quantiles.")
-    scale in (:untransformed, :transformed) || error("scale must be :untransformed or :transformed.")
+    scale in (:untransformed, :transformed) ||
+        error("scale must be :untransformed or :transformed.")
     k_best >= 1 || error("k_best must be >= 1.")
 
     dm_use = _multistart_data_model(res, dm)
@@ -414,17 +427,21 @@ function plot_multistart_fixed_effect_variability(res::MultistartFitResult;
     fe_names = get_names(fe) # declaration order
     fe_params = get_params(fe)
 
-    include_set = _normalize_top_level_parameter_selection(include_parameters, "include_parameters")
-    exclude_set = _normalize_top_level_parameter_selection(exclude_parameters, "exclude_parameters")
+    include_set = _normalize_top_level_parameter_selection(
+        include_parameters, "include_parameters")
+    exclude_set = _normalize_top_level_parameter_selection(
+        exclude_parameters, "exclude_parameters")
     known = Set(fe_names)
 
     if include_set !== nothing
         unknown = [n for n in include_set if !(n in known)]
-        isempty(unknown) || error("Unknown include_parameters names: $(unknown). Known names: $(fe_names).")
+        isempty(unknown) ||
+            error("Unknown include_parameters names: $(unknown). Known names: $(fe_names).")
     end
     if exclude_set !== nothing
         unknown = [n for n in exclude_set if !(n in known)]
-        isempty(unknown) || error("Unknown exclude_parameters names: $(unknown). Known names: $(fe_names).")
+        isempty(unknown) ||
+            error("Unknown exclude_parameters names: $(unknown). Known names: $(fe_names).")
     end
 
     # Default: only calculate_se=true blocks. include_parameters can add names explicitly.
@@ -440,7 +457,8 @@ function plot_multistart_fixed_effect_variability(res::MultistartFitResult;
         end
     end
     selected_order = [n for n in fe_names if n in selected]
-    isempty(selected_order) && error("No fixed-effect parameters selected for plotting after include/exclude filters.")
+    isempty(selected_order) &&
+        error("No fixed-effect parameters selected for plotting after include/exclude filters.")
 
     n_ok = length(res.results_ok)
     n_ok >= 1 || error("No successful multistart runs available for plotting.")
@@ -451,7 +469,7 @@ function plot_multistart_fixed_effect_variability(res::MultistartFitResult;
     k_use = min(k_best, n_ok)
     keep = perm[1:k_use]
 
-    θ_list = [get_params(res.results_ok[idx]; scale=scale) for idx in keep]
+    θ_list = [get_params(res.results_ok[idx]; scale = scale) for idx in keep]
 
     labels = String[]
     values = Matrix{Float64}(undef, 0, k_use)
@@ -460,16 +478,20 @@ function plot_multistart_fixed_effect_variability(res::MultistartFitResult;
     row_offset = 0
     row_labels = String[]
     for pname in selected_order
-        lbls_ref, vals_ref = _flatten_param_with_labels(pname, getproperty(θ_list[1], pname))
+        lbls_ref, vals_ref = _flatten_param_with_labels(
+            pname, getproperty(θ_list[1], pname))
         nrows = length(vals_ref)
         nrows >= 1 || continue
 
         block_vals = Matrix{Float64}(undef, nrows, k_use)
         block_vals[:, 1] .= vals_ref
         for col in 2:k_use
-            lbls_cur, vals_cur = _flatten_param_with_labels(pname, getproperty(θ_list[col], pname))
-            lbls_cur == lbls_ref || error("Parameter shape/labels changed across multistarts for $(pname).")
-            length(vals_cur) == nrows || error("Parameter length changed across multistarts for $(pname).")
+            lbls_cur, vals_cur = _flatten_param_with_labels(
+                pname, getproperty(θ_list[col], pname))
+            lbls_cur == lbls_ref ||
+                error("Parameter shape/labels changed across multistarts for $(pname).")
+            length(vals_cur) == nrows ||
+                error("Parameter length changed across multistarts for $(pname).")
             block_vals[:, col] .= vals_cur
         end
 
@@ -478,14 +500,17 @@ function plot_multistart_fixed_effect_variability(res::MultistartFitResult;
         values = vcat(values, block_vals)
     end
 
-    isempty(row_labels) && error("No plottable fixed-effect coordinates found for selected parameters.")
+    isempty(row_labels) &&
+        error("No plottable fixed-effect coordinates found for selected parameters.")
 
     # Drop rows with non-finite values across selected starts.
     keep_rows = [i for i in 1:size(values, 1) if all(isfinite, @view values[i, :])]
     if length(keep_rows) < size(values, 1)
-        @warn "Dropping non-finite parameter coordinates from variability plot." dropped=(size(values, 1) - length(keep_rows))
+        @warn "Dropping non-finite parameter coordinates from variability plot." dropped=(size(
+            values, 1) - length(keep_rows))
     end
-    isempty(keep_rows) && error("No finite fixed-effect coordinates available for variability plotting.")
+    isempty(keep_rows) &&
+        error("No finite fixed-effect coordinates available for variability plotting.")
     values = values[keep_rows, :]
     labels = row_labels[keep_rows]
 
@@ -505,35 +530,42 @@ function plot_multistart_fixed_effect_variability(res::MultistartFitResult;
     y = collect(1:length(labels))
     plot_height = clamp(200 + 22 * length(labels), MIN_FIGURE_HEIGHT, MAX_FIGURE_HEIGHT)
     local subplot_kwargs = kwargs_subplot
-    haskey(subplot_kwargs, :size) || (subplot_kwargs = merge((size=(900, plot_height),), subplot_kwargs))
-    haskey(subplot_kwargs, :left_margin) || (subplot_kwargs = merge((left_margin=18mm,), subplot_kwargs))
-    haskey(subplot_kwargs, :legend) || (subplot_kwargs = merge((legend=false,), subplot_kwargs))
+    haskey(subplot_kwargs, :size) ||
+        (subplot_kwargs = merge((size = (900, plot_height),), subplot_kwargs))
+    haskey(subplot_kwargs, :left_margin) ||
+        (subplot_kwargs = merge((left_margin = 18mm,), subplot_kwargs))
+    haskey(subplot_kwargs, :legend) ||
+        (subplot_kwargs = merge((legend = false,), subplot_kwargs))
 
     p = create_styled_plot(;
-        title="Fixed-Effect Variability Across Top-$(k_use) Multistarts",
-        xlabel="Z-score",
-        ylabel="Parameter",
-        style=style,
-        subplot_kwargs...,
+        title = "Fixed-Effect Variability Across Top-$(k_use) Multistarts",
+        xlabel = "Z-score",
+        ylabel = "Parameter",
+        style = style,
+        subplot_kwargs...
     )
-    add_reference_line!(p, 0.0; orientation=:vertical, color=style.color_dark, alpha=0.7, label="")
+    add_reference_line!(
+        p, 0.0; orientation = :vertical, color = style.color_dark, alpha = 0.7, label = "")
 
     if mode == :points
         for i in eachindex(y)
             create_styled_scatter!(p, vec(@view z[i, :]), fill(y[i], k_use);
-                                   label="", color=style.color_primary, style=style)
+                label = "", color = style.color_primary, style = style)
         end
     else
         q = sort(Float64.(collect(quantiles)))
-        (length(q) == 3 && all(0 .<= q .<= 1)) || error("quantiles must contain three probabilities in [0, 1].")
+        (length(q) == 3 && all(0 .<= q .<= 1)) ||
+            error("quantiles must contain three probabilities in [0, 1].")
         for i in eachindex(y)
             zi = vec(@view z[i, :])
             lo = quantile(zi, q[1])
             mid = quantile(zi, q[2])
             hi = quantile(zi, q[3])
-            create_styled_line!(p, [lo, hi], [y[i], y[i]]; label="", color=style.color_primary, style=style,
-                                )
-            create_styled_scatter!(p, [mid], [y[i]]; label="", color=style.color_secondary, style=style)
+            create_styled_line!(p, [lo, hi], [y[i], y[i]]; label = "",
+                color = style.color_primary, style = style
+            )
+            create_styled_scatter!(
+                p, [mid], [y[i]]; label = "", color = style.color_secondary, style = style)
         end
     end
 
@@ -547,7 +579,8 @@ function plot_multistart_fixed_effect_variability(res::MultistartFitResult;
         zmin -= pad
         zmax += pad
     end
-    plot!(p; yticks=(y, labels), ylims=(0.5, length(labels) + 0.5), yflip=true, xlims=(zmin, zmax))
+    plot!(p; yticks = (y, labels), ylims = (0.5, length(labels) + 0.5),
+        yflip = true, xlims = (zmin, zmax))
     return _save_plot!(p, save_path)
 end
 
@@ -578,16 +611,16 @@ parameter element (e.g. `β[1]`, `β[2]`, `Ω[1,1]`, ...).
 - `save_path::Union{Nothing, String} = nothing`: file path to save the plot.
 """
 function plot_em_trajectories(res::FitResult;
-                              dm::Union{Nothing, DataModel}=nothing,
-                              scale::Symbol=:untransformed,
-                              include_parameters=nothing,
-                              exclude_parameters=nothing,
-                              ncols::Int=DEFAULT_PLOT_COLS,
-                              style::PlotStyle=PlotStyle(),
-                              kwargs_subplot=NamedTuple(),
-                              kwargs_layout=NamedTuple(),
-                              save_path::Union{Nothing, String}=nothing,
-                              plot_path::Union{Nothing, String}=nothing)
+        dm::Union{Nothing, DataModel} = nothing,
+        scale::Symbol = :untransformed,
+        include_parameters = nothing,
+        exclude_parameters = nothing,
+        ncols::Int = DEFAULT_PLOT_COLS,
+        style::PlotStyle = PlotStyle(),
+        kwargs_subplot = NamedTuple(),
+        kwargs_layout = NamedTuple(),
+        save_path::Union{Nothing, String} = nothing,
+        plot_path::Union{Nothing, String} = nothing)
     save_path = _resolve_plot_path(save_path, plot_path)
     scale in (:untransformed, :transformed) ||
         error("scale must be :untransformed or :transformed. Got: $(scale).")
@@ -601,7 +634,7 @@ function plot_em_trajectories(res::FitResult;
         error("No parameter trajectory stored. Re-fit with store_diagnostics=true.")
 
     diagnostics_every = method isa SAEM ? method.saem.diagnostics_every :
-                                          method.diagnostics_every
+                        method.diagnostics_every
     stored_iters = [k * diagnostics_every for k in 1:length(diag.θ_hist)]
 
     # Resolve DataModel and build inverse transform if needed.
@@ -615,7 +648,7 @@ function plot_em_trajectories(res::FitResult;
         name_to_idx = Dict(full_inv.names[i] => i for i in eachindex(full_inv.names))
         valid_idxs = [name_to_idx[n] for n in hist_names if haskey(name_to_idx, n)]
         restricted_inv = InverseTransform(full_inv.names[valid_idxs],
-                                          full_inv.specs[valid_idxs])
+            full_inv.specs[valid_idxs])
         θ_vals = [restricted_inv(θ_t) for θ_t in diag.θ_hist]
 
         # Determine parameter declaration order from the DataModel.
@@ -628,9 +661,9 @@ function plot_em_trajectories(res::FitResult;
 
     # Apply include / exclude filters.
     include_set = _normalize_top_level_parameter_selection(include_parameters,
-                                                           "include_parameters")
+        "include_parameters")
     exclude_set = _normalize_top_level_parameter_selection(exclude_parameters,
-                                                           "exclude_parameters")
+        "exclude_parameters")
     known = Set(free_fe_names)
     if include_set !== nothing
         unknown = [n for n in include_set if !(n in known)]
@@ -656,16 +689,16 @@ function plot_em_trajectories(res::FitResult;
         error("No parameters selected for plotting after include/exclude filters.")
 
     x_label = diagnostics_every == 1 ? "EM Iteration" :
-                                       "EM Iteration (×$(diagnostics_every))"
+              "EM Iteration (×$(diagnostics_every))"
 
     plots = Plots.Plot[]
 
     # Q-function panel (always uses all iterations, not just stored ones).
     # Plot index 1 is always in column 1, so it gets the ylabel.
-    q_plot = create_styled_plot(; title="Q Function", xlabel="EM Iteration",
-                                  ylabel="Value", style=style, kwargs_subplot...)
+    q_plot = create_styled_plot(; title = "Q Function", xlabel = "EM Iteration",
+        ylabel = "Value", style = style, kwargs_subplot...)
     create_styled_line!(q_plot, collect(1:length(diag.Q_hist)), Float64.(diag.Q_hist);
-                        label="", color=style.color_primary, style=style)
+        label = "", color = style.color_primary, style = style)
     push!(plots, q_plot)
 
     # One panel per scalar element of each selected parameter block.
@@ -673,29 +706,32 @@ function plot_em_trajectories(res::FitResult;
         first_val = getproperty(θ_vals[1], pname)
         if first_val isa Number
             traj = Float64[float(getproperty(θ, pname)) for θ in θ_vals]
-            push!(plots, create_styled_plot(; title=string(pname), xlabel=x_label,
-                                              ylabel="", style=style, kwargs_subplot...))
+            push!(plots,
+                create_styled_plot(; title = string(pname), xlabel = x_label,
+                    ylabel = "", style = style, kwargs_subplot...))
             create_styled_line!(plots[end], stored_iters, traj;
-                                label="", color=style.color_primary, style=style)
+                label = "", color = style.color_primary, style = style)
         elseif first_val isa AbstractVector
             n_elem = length(first_val)
             for j in eachindex(first_val)
                 traj = Float64[float(getproperty(θ, pname)[j]) for θ in θ_vals]
                 label = n_elem == 1 ? string(pname) : string(pname, "[", j, "]")
-                push!(plots, create_styled_plot(; title=label, xlabel=x_label,
-                                                  ylabel="", style=style, kwargs_subplot...))
+                push!(plots,
+                    create_styled_plot(; title = label, xlabel = x_label,
+                        ylabel = "", style = style, kwargs_subplot...))
                 create_styled_line!(plots[end], stored_iters, traj;
-                                    label="", color=style.color_primary, style=style)
+                    label = "", color = style.color_primary, style = style)
             end
         elseif first_val isa AbstractMatrix
             for r in axes(first_val, 1)
                 for c in axes(first_val, 2)
                     traj = Float64[float(getproperty(θ, pname)[r, c]) for θ in θ_vals]
                     label = string(pname, "[", r, ",", c, "]")
-                    push!(plots, create_styled_plot(; title=label, xlabel=x_label,
-                                                      ylabel="", style=style, kwargs_subplot...))
+                    push!(plots,
+                        create_styled_plot(; title = label, xlabel = x_label,
+                            ylabel = "", style = style, kwargs_subplot...))
                     create_styled_line!(plots[end], stored_iters, traj;
-                                        label="", color=style.color_primary, style=style)
+                        label = "", color = style.color_primary, style = style)
                 end
             end
         end
@@ -704,11 +740,11 @@ function plot_em_trajectories(res::FitResult;
     # Apply "Value" ylabel only to panels in the first column.
     for i in eachindex(plots)
         if (i - 1) % ncols == 0
-            plot!(plots[i]; ylabel="Value")
+            plot!(plots[i]; ylabel = "Value")
         end
     end
 
-    result = combine_plots(plots; ncols=ncols, style=style, kwargs_layout...)
+    result = combine_plots(plots; ncols = ncols, style = style, kwargs_layout...)
     return _save_plot!(result, save_path)
 end
 
@@ -759,31 +795,34 @@ function _apply_param_overrides(θ::ComponentArray, overrides::NamedTuple)
     isempty(keys(overrides)) && return θ
     θ_use = deepcopy(θ)
     for name in keys(overrides)
-        hasproperty(θ_use, name) || error("Parameter override includes unknown fixed effect $(name).")
+        hasproperty(θ_use, name) ||
+            error("Parameter override includes unknown fixed effect $(name).")
         setproperty!(θ_use, name, getfield(overrides, name))
     end
     return θ_use
 end
 
-@inline _is_posterior_draw_fit(res::FitResult) = (res.result isa MCMCResult || res.result isa VIResult)
+@inline _is_posterior_draw_fit(res::FitResult) = (res.result isa MCMCResult ||
+                                                  res.result isa VIResult)
 
 function _with_posterior_warmup(res::FitResult, mcmc_warmup::Union{Nothing, Int})
     if !(res.result isa MCMCResult) || mcmc_warmup === nothing
         return res
     end
     conv = res.diagnostics.convergence
-    conv = merge(conv, (n_adapt=mcmc_warmup,))
+    conv = merge(conv, (n_adapt = mcmc_warmup,))
     return FitResult(res.method, res.result, res.summary,
-                     FitDiagnostics(res.diagnostics.timing, res.diagnostics.optimizer, conv, res.diagnostics.notes),
-                     res.data_model, res.fit_args, res.fit_kwargs)
+        FitDiagnostics(
+            res.diagnostics.timing, res.diagnostics.optimizer, conv, res.diagnostics.notes),
+        res.data_model, res.fit_args, res.fit_kwargs)
 end
 
 function _plot_signature(dm::DataModel,
-                         θ::ComponentArray,
-                         constants_re::NamedTuple,
-                         solver_cfg,
-                         callbacks_hash::UInt,
-                         cache_obs_dists::Bool)
+        θ::ComponentArray,
+        constants_re::NamedTuple,
+        solver_cfg,
+        callbacks_hash::UInt,
+        cache_obs_dists::Bool)
     h = hash(typeof(dm.model))
     h = hash(dm.model.de.de === nothing ? Symbol[] : get_de_states(dm.model.de.de), h)
     h = hash(get_formulas_meta(dm.model.formulas.formulas).obs_names, h)
@@ -831,11 +870,11 @@ function _varying_at_plot(dm::DataModel, ind::Individual, idx::Int, row::Int)
 end
 
 function _solve_dense_individual(dm::DataModel,
-                                 ind::Individual,
-                                 θ::ComponentArray,
-                                 η_ind::ComponentArray;
-                                 ode_args::Tuple=(),
-                                 ode_kwargs::NamedTuple=NamedTuple())
+        ind::Individual,
+        θ::ComponentArray,
+        η_ind::ComponentArray;
+        ode_args::Tuple = (),
+        ode_kwargs::NamedTuple = NamedTuple())
     model = dm.model
     pre = calculate_prede(model, θ, η_ind, ind.const_cov)
     pc = (;
@@ -861,32 +900,33 @@ function _solve_dense_individual(dm::DataModel,
     prob = ODEProblem(f!, u0, ind.tspan, compiled)
     solver_cfg = get_solver_config(model)
     alg = solver_cfg.alg === nothing ? Tsit5() : solver_cfg.alg
-    solve_kwargs = _ode_solve_kwargs(solver_cfg.kwargs, ode_kwargs, (dense=true,))
+    solve_kwargs = _ode_solve_kwargs(solver_cfg.kwargs, ode_kwargs, (dense = true,))
     if cb === nothing
         sol = solve(prob, alg, solver_cfg.args..., ode_args...; solve_kwargs...)
     else
-        sol = solve(prob, alg, solver_cfg.args..., ode_args...; solve_kwargs..., callback=cb)
+        sol = solve(
+            prob, alg, solver_cfg.args..., ode_args...; solve_kwargs..., callback = cb)
     end
     return sol, compiled
 end
 
 function _mcmc_param_means(chain::Chains;
-                           n_adapt::Int=0,
-                           max_draws::Int=typemax(Int),
-                           rng::AbstractRNG=Random.default_rng())
+        n_adapt::Int = 0,
+        max_draws::Int = typemax(Int),
+        rng::AbstractRNG = Random.default_rng())
     max_draws >= 1 || error("max_draws must be >= 1.")
     names_all = MCMCChains.names(chain, :parameters)
     idxs = findall(in(names_all), MCMCChains.names(chain))
     vals = Array(chain)
     draw_idxs = _mcmc_draw_indices(chain, n_adapt, max_draws, rng)
     isempty(draw_idxs) && error("No MCMC draws available after warmup.")
-    means = dropdims(mean(vals[draw_idxs, idxs, :], dims=(1, 3)), dims=(1, 3))
+    means = dropdims(mean(vals[draw_idxs, idxs, :], dims = (1, 3)), dims = (1, 3))
     return Dict{Symbol, Float64}((names_all[i] => means[i]) for i in eachindex(names_all))
 end
 
 function _coordwise_fixed_from_means(dm::DataModel,
-                                     means::Dict{Symbol, Float64},
-                                     source::AbstractString)
+        means::Dict{Symbol, Float64},
+        source::AbstractString)
     fe_names = get_names(dm.model.fixed.fixed)
     θ0_u = get_θ0_untransformed(dm.model.fixed.fixed)
     pairs = Pair{Symbol, Any}[]
@@ -918,47 +958,48 @@ function _coordwise_fixed_from_means(dm::DataModel,
 end
 
 function _mcmc_fixed_means(res::FitResult,
-                           dm::DataModel;
-                           max_draws::Int=typemax(Int),
-                           rng::AbstractRNG=Random.default_rng())
+        dm::DataModel;
+        max_draws::Int = typemax(Int),
+        rng::AbstractRNG = Random.default_rng())
     chain = get_chain(res)
     n_adapt = _mcmc_warmup(res)
-    means = _mcmc_param_means(chain; n_adapt=n_adapt, max_draws=max_draws, rng=rng)
+    means = _mcmc_param_means(chain; n_adapt = n_adapt, max_draws = max_draws, rng = rng)
     θ = _coordwise_fixed_from_means(dm, means, "MCMC chain")
     return θ, chain
 end
 
 function _vi_param_means(res::FitResult;
-                         max_draws::Int=typemax(Int),
-                         rng::AbstractRNG=Random.default_rng())
+        max_draws::Int = typemax(Int),
+        rng::AbstractRNG = Random.default_rng())
     n_draws = max_draws == typemax(Int) ? 1000 : Int(max_draws)
     n_draws >= 1 || error("max_draws must be >= 1.")
-    raw = sample_posterior(res; n_draws=n_draws, rng=rng, return_names=true)
+    raw = sample_posterior(res; n_draws = n_draws, rng = rng, return_names = true)
     draws = raw.draws
     names = raw.names
-    means = vec(mean(draws; dims=1))
-    return Dict{Symbol, Float64}((Symbol(string(names[i])) => Float64(means[i])) for i in eachindex(names))
+    means = vec(mean(draws; dims = 1))
+    return Dict{Symbol, Float64}((Symbol(string(names[i])) => Float64(means[i]))
+    for i in eachindex(names))
 end
 
 function _vi_fixed_means(res::FitResult,
-                         dm::DataModel;
-                         max_draws::Int=typemax(Int),
-                         rng::AbstractRNG=Random.default_rng())
-    means = _vi_param_means(res; max_draws=max_draws, rng=rng)
+        dm::DataModel;
+        max_draws::Int = typemax(Int),
+        rng::AbstractRNG = Random.default_rng())
+    means = _vi_param_means(res; max_draws = max_draws, rng = rng)
     θ = _coordwise_fixed_from_means(dm, means, "VI posterior")
     return θ, nothing
 end
 
 function _posterior_fixed_means(res::FitResult,
-                                dm::DataModel;
-                                max_draws::Int=typemax(Int),
-                                rng::AbstractRNG=Random.default_rng())
+        dm::DataModel;
+        max_draws::Int = typemax(Int),
+        rng::AbstractRNG = Random.default_rng())
     if res.result isa MCMCResult
-        return _mcmc_fixed_means(res, dm; max_draws=max_draws, rng=rng)
+        return _mcmc_fixed_means(res, dm; max_draws = max_draws, rng = rng)
     elseif res.result isa VIResult
-        return _vi_fixed_means(res, dm; max_draws=max_draws, rng=rng)
+        return _vi_fixed_means(res, dm; max_draws = max_draws, rng = rng)
     end
-    return get_params(res; scale=:untransformed), nothing
+    return get_params(res; scale = :untransformed), nothing
 end
 
 function _mcmc_warmup(res::FitResult)
@@ -986,14 +1027,14 @@ function _mcmc_param_value(vals, iter_idx::Int, var_idx::Int, chain_idx::Int)
 end
 
 function _mcmc_random_effects_means(res::FitResult,
-                                    dm::DataModel,
-                                    constants_re::NamedTuple,
-                                    θ::ComponentArray;
-                                    max_draws::Int=typemax(Int),
-                                    rng::AbstractRNG=Random.default_rng())
+        dm::DataModel,
+        constants_re::NamedTuple,
+        θ::ComponentArray;
+        max_draws::Int = typemax(Int),
+        rng::AbstractRNG = Random.default_rng())
     chain = get_chain(res)
     n_adapt = _mcmc_warmup(res)
-    means = _mcmc_param_means(chain; n_adapt=n_adapt, max_draws=max_draws, rng=rng)
+    means = _mcmc_param_means(chain; n_adapt = n_adapt, max_draws = max_draws, rng = rng)
     re_names = get_re_names(dm.model.random.random)
     isempty(re_names) && return Vector{ComponentArray}(undef, length(dm.individuals))
 
@@ -1019,10 +1060,11 @@ function _mcmc_random_effects_means(res::FitResult,
             level_dims[re] = 1
             continue
         end
-        rep_idx = findfirst(ind -> (getfield(ind.re_groups, re) isa AbstractVector ?
-                                    (getfield(ind.re_groups, re)[1] in levels_free) :
-                                    (getfield(ind.re_groups, re) in levels_free)),
-                            dm.individuals)
+        rep_idx = findfirst(
+            ind -> (getfield(ind.re_groups, re) isa AbstractVector ?
+                    (getfield(ind.re_groups, re)[1] in levels_free) :
+                    (getfield(ind.re_groups, re) in levels_free)),
+            dm.individuals)
         const_cov = dm.individuals[rep_idx].const_cov
         dist = getproperty(dists_builder(θ, const_cov, model_funs, helpers), re)
         dim = dist isa Distributions.UnivariateDistribution ? 1 : length(dist)
@@ -1040,7 +1082,8 @@ function _mcmc_random_effects_means(res::FitResult,
                     if !haskey(means, name)
                         name = Symbol(string(re), "_vals[", i, "][", j, "]")
                     end
-                    haskey(means, name) || error("MCMC chain is missing random effect $(name).")
+                    haskey(means, name) ||
+                        error("MCMC chain is missing random effect $(name).")
                     vals[j] = means[name]
                 end
                 re_map[lvl] = vals
@@ -1066,7 +1109,8 @@ function _mcmc_random_effects_means(res::FitResult,
                     end
                     push!(nt_pairs, re => (dim == 1 ? v : Vector{Float64}(v)))
                 else
-                    vals = dim == 1 ? Vector{Float64}(undef, length(g)) : Vector{Vector{Float64}}(undef, length(g))
+                    vals = dim == 1 ? Vector{Float64}(undef, length(g)) :
+                           Vector{Vector{Float64}}(undef, length(g))
                     for (gi, lvl) in pairs(g)
                         if haskey(fixed, lvl)
                             v = fixed[lvl]
@@ -1092,11 +1136,11 @@ function _mcmc_random_effects_means(res::FitResult,
 end
 
 function _mcmc_drawn_params(res::FitResult,
-                            dm::DataModel,
-                            constants_re::NamedTuple,
-                            overrides::NamedTuple,
-                            max_draws::Int,
-                            rng::AbstractRNG)
+        dm::DataModel,
+        constants_re::NamedTuple,
+        overrides::NamedTuple,
+        max_draws::Int,
+        rng::AbstractRNG)
     chain = get_chain(res)
     n_adapt = _mcmc_warmup(res)
     draw_idxs = _mcmc_draw_indices(chain, n_adapt, max_draws, rng)
@@ -1118,7 +1162,8 @@ function _mcmc_drawn_params(res::FitResult,
     fe_pairs_rep = Pair{Symbol, Any}[]
     for name in fe_names
         if haskey(idx_map, name)
-            push!(fe_pairs_rep, name => _mcmc_param_value(vals, rep_iter, idx_map[name], rep_chain))
+            push!(fe_pairs_rep,
+                name => _mcmc_param_value(vals, rep_iter, idx_map[name], rep_chain))
         else
             val0 = getproperty(get_θ0_untransformed(dm.model.fixed.fixed), name)
             if val0 isa AbstractArray
@@ -1127,7 +1172,8 @@ function _mcmc_drawn_params(res::FitResult,
                     idx_txt = join(Tuple(idx), ",")
                     key = Symbol("$(name)[$(idx_txt)]")
                     if haskey(idx_map, key)
-                        vals_rep[idx] = _mcmc_param_value(vals, rep_iter, idx_map[key], rep_chain)
+                        vals_rep[idx] = _mcmc_param_value(
+                            vals, rep_iter, idx_map[key], rep_chain)
                     else
                         @warn "MCMC chain is missing fixed effect element; falling back to initial value." name=name index=Tuple(idx)
                         vals_rep[idx] = Float64(val0[idx])
@@ -1152,17 +1198,18 @@ function _mcmc_drawn_params(res::FitResult,
             push!(levels_free, lvl)
         end
         if isempty(levels_free)
-            re_meta[re] = (levels_free=levels_free, dim=1)
+            re_meta[re] = (levels_free = levels_free, dim = 1)
             continue
         end
-        rep_idx = findfirst(ind -> (getfield(ind.re_groups, re) isa AbstractVector ?
-                                    (getfield(ind.re_groups, re)[1] in levels_free) :
-                                    (getfield(ind.re_groups, re) in levels_free)),
-                            dm.individuals)
+        rep_idx = findfirst(
+            ind -> (getfield(ind.re_groups, re) isa AbstractVector ?
+                    (getfield(ind.re_groups, re)[1] in levels_free) :
+                    (getfield(ind.re_groups, re) in levels_free)),
+            dm.individuals)
         const_cov = dm.individuals[rep_idx].const_cov
         dist = getproperty(dists_builder(θ_rep, const_cov, model_funs, helpers), re)
         dim = dist isa Distributions.UnivariateDistribution ? 1 : length(dist)
-        re_meta[re] = (levels_free=levels_free, dim=dim)
+        re_meta[re] = (levels_free = levels_free, dim = dim)
     end
 
     function _get_re_value(re, li, dim, iter_idx, chain_idx)
@@ -1178,7 +1225,8 @@ function _mcmc_drawn_params(res::FitResult,
                 name = Symbol(string(re), "[", li, "][1]")
             end
             if !haskey(idx_map, name)
-                @warn "MCMC chain is missing random effect; using 0.0." name=Symbol(string(re), "_vals[", li, "]")
+                @warn "MCMC chain is missing random effect; using 0.0." name=Symbol(
+                    string(re), "_vals[", li, "]")
                 return nothing
             end
             return _mcmc_param_value(vals, iter_idx, idx_map[name], chain_idx)
@@ -1211,7 +1259,8 @@ function _mcmc_drawn_params(res::FitResult,
         fe_pairs = Pair{Symbol, Any}[]
         for name in fe_names
             if haskey(idx_map, name)
-                push!(fe_pairs, name => _mcmc_param_value(vals, iter_idx, idx_map[name], chain_idx))
+                push!(fe_pairs,
+                    name => _mcmc_param_value(vals, iter_idx, idx_map[name], chain_idx))
             else
                 val0 = getproperty(get_θ0_untransformed(dm.model.fixed.fixed), name)
                 if val0 isa AbstractArray
@@ -1220,7 +1269,8 @@ function _mcmc_drawn_params(res::FitResult,
                         idx_txt = join(Tuple(idx), ",")
                         key = Symbol("$(name)[$(idx_txt)]")
                         if haskey(idx_map, key)
-                            vals_draw[idx] = _mcmc_param_value(vals, iter_idx, idx_map[key], chain_idx)
+                            vals_draw[idx] = _mcmc_param_value(
+                                vals, iter_idx, idx_map[key], chain_idx)
                         else
                             @warn "MCMC chain is missing fixed effect element; falling back to initial value." name=name index=Tuple(idx)
                             vals_draw[idx] = Float64(val0[idx])
@@ -1245,7 +1295,8 @@ function _mcmc_drawn_params(res::FitResult,
                 meta = re_meta[re]
                 dim = meta.dim
                 levels_free = meta.levels_free
-                lvl_to_idx = Dict{Any, Int}((levels_free[i] => i) for i in eachindex(levels_free))
+                lvl_to_idx = Dict{Any, Int}((levels_free[i] => i)
+                for i in eachindex(levels_free))
                 g = getfield(ind.re_groups, re)
                 if g isa AbstractVector
                     if length(g) == 1
@@ -1254,19 +1305,22 @@ function _mcmc_drawn_params(res::FitResult,
                             v = fixed[lvl]
                         else
                             li = get(lvl_to_idx, lvl, 0)
-                            li == 0 && error("Missing random effect value for $(re) level $(lvl).")
+                            li == 0 &&
+                                error("Missing random effect value for $(re) level $(lvl).")
                             v = _get_re_value(re, li, dim, iter_idx, chain_idx)
                             v === nothing && (v = dim == 1 ? 0.0 : zeros(dim))
                         end
                         push!(nt_pairs, re => (dim == 1 ? v : Vector{Float64}(v)))
                     else
-                        vals_re = dim == 1 ? Vector{Float64}(undef, length(g)) : Vector{Vector{Float64}}(undef, length(g))
+                        vals_re = dim == 1 ? Vector{Float64}(undef, length(g)) :
+                                  Vector{Vector{Float64}}(undef, length(g))
                         for (gi, lvl) in pairs(g)
                             if haskey(fixed, lvl)
                                 v = fixed[lvl]
                             else
                                 li = get(lvl_to_idx, lvl, 0)
-                                li == 0 && error("Missing random effect value for $(re) level $(lvl).")
+                                li == 0 &&
+                                    error("Missing random effect value for $(re) level $(lvl).")
                                 v = _get_re_value(re, li, dim, iter_idx, chain_idx)
                                 v === nothing && (v = dim == 1 ? 0.0 : zeros(dim))
                             end
@@ -1279,7 +1333,8 @@ function _mcmc_drawn_params(res::FitResult,
                         v = fixed[g]
                     else
                         li = get(lvl_to_idx, g, 0)
-                        li == 0 && error("Missing random effect value for $(re) level $(g).")
+                        li == 0 &&
+                            error("Missing random effect value for $(re) level $(g).")
                         v = _get_re_value(re, li, dim, iter_idx, chain_idx)
                         v === nothing && (v = dim == 1 ? 0.0 : zeros(dim))
                     end
@@ -1294,13 +1349,13 @@ function _mcmc_drawn_params(res::FitResult,
 end
 
 function _vi_drawn_params(res::FitResult,
-                          dm::DataModel,
-                          constants_re::NamedTuple,
-                          overrides::NamedTuple,
-                          max_draws::Int,
-                          rng::AbstractRNG)
+        dm::DataModel,
+        constants_re::NamedTuple,
+        overrides::NamedTuple,
+        max_draws::Int,
+        rng::AbstractRNG)
     max_draws >= 1 || error("mcmc_draws must be >= 1.")
-    raw = sample_posterior(res; n_draws=max_draws, rng=rng, return_names=true)
+    raw = sample_posterior(res; n_draws = max_draws, rng = rng, return_names = true)
     draws = raw.draws
     coord_names = raw.names
     size(draws, 1) >= 1 || error("No VI posterior draws available.")
@@ -1359,17 +1414,18 @@ function _vi_drawn_params(res::FitResult,
             push!(levels_free, lvl)
         end
         if isempty(levels_free)
-            re_meta[re] = (levels_free=levels_free, dim=1)
+            re_meta[re] = (levels_free = levels_free, dim = 1)
             continue
         end
-        rep_idx = findfirst(ind -> (getfield(ind.re_groups, re) isa AbstractVector ?
-                                    (getfield(ind.re_groups, re)[1] in levels_free) :
-                                    (getfield(ind.re_groups, re) in levels_free)),
-                            dm.individuals)
+        rep_idx = findfirst(
+            ind -> (getfield(ind.re_groups, re) isa AbstractVector ?
+                    (getfield(ind.re_groups, re)[1] in levels_free) :
+                    (getfield(ind.re_groups, re) in levels_free)),
+            dm.individuals)
         const_cov = dm.individuals[rep_idx].const_cov
         dist = getproperty(dists_builder(θ_rep, const_cov, model_funs, helpers), re)
         dim = dist isa Distributions.UnivariateDistribution ? 1 : length(dist)
-        re_meta[re] = (levels_free=levels_free, dim=dim)
+        re_meta[re] = (levels_free = levels_free, dim = dim)
     end
 
     function _get_re_value(re, li, dim, row)
@@ -1377,10 +1433,12 @@ function _vi_drawn_params(res::FitResult,
             k = string(re, "_vals[", li, "]")
             idx = _lookup_chain_index(idx_map, k)
             idx == 0 && (idx = _lookup_chain_index(idx_map, string(re, "[", li, "]")))
-            idx == 0 && (idx = _lookup_chain_index(idx_map, string(re, "_vals[", li, "][1]")))
+            idx == 0 &&
+                (idx = _lookup_chain_index(idx_map, string(re, "_vals[", li, "][1]")))
             idx == 0 && (idx = _lookup_chain_index(idx_map, string(re, "[", li, "][1]")))
             if idx == 0
-                @warn "VI posterior is missing random effect; using 0.0." name=Symbol(string(re), "_vals[", li, "]")
+                @warn "VI posterior is missing random effect; using 0.0." name=Symbol(
+                    string(re), "_vals[", li, "]")
                 return nothing
             end
             return Float64(row[idx])
@@ -1389,9 +1447,12 @@ function _vi_drawn_params(res::FitResult,
         for j in 1:dim
             k = string(re, "_vals[", li, ",", j, "]")
             idx = _lookup_chain_index(idx_map, k)
-            idx == 0 && (idx = _lookup_chain_index(idx_map, string(re, "_vals[", li, "][", j, "]")))
-            idx == 0 && (idx = _lookup_chain_index(idx_map, string(re, "[", li, ",", j, "]")))
-            idx == 0 && (idx = _lookup_chain_index(idx_map, string(re, "[", li, "][", j, "]")))
+            idx == 0 &&
+                (idx = _lookup_chain_index(idx_map, string(re, "_vals[", li, "][", j, "]")))
+            idx == 0 &&
+                (idx = _lookup_chain_index(idx_map, string(re, "[", li, ",", j, "]")))
+            idx == 0 &&
+                (idx = _lookup_chain_index(idx_map, string(re, "[", li, "][", j, "]")))
             if idx == 0
                 @warn "VI posterior is missing random effect element; using 0.0." name=Symbol(k)
                 return nothing
@@ -1444,7 +1505,8 @@ function _vi_drawn_params(res::FitResult,
                 meta = re_meta[re]
                 dim = meta.dim
                 levels_free = meta.levels_free
-                lvl_to_idx = Dict{Any, Int}((levels_free[j] => j) for j in eachindex(levels_free))
+                lvl_to_idx = Dict{Any, Int}((levels_free[j] => j)
+                for j in eachindex(levels_free))
                 g = getfield(ind.re_groups, re)
                 if g isa AbstractVector
                     if length(g) == 1
@@ -1453,19 +1515,22 @@ function _vi_drawn_params(res::FitResult,
                             v = fixed[lvl]
                         else
                             li = get(lvl_to_idx, lvl, 0)
-                            li == 0 && error("Missing random effect value for $(re) level $(lvl).")
+                            li == 0 &&
+                                error("Missing random effect value for $(re) level $(lvl).")
                             v = _get_re_value(re, li, dim, row)
                             v === nothing && (v = dim == 1 ? 0.0 : zeros(dim))
                         end
                         push!(nt_pairs, re => (dim == 1 ? v : Vector{Float64}(v)))
                     else
-                        vals_re = dim == 1 ? Vector{Float64}(undef, length(g)) : Vector{Vector{Float64}}(undef, length(g))
+                        vals_re = dim == 1 ? Vector{Float64}(undef, length(g)) :
+                                  Vector{Vector{Float64}}(undef, length(g))
                         for (gi, lvl) in pairs(g)
                             if haskey(fixed, lvl)
                                 v = fixed[lvl]
                             else
                                 li = get(lvl_to_idx, lvl, 0)
-                                li == 0 && error("Missing random effect value for $(re) level $(lvl).")
+                                li == 0 &&
+                                    error("Missing random effect value for $(re) level $(lvl).")
                                 v = _get_re_value(re, li, dim, row)
                                 v === nothing && (v = dim == 1 ? 0.0 : zeros(dim))
                             end
@@ -1478,7 +1543,8 @@ function _vi_drawn_params(res::FitResult,
                         v = fixed[g]
                     else
                         li = get(lvl_to_idx, g, 0)
-                        li == 0 && error("Missing random effect value for $(re) level $(g).")
+                        li == 0 &&
+                            error("Missing random effect value for $(re) level $(g).")
                         v = _get_re_value(re, li, dim, row)
                         v === nothing && (v = dim == 1 ? 0.0 : zeros(dim))
                     end
@@ -1493,11 +1559,11 @@ function _vi_drawn_params(res::FitResult,
 end
 
 function _posterior_drawn_params(res::FitResult,
-                                 dm::DataModel,
-                                 constants_re::NamedTuple,
-                                 overrides::NamedTuple,
-                                 max_draws::Int,
-                                 rng::AbstractRNG)
+        dm::DataModel,
+        constants_re::NamedTuple,
+        overrides::NamedTuple,
+        max_draws::Int,
+        rng::AbstractRNG)
     if res.result isa MCMCResult
         return _mcmc_drawn_params(res, dm, constants_re, overrides, max_draws, rng)
     elseif res.result isa VIResult
@@ -1507,11 +1573,11 @@ function _posterior_drawn_params(res::FitResult,
 end
 
 function _default_random_effects(res::FitResult,
-                                 dm::DataModel,
-                                 constants_re::NamedTuple,
-                                 θ::ComponentArray,
-                                 rng::AbstractRNG,
-                                 mcmc_draws::Int)
+        dm::DataModel,
+        constants_re::NamedTuple,
+        θ::ComponentArray,
+        rng::AbstractRNG,
+        mcmc_draws::Int)
     re_names = get_re_names(dm.model.random.random)
     isempty(re_names) && return fill(ComponentArray(NamedTuple()), length(dm.individuals))
 
@@ -1519,41 +1585,54 @@ function _default_random_effects(res::FitResult,
        res.result isa GHQuadratureResult || res.result isa GHQuadratureMAPResult
         _, batch_infos, _ = _build_laplace_batch_infos(dm, constants_re)
         bstars = res.result.eb_modes
-        length(bstars) == length(batch_infos) || error("Laplace-style EB modes do not match number of batches.")
+        length(bstars) == length(batch_infos) ||
+            error("Laplace-style EB modes do not match number of batches.")
         return _eta_from_eb(dm, batch_infos, bstars, constants_re, θ)
     end
 
     if res.result isa MCEMResult
-        ode_args = haskey(res.fit_kwargs, :ode_args) ? getfield(res.fit_kwargs, :ode_args) : ()
-        ode_kwargs = haskey(res.fit_kwargs, :ode_kwargs) ? getfield(res.fit_kwargs, :ode_kwargs) : NamedTuple()
-        serialization = haskey(res.fit_kwargs, :serialization) ? getfield(res.fit_kwargs, :serialization) : EnsembleSerial()
+        ode_args = haskey(res.fit_kwargs, :ode_args) ? getfield(res.fit_kwargs, :ode_args) :
+                   ()
+        ode_kwargs = haskey(res.fit_kwargs, :ode_kwargs) ?
+                     getfield(res.fit_kwargs, :ode_kwargs) : NamedTuple()
+        serialization = haskey(res.fit_kwargs, :serialization) ?
+                        getfield(res.fit_kwargs, :serialization) : EnsembleSerial()
         rng_use = haskey(res.fit_kwargs, :rng) ? getfield(res.fit_kwargs, :rng) : rng
-        ll_cache = build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs, serialization=serialization)
+        ll_cache = build_ll_cache(
+            dm; ode_args = ode_args, ode_kwargs = ode_kwargs, serialization = serialization)
         bstars = res.result.eb_modes
         if bstars === nothing
-            bstars, batch_infos = _compute_bstars(dm, θ, constants_re, ll_cache, res.method.ebe, rng_use;
-                                                  rescue=res.method.ebe_rescue)
+            bstars, batch_infos = _compute_bstars(
+                dm, θ, constants_re, ll_cache, res.method.ebe, rng_use;
+                rescue = res.method.ebe_rescue)
         else
             _, batch_infos, _ = _build_laplace_batch_infos(dm, constants_re)
         end
         return _eta_from_eb(dm, batch_infos, bstars, constants_re, θ)
     end
     if res.result isa SAEMResult
-        constants_re = _saem_anneal_constants_re(dm, θ, _saem_anneal_names(res), constants_re)
-        ode_args = haskey(res.fit_kwargs, :ode_args) ? getfield(res.fit_kwargs, :ode_args) : ()
-        ode_kwargs = haskey(res.fit_kwargs, :ode_kwargs) ? getfield(res.fit_kwargs, :ode_kwargs) : NamedTuple()
-        serialization = haskey(res.fit_kwargs, :serialization) ? getfield(res.fit_kwargs, :serialization) : EnsembleSerial()
+        constants_re = _saem_anneal_constants_re(
+            dm, θ, _saem_anneal_names(res), constants_re)
+        ode_args = haskey(res.fit_kwargs, :ode_args) ? getfield(res.fit_kwargs, :ode_args) :
+                   ()
+        ode_kwargs = haskey(res.fit_kwargs, :ode_kwargs) ?
+                     getfield(res.fit_kwargs, :ode_kwargs) : NamedTuple()
+        serialization = haskey(res.fit_kwargs, :serialization) ?
+                        getfield(res.fit_kwargs, :serialization) : EnsembleSerial()
         rng_use = haskey(res.fit_kwargs, :rng) ? getfield(res.fit_kwargs, :rng) : rng
-        ll_cache = build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs, serialization=serialization)
+        ll_cache = build_ll_cache(
+            dm; ode_args = ode_args, ode_kwargs = ode_kwargs, serialization = serialization)
         bstars = res.result.eb_modes
         if bstars === nothing
             # Fall back to default SAEM EBE options for loaded results
             _saem_cfg = res.method isa _SavedFittingMethod ? SAEM() : res.method
-            ebe = EBEOptions(_saem_cfg.saem.ebe_optimizer, _saem_cfg.saem.ebe_optim_kwargs, _saem_cfg.saem.ebe_adtype,
-                             _saem_cfg.saem.ebe_grad_tol, _saem_cfg.saem.ebe_multistart_n, _saem_cfg.saem.ebe_multistart_k,
-                             _saem_cfg.saem.ebe_multistart_max_rounds, _saem_cfg.saem.ebe_multistart_sampling)
-            bstars, batch_infos = _compute_bstars(dm, θ, constants_re, ll_cache, ebe, rng_use;
-                                                  rescue=_saem_cfg.saem.ebe_rescue)
+            ebe = EBEOptions(_saem_cfg.saem.ebe_optimizer,
+                _saem_cfg.saem.ebe_optim_kwargs, _saem_cfg.saem.ebe_adtype,
+                _saem_cfg.saem.ebe_grad_tol, _saem_cfg.saem.ebe_multistart_n, _saem_cfg.saem.ebe_multistart_k,
+                _saem_cfg.saem.ebe_multistart_max_rounds, _saem_cfg.saem.ebe_multistart_sampling)
+            bstars, batch_infos = _compute_bstars(
+                dm, θ, constants_re, ll_cache, ebe, rng_use;
+                rescue = _saem_cfg.saem.ebe_rescue)
         else
             _, batch_infos, _ = _build_laplace_batch_infos(dm, constants_re)
         end
@@ -1561,7 +1640,8 @@ function _default_random_effects(res::FitResult,
     end
 
     if res.result isa MCMCResult
-        return _mcmc_random_effects_means(res, dm, constants_re, θ; max_draws=mcmc_draws, rng=rng)
+        return _mcmc_random_effects_means(
+            res, dm, constants_re, θ; max_draws = mcmc_draws, rng = rng)
     end
     # NB: VI is rejected for random-effects models at fit time, so a VIResult can
     # never reach here with non-empty `re_names`; no VI branch is needed.
@@ -1574,8 +1654,8 @@ function _default_random_effects(res::FitResult,
 end
 
 function _default_random_effects_from_dm(dm::DataModel,
-                                         constants_re::NamedTuple,
-                                         θ::ComponentArray)
+        constants_re::NamedTuple,
+        θ::ComponentArray)
     re_names = get_re_names(dm.model.random.random)
     isempty(re_names) && return fill(ComponentArray(NamedTuple()), length(dm.individuals))
 
@@ -1600,10 +1680,11 @@ function _default_random_effects_from_dm(dm::DataModel,
             level_dims[re] = 1
             continue
         end
-        rep_idx = findfirst(ind -> (getfield(ind.re_groups, re) isa AbstractVector ?
-                                    (getfield(ind.re_groups, re)[1] in levels_free) :
-                                    (getfield(ind.re_groups, re) in levels_free)),
-                            dm.individuals)
+        rep_idx = findfirst(
+            ind -> (getfield(ind.re_groups, re) isa AbstractVector ?
+                    (getfield(ind.re_groups, re)[1] in levels_free) :
+                    (getfield(ind.re_groups, re) in levels_free)),
+            dm.individuals)
         const_cov = dm.individuals[rep_idx].const_cov
         dist = getproperty(dists_builder(θ, const_cov, model_funs, helpers), re)
         dim = dist isa Distributions.UnivariateDistribution ? 1 : length(dist)
@@ -1642,7 +1723,8 @@ function _default_random_effects_from_dm(dm::DataModel,
                     v = haskey(fixed, lvl) ? fixed[lvl] : level_vals[re][lvl]
                     push!(nt_pairs, re => (dim == 1 ? v : Vector{Float64}(v)))
                 else
-                    vals_re = dim == 1 ? Vector{Float64}(undef, length(g)) : Vector{Vector{Float64}}(undef, length(g))
+                    vals_re = dim == 1 ? Vector{Float64}(undef, length(g)) :
+                              Vector{Vector{Float64}}(undef, length(g))
                     for (gi, lvl) in pairs(g)
                         v = haskey(fixed, lvl) ? fixed[lvl] : level_vals[re][lvl]
                         vals_re[gi] = dim == 1 ? v : Vector{Float64}(v)
@@ -1682,17 +1764,18 @@ plotting. Pass the returned [`PlotCache`](@ref) to `plot_fits` via the `cache` k
 - `rng::AbstractRNG = Random.default_rng()`: random-number generator.
 """
 function build_plot_cache(res::FitResult;
-                          dm::Union{Nothing, DataModel}=nothing,
-                          params::NamedTuple=NamedTuple(),
-                          constants_re::NamedTuple=NamedTuple(),
-                          cache_obs_dists::Bool=false,
-                          ode_args::Tuple=(),
-                          ode_kwargs::NamedTuple=NamedTuple(),
-                          mcmc_draws::Int=1000,
-                          mcmc_warmup::Union{Nothing, Int}=nothing,
-                          rng::AbstractRNG=Random.default_rng())
+        dm::Union{Nothing, DataModel} = nothing,
+        params::NamedTuple = NamedTuple(),
+        constants_re::NamedTuple = NamedTuple(),
+        cache_obs_dists::Bool = false,
+        ode_args::Tuple = (),
+        ode_kwargs::NamedTuple = NamedTuple(),
+        mcmc_draws::Int = 1000,
+        mcmc_warmup::Union{Nothing, Int} = nothing,
+        rng::AbstractRNG = Random.default_rng())
     dm === nothing && (dm = get_data_model(res))
-    dm === nothing && error("This fit result does not store a DataModel; pass dm=... to build_plot_cache.")
+    dm === nothing &&
+        error("This fit result does not store a DataModel; pass dm=... to build_plot_cache.")
     constants_re = _res_constants_re(res, constants_re)
 
     if _is_posterior_draw_fit(res)
@@ -1700,8 +1783,9 @@ function build_plot_cache(res::FitResult;
         res = _with_posterior_warmup(res, mcmc_warmup)
     end
 
-    θ_chain = _is_posterior_draw_fit(res) ? _posterior_fixed_means(res, dm; max_draws=mcmc_draws, rng=rng) : nothing
-    θ = _is_posterior_draw_fit(res) ? θ_chain[1] : get_params(res; scale=:untransformed)
+    θ_chain = _is_posterior_draw_fit(res) ?
+              _posterior_fixed_means(res, dm; max_draws = mcmc_draws, rng = rng) : nothing
+    θ = _is_posterior_draw_fit(res) ? θ_chain[1] : get_params(res; scale = :untransformed)
     θ = _apply_param_overrides(θ, params)
     chain = _is_posterior_draw_fit(res) ? θ_chain[2] : nothing
     η_vec = _default_random_effects(res, dm, constants_re, θ, rng, mcmc_draws)
@@ -1712,7 +1796,8 @@ function build_plot_cache(res::FitResult;
         for i in eachindex(dm.individuals)
             ind = dm.individuals[i]
             η_ind = η_vec[i] isa ComponentArray ? η_vec[i] : ComponentArray(η_vec[i])
-            sol, compiled = _solve_dense_individual(dm, ind, θ, η_ind; ode_args=ode_args, ode_kwargs=ode_kwargs)
+            sol, compiled = _solve_dense_individual(
+                dm, ind, θ, η_ind; ode_args = ode_args, ode_kwargs = ode_kwargs)
             sols[i] = sol
             compiled_cache[i] = compiled
         end
@@ -1726,32 +1811,38 @@ function build_plot_cache(res::FitResult;
             ind = dm.individuals[i]
             obs_rows = dm.row_groups.obs_rows[i]
             η_ind = η_vec[i] isa ComponentArray ? η_vec[i] : ComponentArray(η_vec[i])
-            rowwise_re = _needs_rowwise_random_effects(dm, i; obs_only=true)
-            sol_accessors = dm.model.de.de === nothing ? nothing : get_de_accessors_builder(dm.model.de.de)(sols[i], compiled_cache[i])
+            rowwise_re = _needs_rowwise_random_effects(dm, i; obs_only = true)
+            sol_accessors = dm.model.de.de === nothing ? nothing :
+                            get_de_accessors_builder(dm.model.de.de)(
+                sols[i], compiled_cache[i])
             dists_i = Vector{NamedTuple}(undef, length(obs_rows))
             hmm_priors = Dict{Symbol, Any}()
             for (j, row) in enumerate(obs_rows)
                 vary = _varying_at_plot(dm, ind, j, row)
-                η_row = _row_random_effects_at(dm, i, j, η_ind, rowwise_re; obs_only=true)
+                η_row = _row_random_effects_at(dm, i, j, η_ind, rowwise_re; obs_only = true)
                 obs = sol_accessors === nothing ?
                       calculate_formulas_obs(dm.model, θ, η_row, ind.const_cov, vary) :
-                      calculate_formulas_obs(dm.model, θ, η_row, ind.const_cov, vary, sol_accessors)
+                      calculate_formulas_obs(
+                    dm.model, θ, η_row, ind.const_cov, vary, sol_accessors)
                 filtered_pairs = Pair{Symbol, Any}[]
                 for col in obs_names_all
                     d = getproperty(obs, col)
                     if _is_hmm_dist(d)
                         y_val = getfield(ind.series.obs, col)[j]
-                        push!(filtered_pairs, col => _apply_hmm_filter!(hmm_priors, col, d, y_val))
+                        push!(filtered_pairs,
+                            col => _apply_hmm_filter!(hmm_priors, col, d, y_val))
                     end
                 end
-                dists_i[j] = isempty(filtered_pairs) ? obs : merge(obs, NamedTuple(filtered_pairs))
+                dists_i[j] = isempty(filtered_pairs) ? obs :
+                             merge(obs, NamedTuple(filtered_pairs))
             end
             obs_dists[i] = dists_i
         end
     end
 
-    sig = _plot_signature(dm, θ, constants_re, get_solver_config(dm.model), _callbacks_hash(dm), cache_obs_dists)
-    meta = (constants_re=constants_re, cache_obs_dists=cache_obs_dists)
+    sig = _plot_signature(dm, θ, constants_re, get_solver_config(dm.model),
+        _callbacks_hash(dm), cache_obs_dists)
+    meta = (constants_re = constants_re, cache_obs_dists = cache_obs_dists)
     return PlotCache(sig, sols, obs_dists, chain, θ, η_vec, meta)
 end
 
@@ -1760,12 +1851,12 @@ function build_plot_cache(res::MultistartFitResult; kwargs...)
 end
 
 function build_plot_cache(dm::DataModel;
-                          params::NamedTuple=NamedTuple(),
-                          constants_re::NamedTuple=NamedTuple(),
-                          cache_obs_dists::Bool=false,
-                          ode_args::Tuple=(),
-                          ode_kwargs::NamedTuple=NamedTuple(),
-                          rng::AbstractRNG=Random.default_rng())
+        params::NamedTuple = NamedTuple(),
+        constants_re::NamedTuple = NamedTuple(),
+        cache_obs_dists::Bool = false,
+        ode_args::Tuple = (),
+        ode_kwargs::NamedTuple = NamedTuple(),
+        rng::AbstractRNG = Random.default_rng())
     θ = get_θ0_untransformed(dm.model.fixed.fixed)
     θ = _apply_param_overrides(θ, params)
     η_vec = _default_random_effects_from_dm(dm, constants_re, θ)
@@ -1776,7 +1867,8 @@ function build_plot_cache(dm::DataModel;
         for i in eachindex(dm.individuals)
             ind = dm.individuals[i]
             η_ind = η_vec[i] isa ComponentArray ? η_vec[i] : ComponentArray(η_vec[i])
-            sol, compiled = _solve_dense_individual(dm, ind, θ, η_ind; ode_args=ode_args, ode_kwargs=ode_kwargs)
+            sol, compiled = _solve_dense_individual(
+                dm, ind, θ, η_ind; ode_args = ode_args, ode_kwargs = ode_kwargs)
             sols[i] = sol
             compiled_cache[i] = compiled
         end
@@ -1790,31 +1882,37 @@ function build_plot_cache(dm::DataModel;
             ind = dm.individuals[i]
             obs_rows = dm.row_groups.obs_rows[i]
             η_ind = η_vec[i] isa ComponentArray ? η_vec[i] : ComponentArray(η_vec[i])
-            rowwise_re = _needs_rowwise_random_effects(dm, i; obs_only=true)
-            sol_accessors = dm.model.de.de === nothing ? nothing : get_de_accessors_builder(dm.model.de.de)(sols[i], compiled_cache[i])
+            rowwise_re = _needs_rowwise_random_effects(dm, i; obs_only = true)
+            sol_accessors = dm.model.de.de === nothing ? nothing :
+                            get_de_accessors_builder(dm.model.de.de)(
+                sols[i], compiled_cache[i])
             dists_i = Vector{NamedTuple}(undef, length(obs_rows))
             hmm_priors = Dict{Symbol, Any}()
             for (j, row) in enumerate(obs_rows)
                 vary = _varying_at_plot(dm, ind, j, row)
-                η_row = _row_random_effects_at(dm, i, j, η_ind, rowwise_re; obs_only=true)
+                η_row = _row_random_effects_at(dm, i, j, η_ind, rowwise_re; obs_only = true)
                 obs = sol_accessors === nothing ?
                       calculate_formulas_obs(dm.model, θ, η_row, ind.const_cov, vary) :
-                      calculate_formulas_obs(dm.model, θ, η_row, ind.const_cov, vary, sol_accessors)
+                      calculate_formulas_obs(
+                    dm.model, θ, η_row, ind.const_cov, vary, sol_accessors)
                 filtered_pairs = Pair{Symbol, Any}[]
                 for col in obs_names_all
                     d = getproperty(obs, col)
                     if _is_hmm_dist(d)
                         y_val = getfield(ind.series.obs, col)[j]
-                        push!(filtered_pairs, col => _apply_hmm_filter!(hmm_priors, col, d, y_val))
+                        push!(filtered_pairs,
+                            col => _apply_hmm_filter!(hmm_priors, col, d, y_val))
                     end
                 end
-                dists_i[j] = isempty(filtered_pairs) ? obs : merge(obs, NamedTuple(filtered_pairs))
+                dists_i[j] = isempty(filtered_pairs) ? obs :
+                             merge(obs, NamedTuple(filtered_pairs))
             end
             obs_dists[i] = dists_i
         end
     end
 
-    sig = _plot_signature(dm, θ, constants_re, get_solver_config(dm.model), _callbacks_hash(dm), cache_obs_dists)
-    meta = (constants_re=constants_re, cache_obs_dists=cache_obs_dists)
+    sig = _plot_signature(dm, θ, constants_re, get_solver_config(dm.model),
+        _callbacks_hash(dm), cache_obs_dists)
+    meta = (constants_re = constants_re, cache_obs_dists = cache_obs_dists)
     return PlotCache(sig, sols, obs_dists, nothing, θ, η_vec, meta)
 end

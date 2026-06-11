@@ -13,13 +13,15 @@ using Random
     @test NoLimits.get_converged(res) isa Bool
     @test length(NoLimits.get_vi_trace(res)) > 0
     @test NoLimits.get_vi_state(res) isa NamedTuple
-    @test rand(Random.Xoshiro(2), NoLimits.get_variational_posterior(res)) isa AbstractVector
+    @test rand(Random.Xoshiro(2), NoLimits.get_variational_posterior(res)) isa
+          AbstractVector
 
-    draws = NoLimits.sample_posterior(res; n_draws=7, rng=Random.Xoshiro(3))
+    draws = NoLimits.sample_posterior(res; n_draws = 7, rng = Random.Xoshiro(3))
     @test size(draws, 1) == 7
     @test size(draws, 2) >= 2
 
-    draws_named = NoLimits.sample_posterior(res; n_draws=3, rng=Random.Xoshiro(4), return_names=true)
+    draws_named = NoLimits.sample_posterior(
+        res; n_draws = 3, rng = Random.Xoshiro(4), return_names = true)
     @test haskey(draws_named, :draws)
     @test haskey(draws_named, :names)
     @test size(draws_named.draws, 1) == 3
@@ -35,8 +37,8 @@ end
         end
 
         @fixedEffects begin
-            a = RealNumber(0.2, prior=Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale=:log)
+            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @formulas begin
@@ -50,7 +52,7 @@ end
         y = [1.0, 1.05, 0.98]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     @test_throws ErrorException fit_model(dm, NoLimits.VI())
 end
 
@@ -61,8 +63,8 @@ end
         end
 
         @fixedEffects begin
-            a = RealNumber(0.2, prior=Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale=:log, prior=LogNormal(0.0, 0.5))
+            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
+            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.5))
         end
 
         @formulas begin
@@ -76,9 +78,10 @@ end
         y = [1.0, 1.05, 0.98]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     err = try
-        fit_model(dm, NoLimits.VI(; turing_kwargs=(max_iter=5, progress=false)); constants=(a=0.2, σ=0.5))
+        fit_model(dm, NoLimits.VI(; turing_kwargs = (max_iter = 5, progress = false));
+            constants = (a = 0.2, σ = 0.5))
         nothing
     catch e
         e
@@ -94,8 +97,8 @@ end
         end
 
         @fixedEffects begin
-            a = RealNumber(0.2, prior=Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale=:log, prior=LogNormal(0.0, 0.5))
+            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
+            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.5))
         end
 
         @formulas begin
@@ -109,8 +112,8 @@ end
         y = [1.0, 1.05, 0.98]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    @test_throws ErrorException fit_model(dm, NoLimits.VI(); penalty=(a=1.0,))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    @test_throws ErrorException fit_model(dm, NoLimits.VI(); penalty = (a = 1.0,))
 end
 
 @testset "VI rejects models with random effects" begin
@@ -120,12 +123,12 @@ end
         end
 
         @fixedEffects begin
-            a = RealNumber(0.2, prior=Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale=:log, prior=LogNormal(0.0, 0.5))
+            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
+            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.5))
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -139,10 +142,11 @@ end
         y = [0.1, 0.2, 0.0, -0.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
 
     err = try
-        fit_model(dm, NoLimits.VI(; turing_kwargs=(max_iter=5, progress=false)); rng=Random.Xoshiro(10))
+        fit_model(dm, NoLimits.VI(; turing_kwargs = (max_iter = 5, progress = false));
+            rng = Random.Xoshiro(10))
         nothing
     catch e
         e

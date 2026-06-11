@@ -14,13 +14,13 @@ using DataInterpolations
         @covariates begin
             t = Covariate()
             z = Covariate()
-            x = ConstantCovariate(; constant_on=:ID)
-            w = DynamicCovariate(; interpolation=LinearInterpolation)
+            x = ConstantCovariate(; constant_on = :ID)
+            w = DynamicCovariate(; interpolation = LinearInterpolation)
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(0.0, 1.0); column=:ID)
-            η_site = RandomEffect(Distributions.Laplace(0.0, 1.0); column=:SITE)
+            η_id = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            η_site = RandomEffect(Distributions.Laplace(0.0, 1.0); column = :SITE)
         end
 
         @formulas begin
@@ -46,12 +46,12 @@ using DataInterpolations
     dm = DataModel(
         model,
         df;
-        primary_id=:ID,
-        time_col=:t,
-        evid_col=:EVID,
-        amt_col=:AMT,
-        rate_col=:RATE,
-        cmt_col=:CMT
+        primary_id = :ID,
+        time_col = :t,
+        evid_col = :EVID,
+        amt_col = :AMT,
+        rate_col = :RATE,
+        cmt_col = :CMT
     )
 
     s = summarize(dm)
@@ -76,12 +76,12 @@ using DataInterpolations
 
     y_stats = only(filter(row -> row.name == :y, s.outcome_stats)).stats
     @test y_stats.n == 4
-    @test y_stats.mean ≈ 1.325 atol=1e-12
+    @test y_stats.mean≈1.325 atol=1e-12
 
     # z includes 999 on event rows; stats should use observation rows only.
     z_stats = only(filter(row -> row.name == Symbol("z.z"), s.covariate_stats)).stats
     @test z_stats.n == 4
-    @test z_stats.mean ≈ 2.5 atol=1e-12
+    @test z_stats.mean≈2.5 atol=1e-12
 
     re_id = only(filter(r -> r.name == :η_id, s.random_effect_summaries))
     @test re_id.group == :ID
@@ -126,7 +126,7 @@ end
         y = [1.0, 0.9, 1.1, 1.0]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     s = summarize(dm)
 
     @test s.model_type == :ode

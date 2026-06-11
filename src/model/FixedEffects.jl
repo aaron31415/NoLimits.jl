@@ -44,12 +44,12 @@ struct FixedEffectsBounds
     transformed::Tuple{ComponentArray, ComponentArray}
 end
 
-struct FixedEffectsTransforms{F<:ForwardTransform, I<:InverseTransform}
+struct FixedEffectsTransforms{F <: ForwardTransform, I <: InverseTransform}
     forward::F
     inverse::I
 end
 
-struct FixedEffectsExtras{P<:NamedTuple, MF<:NamedTuple, PA<:NamedTuple}
+struct FixedEffectsExtras{P <: NamedTuple, MF <: NamedTuple, PA <: NamedTuple}
     priors::P
     se_mask_transformed::Vector{Bool}
     se_names_transformed::Vector{Symbol}
@@ -66,7 +66,7 @@ soft trees, NPFs).
 
 Use accessor functions rather than accessing fields directly.
 """
-struct FixedEffects{E<:FixedEffectsExtras, TR<:FixedEffectsTransforms}
+struct FixedEffects{E <: FixedEffectsExtras, TR <: FixedEffectsTransforms}
     meta::FixedEffectsMeta
     values::FixedEffectsValues
     bounds::FixedEffectsBounds
@@ -223,7 +223,8 @@ function get_collect_names(fe::FixedEffects)
     names = Symbol[]
     for name in get_names(fe)
         p = getfield(params, name)
-        if p isa ProbabilityVector || p isa DiscreteTransitionMatrix || p isa ContinuousTransitionMatrix
+        if p isa ProbabilityVector || p isa DiscreteTransitionMatrix ||
+           p isa ContinuousTransitionMatrix
             push!(names, name)
         end
     end
@@ -264,7 +265,8 @@ function _with_name_kw(rhs::Expr, name::Symbol)
     if rhs.head != :call
         return rhs
     end
-    has_params = !isempty(rhs.args) && rhs.args[2] isa Expr && rhs.args[2].head == :parameters
+    has_params = !isempty(rhs.args) && rhs.args[2] isa Expr &&
+                 rhs.args[2].head == :parameters
     if has_params
         params = rhs.args[2]
         for arg in params.args
@@ -290,7 +292,8 @@ function _parse_fixed_effects(block::Expr)
         stmt.head == :(=) || error("Only assignments are allowed in @fixedEffects block.")
         lhs, rhs = stmt.args
         lhs isa Symbol || error("Left-hand side must be a symbol in @fixedEffects block.")
-        rhs isa Expr && rhs.head == :call || error("Right-hand side must be a constructor call in @fixedEffects block.")
+        rhs isa Expr && rhs.head == :call ||
+            error("Right-hand side must be a constructor call in @fixedEffects block.")
         push!(names, lhs)
         push!(exprs, _with_name_kw(rhs, lhs))
     end
@@ -319,7 +322,7 @@ standalone to construct a `FixedEffects` object directly.
 macro fixedEffects(block)
     names, exprs = _parse_fixed_effects(block)
     isempty(names) && return :(build_fixed_effects(NamedTuple()))
-    assigns = [:( $(names[i]) = $(esc(exprs[i])) ) for i in eachindex(names)]
+    assigns = [:($(names[i]) = $(esc(exprs[i]))) for i in eachindex(names)]
     nt = Expr(:tuple, (Expr(:(=), names[i], names[i]) for i in eachindex(names))...)
     return quote
         $(assigns...)
@@ -406,8 +409,10 @@ function build_fixed_effects(params::NamedTuple)
     # assembly path (required for Enzyme; see ParameterTranformations.jl).
     transform0 = ForwardTransform(names, specs)
     θ0_transformed = transform0(θ0_untransformed)
-    transform = ForwardTransform(names, specs, getaxes(θ0_transformed), length(θ0_transformed))
-    inverse_transform = InverseTransform(names, specs, getaxes(θ0_untransformed), length(θ0_untransformed))
+    transform = ForwardTransform(
+        names, specs, getaxes(θ0_transformed), length(θ0_transformed))
+    inverse_transform = InverseTransform(
+        names, specs, getaxes(θ0_untransformed), length(θ0_untransformed))
     bounds_transformed = _transform_bounds(bounds_untransformed, names, specs)
 
     flat_names, _ = _flatten_by_specs(θ0_transformed, names, specs)
@@ -667,7 +672,9 @@ function _collect_model_fun!(p::NNParameters, model_fun_pairs)
     st = Lux.initialstates(Xoshiro(0), p.chain)
     T = eltype(p.value)
     ps_axes = _nn_axes_template(p, T)
-    push!(model_fun_pairs, p.function_name => (x, θ) -> first(Lux.apply(p.chain, x, ComponentArray(collect(θ), ps_axes), st)))
+    push!(model_fun_pairs,
+        p.function_name => (x, θ) -> first(Lux.apply(
+            p.chain, x, ComponentArray(collect(θ), ps_axes), st)))
 end
 
 function _collect_model_fun!(p::NNParameters, model_fun_pairs, ::Type{T}) where {T}
@@ -678,18 +685,19 @@ function _collect_model_fun!(p::NNParameters, model_fun_pairs, ::Type{T}) where 
     st = Lux.initialstates(Xoshiro(0), p.chain)
     stT = Functors.fmap(y -> _to_type(T, y), st)
     ps_axes = _nn_axes_template(p, T)
-    push!(model_fun_pairs, p.function_name => (x, θ) -> begin
-        TT = promote_type(eltype(θ), _value_type(x))
-        if TT === T
-            xT = _to_type(T, x)
-            psT = ComponentArray(_to_type(T, θ), ps_axes)
-            return first(Lux.apply(p.chain, xT, psT, stT))
-        end
-        xTT = _to_type(TT, x)
-        psTT = ComponentArray(_to_type(TT, θ), ps_axes)
-        stTT = Functors.fmap(y -> _to_type(TT, y), stT)
-        return first(Lux.apply(p.chain, xTT, psTT, stTT))
-    end)
+    push!(model_fun_pairs,
+        p.function_name => (x, θ) -> begin
+            TT = promote_type(eltype(θ), _value_type(x))
+            if TT === T
+                xT = _to_type(T, x)
+                psT = ComponentArray(_to_type(T, θ), ps_axes)
+                return first(Lux.apply(p.chain, xT, psT, stT))
+            end
+            xTT = _to_type(TT, x)
+            psTT = ComponentArray(_to_type(TT, θ), ps_axes)
+            stTT = Functors.fmap(y -> _to_type(TT, y), stT)
+            return first(Lux.apply(p.chain, xTT, psTT, stTT))
+        end)
 end
 
 # SoftTree parameters are rebuilt positionally from the flat vector
@@ -709,33 +717,37 @@ end
 function _collect_model_fun!(p::SoftTreeParameters, model_fun_pairs)
     tree = SoftTree(p.input_dim, p.depth, p.n_output)
     _check_softtree_flat_layout(p, tree)
-    push!(model_fun_pairs, p.function_name => (x, θ) -> tree(x, softtree_params_from_flat(collect(θ), tree)))
+    push!(model_fun_pairs,
+        p.function_name => (x, θ) -> tree(x, softtree_params_from_flat(collect(θ), tree)))
 end
 
 function _collect_model_fun!(p::SoftTreeParameters, model_fun_pairs, ::Type{T}) where {T}
     tree = SoftTree(p.input_dim, p.depth, p.n_output)
     _check_softtree_flat_layout(p, tree)
-    push!(model_fun_pairs, p.function_name => (x, θ) -> begin
-        TT = promote_type(eltype(θ), _value_type(x))
-        if TT === T
-            return tree(_to_type(T, x), softtree_params_from_flat(_to_type(T, θ), tree))
-        end
-        return tree(_to_type(TT, x), softtree_params_from_flat(_to_type(TT, θ), tree))
-    end)
+    push!(model_fun_pairs,
+        p.function_name => (x, θ) -> begin
+            TT = promote_type(eltype(θ), _value_type(x))
+            if TT === T
+                return tree(_to_type(T, x), softtree_params_from_flat(_to_type(T, θ), tree))
+            end
+            return tree(_to_type(TT, x), softtree_params_from_flat(_to_type(TT, θ), tree))
+        end)
 end
 
 function _collect_model_fun!(p::SplineParameters, model_fun_pairs)
-    push!(model_fun_pairs, p.function_name => (x, θ) -> bspline_eval(x, θ, p.knots, p.degree))
+    push!(
+        model_fun_pairs, p.function_name => (x, θ) -> bspline_eval(x, θ, p.knots, p.degree))
 end
 
 function _collect_model_fun!(p::SplineParameters, model_fun_pairs, ::Type{T}) where {T}
-    push!(model_fun_pairs, p.function_name => (x, θ) -> begin
-        TT = promote_type(eltype(θ), _value_type(x))
-        if TT === T
-            return bspline_eval(_to_type(T, x), _to_type(T, θ), p.knots, p.degree)
-        end
-        return bspline_eval(_to_type(TT, x), _to_type(TT, θ), p.knots, p.degree)
-    end)
+    push!(model_fun_pairs,
+        p.function_name => (x, θ) -> begin
+            TT = promote_type(eltype(θ), _value_type(x))
+            if TT === T
+                return bspline_eval(_to_type(T, x), _to_type(T, θ), p.knots, p.degree)
+            end
+            return bspline_eval(_to_type(TT, x), _to_type(TT, θ), p.knots, p.degree)
+        end)
 end
 # The NormalizingPlanarFlow flat-θ constructor rebuilds the planar chain
 # positionally (`_planar_chain_from_flat`) instead of via the stored
@@ -759,14 +771,15 @@ function _collect_model_fun!(p::NPFParameter, model_fun_pairs, ::Type{T}) where 
     key = Symbol("NPF_", p.name)
     q0T = _adapt_base_dist(p.base_dist, T)
     _check_npf_flat_layout(p)
-    push!(model_fun_pairs, key => (θ) -> begin
-        TT = eltype(θ)
-        if TT === T
-            return NormalizingPlanarFlow(_to_type(T, θ), p.reconstructor, q0T)
-        end
-        q0 = _adapt_base_dist(p.base_dist, TT)
-        return NormalizingPlanarFlow(_to_type(TT, θ), p.reconstructor, q0)
-    end)
+    push!(model_fun_pairs,
+        key => (θ) -> begin
+            TT = eltype(θ)
+            if TT === T
+                return NormalizingPlanarFlow(_to_type(T, θ), p.reconstructor, q0T)
+            end
+            q0 = _adapt_base_dist(p.base_dist, TT)
+            return NormalizingPlanarFlow(_to_type(TT, θ), p.reconstructor, q0)
+        end)
 end
 
 # Adapt base distribution element type for ForwardDiff compatibility.
@@ -776,11 +789,17 @@ end
 # Enzyme forward mode cannot handle under runtime activity ("Runtime Activity not
 # yet implemented for Forward-Mode BLAS calls"); the scalar/diagonal forms use
 # plain dot/loops instead.
-_adapt_base_dist(d::MvNormal{<:Real, <:Distributions.PDMats.ScalMat}, ::Type{T}) where {T} =
+function _adapt_base_dist(
+        d::MvNormal{<:Real, <:Distributions.PDMats.ScalMat}, ::Type{T}) where {T}
     MvNormal(T.(mean(d)), Distributions.PDMats.ScalMat(length(d), T(d.Σ.value)))
-_adapt_base_dist(d::MvNormal{<:Real, <:Distributions.PDMats.PDiagMat}, ::Type{T}) where {T} =
+end
+function _adapt_base_dist(
+        d::MvNormal{<:Real, <:Distributions.PDMats.PDiagMat}, ::Type{T}) where {T}
     MvNormal(T.(mean(d)), Distributions.PDMats.PDiagMat(T.(d.Σ.diag)))
-_adapt_base_dist(d::MvNormal, ::Type{T}) where {T} = MvNormal(T.(mean(d)), Matrix{T}(cov(d)))
+end
+function _adapt_base_dist(d::MvNormal, ::Type{T}) where {T}
+    MvNormal(T.(mean(d)), Matrix{T}(cov(d)))
+end
 _adapt_base_dist(d, ::Type{T}) where {T} = d
 function _collect_model_fun!(p, model_fun_pairs)
     return nothing
@@ -799,12 +818,14 @@ function _logprior_eval(prior::Distribution, val)
 end
 
 function _logprior_eval(prior::AbstractVector{<:Distribution}, val::AbstractVector)
-    length(prior) == length(val) || error("Prior length mismatch. Expected $(length(val)); got $(length(prior)).")
+    length(prior) == length(val) ||
+        error("Prior length mismatch. Expected $(length(val)); got $(length(prior)).")
     pd = product_distribution(prior)
     return logpdf(pd, val)
 end
 
-function _flatten_by_specs(θ::ComponentArray, names::Vector{Symbol}, specs::Vector{TransformSpec})
+function _flatten_by_specs(
+        θ::ComponentArray, names::Vector{Symbol}, specs::Vector{TransformSpec})
     flat_names = Symbol[]
     flat_vals = Float64[]
 
@@ -840,7 +861,8 @@ function _flatten_by_specs(θ::ComponentArray, names::Vector{Symbol}, specs::Vec
     return flat_names, flat_vals
 end
 
-function _transform_bounds(bounds::Tuple{ComponentArray, ComponentArray}, names::Vector{Symbol}, specs::Vector{TransformSpec})
+function _transform_bounds(bounds::Tuple{ComponentArray, ComponentArray},
+        names::Vector{Symbol}, specs::Vector{TransformSpec})
     lower, upper = bounds
     lower_pairs = Pair{Symbol, Any}[]
     upper_pairs = Pair{Symbol, Any}[]
@@ -864,12 +886,12 @@ function _transform_bounds(bounds::Tuple{ComponentArray, ComponentArray}, names:
         elseif spec.kind == :logit
             if l isa AbstractArray
                 l2 = map(x -> (isinf(x) || x <= 0) ? -Inf : log(x / (1 - x)), l)
-                u2 = map(x -> (isinf(x) || x >= 1) ? Inf  : log(x / (1 - x)), u)
+                u2 = map(x -> (isinf(x) || x >= 1) ? Inf : log(x / (1 - x)), u)
                 push!(lower_pairs, name => l2)
                 push!(upper_pairs, name => u2)
             else
                 l2 = (isinf(l) || l <= 0) ? -Inf : log(l / (1 - l))
-                u2 = (isinf(u) || u >= 1) ? Inf  : log(u / (1 - u))
+                u2 = (isinf(u) || u >= 1) ? Inf : log(u / (1 - u))
                 push!(lower_pairs, name => l2)
                 push!(upper_pairs, name => u2)
             end
@@ -882,9 +904,10 @@ function _transform_bounds(bounds::Tuple{ComponentArray, ComponentArray}, names:
                     l2[j] = l2[j] == -Inf ? log(EPSILON) : log(l2[j])
                     u2[j] = u2[j] == Inf ? Inf : log(u2[j])
                 elseif mask[j] === :logit
-                    lj = l2[j]; uj = u2[j]
+                    lj = l2[j]
+                    uj = u2[j]
                     l2[j] = (isinf(lj) || lj <= 0) ? -Inf : log(lj / (1 - lj))
-                    u2[j] = (isinf(uj) || uj >= 1) ? Inf  : log(uj / (1 - uj))
+                    u2[j] = (isinf(uj) || uj >= 1) ? Inf : log(uj / (1 - uj))
                 end
             end
             push!(lower_pairs, name => l2)
@@ -922,12 +945,14 @@ function _transform_bounds(bounds::Tuple{ComponentArray, ComponentArray}, names:
     )
 end
 
-function _se_mask(θ::ComponentArray, names::Vector{Symbol}, specs::Vector{TransformSpec}, flags::Dict{Symbol, Bool})
+function _se_mask(θ::ComponentArray, names::Vector{Symbol},
+        specs::Vector{TransformSpec}, flags::Dict{Symbol, Bool})
     mask = Bool[]
     for (i, name) in enumerate(names)
         spec = specs[i]
         val = θ[name]
-        n = val isa AbstractMatrix ? length(val) : (val isa AbstractVector ? length(val) : 1)
+        n = val isa AbstractMatrix ? length(val) :
+            (val isa AbstractVector ? length(val) : 1)
         append!(mask, fill(flags[name], n))
     end
     return mask

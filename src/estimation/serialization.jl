@@ -18,8 +18,9 @@ sampler kind (`:nuts`, `:hmc`, `:mh`, etc.) but cannot be used to run sampling.
 struct _SavedSamplerStub
     kind::Symbol
 end
-Base.show(io::IO, s::_SavedSamplerStub) =
+function Base.show(io::IO, s::_SavedSamplerStub)
     print(io, "_SavedSamplerStub(:$(s.kind)) [not a live sampler; reconstructed from disk]")
+end
 
 # ─── Saved DataModel config ──────────────────────────────────────────────────
 
@@ -154,16 +155,16 @@ end
 # FittingMethod structs contain optimizer/sampler objects with bare Function fields
 # that JLD2 cannot serialise cleanly.  Replace them with a lightweight stub.
 
-_strip_fitting_method(::MLE)                  = _SavedFittingMethod(:mle)
-_strip_fitting_method(::MAP)                  = _SavedFittingMethod(:map)
-_strip_fitting_method(::Laplace)              = _SavedFittingMethod(:laplace)
-_strip_fitting_method(::LaplaceMAP)           = _SavedFittingMethod(:laplacemap)
-_strip_fitting_method(::MCEM)                 = _SavedFittingMethod(:mcem)
-_strip_fitting_method(::SAEM)                 = _SavedFittingMethod(:saem)
-_strip_fitting_method(::MCMC)                 = _SavedFittingMethod(:mcmc)
-_strip_fitting_method(::GHQuadrature)         = _SavedFittingMethod(:ghquadrature)
-_strip_fitting_method(::GHQuadratureMAP)      = _SavedFittingMethod(:ghquadraturemap)
-_strip_fitting_method(::VI)                   = _SavedFittingMethod(:vi)
+_strip_fitting_method(::MLE) = _SavedFittingMethod(:mle)
+_strip_fitting_method(::MAP) = _SavedFittingMethod(:map)
+_strip_fitting_method(::Laplace) = _SavedFittingMethod(:laplace)
+_strip_fitting_method(::LaplaceMAP) = _SavedFittingMethod(:laplacemap)
+_strip_fitting_method(::MCEM) = _SavedFittingMethod(:mcem)
+_strip_fitting_method(::SAEM) = _SavedFittingMethod(:saem)
+_strip_fitting_method(::MCMC) = _SavedFittingMethod(:mcmc)
+_strip_fitting_method(::GHQuadrature) = _SavedFittingMethod(:ghquadrature)
+_strip_fitting_method(::GHQuadratureMAP) = _SavedFittingMethod(:ghquadraturemap)
+_strip_fitting_method(::VI) = _SavedFittingMethod(:vi)
 _strip_fitting_method(m::_SavedFittingMethod) = m  # idempotent
 
 # ─── Strip helpers ────────────────────────────────────────────────────────────
@@ -174,8 +175,8 @@ _strip_fitting_method(m::_SavedFittingMethod) = m  # idempotent
 _strip_solution(sol) = hasproperty(sol, :u) ? sol.u : sol
 
 function _ensemble_to_symbol(s)
-    s isa EnsembleSerial      && return :serial
-    s isa EnsembleThreads     && return :threads
+    s isa EnsembleSerial && return :serial
+    s isa EnsembleThreads && return :threads
     s isa EnsembleDistributed && return :distributed
     return :serial
 end
@@ -194,50 +195,68 @@ function _build_saved_config(dm::DataModel)
 end
 
 function _strip_fit_kwargs(kw::NamedTuple)
-    keep = (:constants, :constants_re, :penalty, :ode_args, :ode_kwargs, :theta_0_untransformed)
+    keep = (
+        :constants, :constants_re, :penalty, :ode_args, :ode_kwargs, :theta_0_untransformed)
     kept = NamedTuple(k => getfield(kw, k) for k in keep if haskey(kw, k))
     ser_kind = haskey(kw, :serialization) ? _ensemble_to_symbol(kw.serialization) : :serial
-    return merge(kept, (; serialization_kind=ser_kind))
+    return merge(kept, (; serialization_kind = ser_kind))
 end
 
-_strip_method_result(r::MLEResult) =
+function _strip_method_result(r::MLEResult)
     SavedMLEResult(_strip_solution(r.solution), r.objective, r.iterations, r.notes)
+end
 
-_strip_method_result(r::MAPResult) =
+function _strip_method_result(r::MAPResult)
     SavedMAPResult(_strip_solution(r.solution), r.objective, r.iterations, r.notes)
+end
 
-_strip_method_result(r::LaplaceResult) =
-    SavedLaplaceResult(_strip_solution(r.solution), r.objective, r.iterations, r.notes, r.eb_modes)
+function _strip_method_result(r::LaplaceResult)
+    SavedLaplaceResult(
+        _strip_solution(r.solution), r.objective, r.iterations, r.notes, r.eb_modes)
+end
 
-_strip_method_result(r::LaplaceMAPResult) =
-    SavedLaplaceMAPResult(_strip_solution(r.solution), r.objective, r.iterations, r.notes, r.eb_modes)
+function _strip_method_result(r::LaplaceMAPResult)
+    SavedLaplaceMAPResult(
+        _strip_solution(r.solution), r.objective, r.iterations, r.notes, r.eb_modes)
+end
 
-_strip_method_result(r::MCEMResult) =
-    SavedMCEMResult(_strip_solution(r.solution), r.objective, r.iterations, r.notes, r.eb_modes)
+function _strip_method_result(r::MCEMResult)
+    SavedMCEMResult(
+        _strip_solution(r.solution), r.objective, r.iterations, r.notes, r.eb_modes)
+end
 
-_strip_method_result(r::SAEMResult) =
-    SavedSAEMResult(_strip_solution(r.solution), r.objective, r.iterations, r.notes, r.eb_modes)
+function _strip_method_result(r::SAEMResult)
+    SavedSAEMResult(
+        _strip_solution(r.solution), r.objective, r.iterations, r.notes, r.eb_modes)
+end
 
-_strip_method_result(r::GHQuadratureResult) =
-    SavedGHQuadratureResult(_strip_solution(r.solution), r.objective, r.iterations, r.notes, r.eb_modes)
+function _strip_method_result(r::GHQuadratureResult)
+    SavedGHQuadratureResult(
+        _strip_solution(r.solution), r.objective, r.iterations, r.notes, r.eb_modes)
+end
 
-_strip_method_result(r::GHQuadratureMAPResult) =
-    SavedGHQuadratureMAPResult(_strip_solution(r.solution), r.objective, r.iterations, r.notes, r.eb_modes)
+function _strip_method_result(r::GHQuadratureMAPResult)
+    SavedGHQuadratureMAPResult(
+        _strip_solution(r.solution), r.objective, r.iterations, r.notes, r.eb_modes)
+end
 
-_strip_method_result(r::MCMCResult) =
-    SavedMCMCResult(r.chain, _mcmc_sampler_kind(r.sampler), r.n_samples, r.notes, r.observed)
+function _strip_method_result(r::MCMCResult)
+    SavedMCMCResult(
+        r.chain, _mcmc_sampler_kind(r.sampler), r.n_samples, r.notes, r.observed)
+end
 
-_strip_method_result(r::VIResult) =
+function _strip_method_result(r::VIResult)
     SavedVIResult(r.posterior, r.trace, r.n_iter, r.max_iter, r.final_elbo,
-                  r.converged, r.notes, r.observed, r.coord_names)
+        r.converged, r.notes, r.observed, r.coord_names)
+end
 
-function _strip_fit_result(res::FitResult; include_data::Bool=false)
+function _strip_fit_result(res::FitResult; include_data::Bool = false)
     # Strip optimizer from diagnostics (it may hold Optim.jl internal state)
     diag = FitDiagnostics(res.diagnostics.timing, nothing,
-                          res.diagnostics.convergence, res.diagnostics.notes)
-    fkw  = _strip_fit_kwargs(res.fit_kwargs)
-    dm   = res.data_model
-    df     = (include_data && dm !== nothing) ? dm.df     : nothing
+        res.diagnostics.convergence, res.diagnostics.notes)
+    fkw = _strip_fit_kwargs(res.fit_kwargs)
+    dm = res.data_model
+    df = (include_data && dm !== nothing) ? dm.df : nothing
     config = (include_data && dm !== nothing) ? _build_saved_config(dm) : nothing
     return SavedFitResult(
         _SERIALIZATION_FORMAT_VERSION,
@@ -247,22 +266,23 @@ function _strip_fit_result(res::FitResult; include_data::Bool=false)
         diag,
         fkw,
         df,
-        config,
+        config
     )
 end
 
-_strip_partial_result(r::FitResult) = _strip_fit_result(r; include_data=false)
-_strip_partial_result(::Nothing)    = nothing
-_strip_partial_result(r)            = nothing  # unknown type; drop silently
+_strip_partial_result(r::FitResult) = _strip_fit_result(r; include_data = false)
+_strip_partial_result(::Nothing) = nothing
+_strip_partial_result(r) = nothing  # unknown type; drop silently
 
-function _strip_fit_result(res::MultistartFitResult; include_data::Bool=false)
-    saved_ok  = SavedFitResult[_strip_fit_result(r; include_data=false) for r in res.results_ok]
+function _strip_fit_result(res::MultistartFitResult; include_data::Bool = false)
+    saved_ok = SavedFitResult[_strip_fit_result(r; include_data = false)
+                              for r in res.results_ok]
     saved_err = [_strip_partial_result(r) for r in res.results_err]
-    err_strs  = String[sprint(showerror, e) for e in res.errors_err]
+    err_strs = String[sprint(showerror, e) for e in res.errors_err]
     # Take df/config from the best result's data_model
     best_dm = isempty(res.results_ok) ? nothing : res.results_ok[res.best_idx].data_model
-    df      = (include_data && best_dm !== nothing) ? best_dm.df                   : nothing
-    config  = (include_data && best_dm !== nothing) ? _build_saved_config(best_dm) : nothing
+    df = (include_data && best_dm !== nothing) ? best_dm.df : nothing
+    config = (include_data && best_dm !== nothing) ? _build_saved_config(best_dm) : nothing
     return SavedMultistartFitResult(
         _SERIALIZATION_FORMAT_VERSION,
         _strip_fitting_method(res.method),   # store stub, not full method
@@ -274,67 +294,79 @@ function _strip_fit_result(res::MultistartFitResult; include_data::Bool=false)
         res.best_idx,
         res.scores_ok,
         df,
-        config,
+        config
     )
 end
 
 # ─── Reconstruct helpers ──────────────────────────────────────────────────────
 
 function _symbol_to_serialization(sym::Symbol)
-    sym === :threads     && return EnsembleThreads()
+    sym === :threads && return EnsembleThreads()
     sym === :distributed && return EnsembleDistributed()
     return EnsembleSerial()
 end
 
-_reconstruct_method_result(s::SavedMLEResult) =
+function _reconstruct_method_result(s::SavedMLEResult)
     MLEResult(s.solution, s.objective, s.iterations, nothing, s.notes)
+end
 
-_reconstruct_method_result(s::SavedMAPResult) =
+function _reconstruct_method_result(s::SavedMAPResult)
     MAPResult(s.solution, s.objective, s.iterations, nothing, s.notes)
+end
 
-_reconstruct_method_result(s::SavedLaplaceResult) =
+function _reconstruct_method_result(s::SavedLaplaceResult)
     LaplaceResult(s.solution, s.objective, s.iterations, nothing, s.notes, s.eb_modes)
+end
 
-_reconstruct_method_result(s::SavedLaplaceMAPResult) =
+function _reconstruct_method_result(s::SavedLaplaceMAPResult)
     LaplaceMAPResult(s.solution, s.objective, s.iterations, nothing, s.notes, s.eb_modes)
+end
 
-_reconstruct_method_result(s::SavedMCEMResult) =
+function _reconstruct_method_result(s::SavedMCEMResult)
     MCEMResult(s.solution, s.objective, s.iterations, nothing, s.notes, s.eb_modes)
+end
 
-_reconstruct_method_result(s::SavedSAEMResult) =
+function _reconstruct_method_result(s::SavedSAEMResult)
     SAEMResult(s.solution, s.objective, s.iterations, nothing, s.notes, s.eb_modes)
+end
 
-_reconstruct_method_result(s::SavedGHQuadratureResult) =
+function _reconstruct_method_result(s::SavedGHQuadratureResult)
     GHQuadratureResult(s.solution, s.objective, s.iterations, nothing, s.notes, s.eb_modes)
+end
 
-_reconstruct_method_result(s::SavedGHQuadratureMAPResult) =
-    GHQuadratureMAPResult(s.solution, s.objective, s.iterations, nothing, s.notes, s.eb_modes)
+function _reconstruct_method_result(s::SavedGHQuadratureMAPResult)
+    GHQuadratureMAPResult(
+        s.solution, s.objective, s.iterations, nothing, s.notes, s.eb_modes)
+end
 
-_reconstruct_method_result(s::SavedMCMCResult) =
+function _reconstruct_method_result(s::SavedMCMCResult)
     MCMCResult(s.chain, _SavedSamplerStub(s.sampler_kind), s.n_samples, s.notes, s.observed)
+end
 
 # VIResult: state=nothing, varinfo=nothing, model=nothing — not reconstructable from disk.
 # (Without the model, `sample_posterior` cannot unlink draws and returns them as-is.)
-_reconstruct_method_result(s::SavedVIResult) =
+function _reconstruct_method_result(s::SavedVIResult)
     VIResult(s.posterior, s.trace, nothing, s.n_iter, s.max_iter,
-             s.final_elbo, s.converged, s.notes, s.observed, nothing, s.coord_names, nothing)
+        s.final_elbo, s.converged, s.notes, s.observed, nothing, s.coord_names, nothing)
+end
 
 function _reconstruct_fit_kwargs(kw::NamedTuple)
-    keep = (:constants, :constants_re, :penalty, :ode_args, :ode_kwargs, :theta_0_untransformed)
+    keep = (
+        :constants, :constants_re, :penalty, :ode_args, :ode_kwargs, :theta_0_untransformed)
     kept = NamedTuple(k => getfield(kw, k) for k in keep if haskey(kw, k))
-    ser  = _symbol_to_serialization(get(kw, :serialization_kind, :serial))
-    return merge(kept, (; serialization=ser))
+    ser = _symbol_to_serialization(get(kw, :serialization_kind, :serial))
+    return merge(kept, (; serialization = ser))
 end
 
 function _reconstruct_data_model(df, config::_SavedDataModelConfig, model)
     return DataModel(model, df;
-                     primary_id=config.primary_id,
-                     time_col=config.time_col,
-                     evid_col=config.evid_col,
-                     amt_col=config.amt_col,
-                     rate_col=config.rate_col,
-                     cmt_col=config.cmt_col,
-                     serialization=_symbol_to_serialization(config.serialization_kind))
+        primary_id = config.primary_id,
+        time_col = config.time_col,
+        evid_col = config.evid_col,
+        amt_col = config.amt_col,
+        rate_col = config.rate_col,
+        cmt_col = config.cmt_col,
+        serialization = _symbol_to_serialization(config.serialization_kind))
 end
 
 function _resolve_dm(saved_df, saved_config, model, dm)
@@ -350,27 +382,29 @@ function _resolve_dm(saved_df, saved_config, model, dm)
 end
 
 function _reconstruct_fit_result(saved::SavedFitResult, model, dm)
-    dm_r   = _resolve_dm(saved.df, saved.data_model_config, model, dm)
+    dm_r = _resolve_dm(saved.df, saved.data_model_config, model, dm)
     result = _reconstruct_method_result(saved.result)
-    fkw    = _reconstruct_fit_kwargs(saved.fit_kwargs_saved)
+    fkw = _reconstruct_fit_kwargs(saved.fit_kwargs_saved)
     return FitResult(saved.method, result, saved.summary, saved.diagnostics,
-                     dm_r, (dm_r, saved.method), fkw)
+        dm_r, (dm_r, saved.method), fkw)
 end
 
 _reconstruct_partial_result(::Nothing, model, dm) = nothing
-_reconstruct_partial_result(r::SavedFitResult, model, dm) = _reconstruct_fit_result(r, model, dm)
+function _reconstruct_partial_result(r::SavedFitResult, model, dm)
+    _reconstruct_fit_result(r, model, dm)
+end
 _reconstruct_partial_result(_, model, dm) = nothing
 
 function _reconstruct_multistart(saved::SavedMultistartFitResult, model, dm)
-    dm_r        = _resolve_dm(saved.df, saved.data_model_config, model, dm)
-    results_ok  = FitResult[_reconstruct_fit_result(r, model, dm_r)
-                             for r in saved.saved_results_ok]
+    dm_r = _resolve_dm(saved.df, saved.data_model_config, model, dm)
+    results_ok = FitResult[_reconstruct_fit_result(r, model, dm_r)
+                           for r in saved.saved_results_ok]
     results_err = [_reconstruct_partial_result(r, model, dm_r)
                    for r in saved.saved_results_err]
     return MultistartFitResult(saved.method, results_ok, results_err,
-                               saved.starts_ok, saved.starts_err,
-                               saved.errors_err_strings,
-                               saved.best_idx, saved.scores_ok)
+        saved.starts_ok, saved.starts_err,
+        saved.errors_err_strings,
+        saved.best_idx, saved.scores_ok)
 end
 
 # ─── Public API ──────────────────────────────────────────────────────────────
@@ -399,10 +433,10 @@ The path string.
 [`load_fit`](@ref)
 """
 function save_fit(path::AbstractString, res::Union{FitResult, MultistartFitResult};
-                  include_data::Bool=false)
-    stripped = _strip_fit_result(res; include_data=include_data)
+        include_data::Bool = false)
+    stripped = _strip_fit_result(res; include_data = include_data)
     with_logger(NullLogger()) do
-        JLD2.jldsave(path; saved=stripped)
+        JLD2.jldsave(path; saved = stripped)
     end
     return path
 end
@@ -437,7 +471,7 @@ functions.
 # See also
 [`save_fit`](@ref)
 """
-function load_fit(path::AbstractString; model=nothing, dm=nothing)
+function load_fit(path::AbstractString; model = nothing, dm = nothing)
     saved = with_logger(NullLogger()) do
         JLD2.load(path, "saved")
     end

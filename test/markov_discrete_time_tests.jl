@@ -34,22 +34,22 @@ end
 
     # After one step from state 1: [0.8, 0.2]
     p = probabilities_hidden_states(dist)
-    @test isapprox(p, [0.8, 0.2]; atol=1e-12)
+    @test isapprox(p, [0.8, 0.2]; atol = 1e-12)
 
     # After one step from state 2: [0.3, 0.7]
     dist2 = DiscreteTimeObservedStatesMarkovModel(T, Categorical([0.0, 1.0]))
     p2 = probabilities_hidden_states(dist2)
-    @test isapprox(p2, [0.3, 0.7]; atol=1e-12)
+    @test isapprox(p2, [0.3, 0.7]; atol = 1e-12)
 
     # posterior_hidden_states is one-hot
     post1 = posterior_hidden_states(dist, 1)
-    @test isapprox(post1, [1.0, 0.0]; atol=1e-12)
+    @test isapprox(post1, [1.0, 0.0]; atol = 1e-12)
     post2 = posterior_hidden_states(dist, 2)
-    @test isapprox(post2, [0.0, 1.0]; atol=1e-12)
+    @test isapprox(post2, [0.0, 1.0]; atol = 1e-12)
 
     # logpdf is log of predicted probability for the observed state
-    @test isapprox(logpdf(dist, 1), log(0.8); atol=1e-12)
-    @test isapprox(logpdf(dist, 2), log(0.2); atol=1e-12)
+    @test isapprox(logpdf(dist, 1), log(0.8); atol = 1e-12)
+    @test isapprox(logpdf(dist, 2), log(0.2); atol = 1e-12)
 
     # State not in labels → -Inf
     @test logpdf(dist, 99) == -Inf
@@ -61,11 +61,12 @@ end
     dist = DiscreteTimeObservedStatesMarkovModel(T, Categorical([1.0, 0.0]))
     p = probabilities_hidden_states(dist)  # [0.8, 0.2]
 
-    @test isapprox(mean(dist), 0.8 * 1 + 0.2 * 2; atol=1e-12)
-    @test isapprox(var(dist),  0.8 * (1 - mean(dist))^2 + 0.2 * (2 - mean(dist))^2; atol=1e-12)
-    @test isapprox(cdf(dist, 1), 0.8; atol=1e-12)
-    @test isapprox(cdf(dist, 2), 1.0; atol=1e-12)
-    @test isapprox(cdf(dist, 0), 0.0; atol=1e-12)
+    @test isapprox(mean(dist), 0.8 * 1 + 0.2 * 2; atol = 1e-12)
+    @test isapprox(
+        var(dist), 0.8 * (1 - mean(dist))^2 + 0.2 * (2 - mean(dist))^2; atol = 1e-12)
+    @test isapprox(cdf(dist, 1), 0.8; atol = 1e-12)
+    @test isapprox(cdf(dist, 2), 1.0; atol = 1e-12)
+    @test isapprox(cdf(dist, 0), 0.0; atol = 1e-12)
 end
 
 # ── 3. Symbol labels ────────────────────────────────────────────────────────────
@@ -75,12 +76,12 @@ end
     dist = DiscreteTimeObservedStatesMarkovModel(T, Categorical([1.0, 0.0]), labels)
 
     p = probabilities_hidden_states(dist)
-    @test isapprox(logpdf(dist, :healthy), log(p[1]); atol=1e-12)
-    @test isapprox(logpdf(dist, :sick),    log(p[2]); atol=1e-12)
+    @test isapprox(logpdf(dist, :healthy), log(p[1]); atol = 1e-12)
+    @test isapprox(logpdf(dist, :sick), log(p[2]); atol = 1e-12)
     @test logpdf(dist, :unknown) == -Inf
 
     @test posterior_hidden_states(dist, :healthy) ≈ [1.0, 0.0]
-    @test posterior_hidden_states(dist, :sick)    ≈ [0.0, 1.0]
+    @test posterior_hidden_states(dist, :sick) ≈ [0.0, 1.0]
 
     y = rand(Random.Xoshiro(1), dist)
     @test y ∈ labels
@@ -97,13 +98,13 @@ end
     dist = coarsed(DiscreteTimeObservedStatesMarkovModel(T, Categorical([1.0, 0.0])))
     p = probabilities_hidden_states(dist)  # [0.8, 0.2]
 
-    @test isapprox(logpdf(dist, [1, 2]), log(1.0); atol=1e-12)
-    @test isapprox(logpdf(dist, [2, 99]), log(p[2]); atol=1e-12)
+    @test isapprox(logpdf(dist, [1, 2]), log(1.0); atol = 1e-12)
+    @test isapprox(logpdf(dist, [2, 99]), log(p[2]); atol = 1e-12)
     @test logpdf(dist, [99, 100]) == -Inf
 
-    @test isapprox(posterior_hidden_states(dist, [1, 2]), p; atol=1e-12)
-    @test isapprox(posterior_hidden_states(dist, [2, 99]), [0.0, 1.0]; atol=1e-12)
-    @test isapprox(posterior_hidden_states(dist, [99, 100]), [0.0, 0.0]; atol=1e-12)
+    @test isapprox(posterior_hidden_states(dist, [1, 2]), p; atol = 1e-12)
+    @test isapprox(posterior_hidden_states(dist, [2, 99]), [0.0, 1.0]; atol = 1e-12)
+    @test isapprox(posterior_hidden_states(dist, [99, 100]), [0.0, 0.0]; atol = 1e-12)
 end
 
 @testset "DT observed MC: set-valued observations require coarsed wrapper" begin
@@ -140,13 +141,13 @@ end
 
     df = DataFrame(
         ID = [1, 1, 1, 1],
-        t  = [0.0, 1.0, 2.0, 3.0],
-        y  = [1, 2, 1, 2]
+        t = [0.0, 1.0, 2.0, 3.0],
+        y = [1, 2, 1, 2]
     )
 
-    dm  = DataModel(model, df; primary_id=:ID, time_col=:t)
-    θ   = get_θ0_untransformed(dm.model.fixed.fixed)
-    ll  = NoLimits.loglikelihood(dm, θ, ComponentArray())
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    θ = get_θ0_untransformed(dm.model.fixed.fixed)
+    ll = NoLimits.loglikelihood(dm, θ, ComponentArray())
 
     dist_ref = DiscreteTimeObservedStatesMarkovModel(
         [0.7 0.3; 0.2 0.8],
@@ -154,7 +155,7 @@ end
     )
     expected = _recursive_markov_loglikelihood(fill(dist_ref, nrow(df)), df.y)
 
-    @test isapprox(ll, expected; atol=1e-12)
+    @test isapprox(ll, expected; atol = 1e-12)
 end
 
 # ── 6. Missing observations propagate state distribution ──────────────────────
@@ -176,13 +177,13 @@ end
 
     df = DataFrame(
         ID = [1, 1, 1, 1],
-        t  = [0.0, 1.0, 2.0, 3.0],
-        y  = Union{Missing, Int}[1, missing, missing, 2]
+        t = [0.0, 1.0, 2.0, 3.0],
+        y = Union{Missing, Int}[1, missing, missing, 2]
     )
 
-    dm  = DataModel(model, df; primary_id=:ID, time_col=:t)
-    θ   = get_θ0_untransformed(dm.model.fixed.fixed)
-    ll  = NoLimits.loglikelihood(dm, θ, ComponentArray())
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    θ = get_θ0_untransformed(dm.model.fixed.fixed)
+    ll = NoLimits.loglikelihood(dm, θ, ComponentArray())
 
     dist_ref = DiscreteTimeObservedStatesMarkovModel(
         [0.7 0.3; 0.2 0.8],
@@ -190,7 +191,7 @@ end
     )
     expected = _recursive_markov_loglikelihood(fill(dist_ref, nrow(df)), df.y)
 
-    @test isapprox(ll, expected; atol=1e-12)
+    @test isapprox(ll, expected; atol = 1e-12)
 end
 
 # ── 7. Set-valued labels through DataModel ─────────────────────────────────────
@@ -206,19 +207,20 @@ end
 
         @formulas begin
             T_mat = [0.7 0.3; 0.2 0.8]
-            y ~ coarsed(DiscreteTimeObservedStatesMarkovModel(T_mat, Categorical([0.6, 0.4])))
+            y ~ coarsed(DiscreteTimeObservedStatesMarkovModel(
+                T_mat, Categorical([0.6, 0.4])))
         end
     end
 
     df = DataFrame(
         ID = [1, 1, 1, 1],
-        t  = [0.0, 1.0, 2.0, 3.0],
-        y  = Any[[1], [1, 2], missing, [2]]
+        t = [0.0, 1.0, 2.0, 3.0],
+        y = Any[[1], [1, 2], missing, [2]]
     )
 
-    dm  = DataModel(model, df; primary_id=:ID, time_col=:t)
-    θ   = get_θ0_untransformed(dm.model.fixed.fixed)
-    ll  = NoLimits.loglikelihood(dm, θ, ComponentArray())
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    θ = get_θ0_untransformed(dm.model.fixed.fixed)
+    ll = NoLimits.loglikelihood(dm, θ, ComponentArray())
 
     dist_ref = coarsed(DiscreteTimeObservedStatesMarkovModel(
         [0.7 0.3; 0.2 0.8],
@@ -227,7 +229,7 @@ end
     expected = _recursive_markov_loglikelihood(fill(dist_ref, nrow(df)), df.y)
 
     @test isfinite(ll)
-    @test isapprox(ll, expected; atol=1e-12)
+    @test isapprox(ll, expected; atol = 1e-12)
 end
 
 @testset "DT observed MC: DataModel set-valued labels require coarsed wrapper" begin
@@ -248,12 +250,12 @@ end
 
     df = DataFrame(
         ID = [1, 1, 1, 1],
-        t  = [0.0, 1.0, 2.0, 3.0],
-        y  = Any[[1], [1, 2], missing, [2]]
+        t = [0.0, 1.0, 2.0, 3.0],
+        y = Any[[1], [1, 2], missing, [2]]
     )
 
     err = try
-        DataModel(model, df; primary_id=:ID, time_col=:t)
+        DataModel(model, df; primary_id = :ID, time_col = :t)
         nothing
     catch e
         e
@@ -274,24 +276,26 @@ end
 
         @formulas begin
             T_mat = [0.7 0.3; 0.2 0.8]
-            y ~ coarsed(DiscreteTimeObservedStatesMarkovModel(T_mat, Categorical([0.6, 0.4])))
+            y ~ coarsed(DiscreteTimeObservedStatesMarkovModel(
+                T_mat, Categorical([0.6, 0.4])))
         end
     end
 
     df = DataFrame(
         ID = [1, 1, 1, 1],
-        t  = [0.0, 1.0, 2.0, 3.0],
-        y  = Union{Missing, Int}[1, 2, missing, 2]
+        t = [0.0, 1.0, 2.0, 3.0],
+        y = Union{Missing, Int}[1, 2, missing, 2]
     )
 
     err = try
-        DataModel(model, df; primary_id=:ID, time_col=:t)
+        DataModel(model, df; primary_id = :ID, time_col = :t)
         nothing
     catch e
         e
     end
     @test err isa ErrorException
-    @test occursin("all non-missing observations must be AbstractVectors", sprint(showerror, err))
+    @test occursin(
+        "all non-missing observations must be AbstractVectors", sprint(showerror, err))
 end
 
 # ── 8. Symbol-label DataModel ──────────────────────────────────────────────────
@@ -308,19 +312,19 @@ end
         @formulas begin
             T_mat = [0.7 0.3; 0.2 0.8]
             y ~ DiscreteTimeObservedStatesMarkovModel(T_mat,
-                                                     Categorical([0.6, 0.4]),
-                                                     [:healthy, :sick])
+                Categorical([0.6, 0.4]),
+                [:healthy, :sick])
         end
     end
 
     df = DataFrame(
         ID = [1, 1, 1],
-        t  = [0.0, 1.0, 2.0],
-        y  = [:healthy, :sick, :healthy]
+        t = [0.0, 1.0, 2.0],
+        y = [:healthy, :sick, :healthy]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    θ  = get_θ0_untransformed(dm.model.fixed.fixed)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    θ = get_θ0_untransformed(dm.model.fixed.fixed)
     ll = NoLimits.loglikelihood(dm, θ, ComponentArray())
 
     dist_ref = DiscreteTimeObservedStatesMarkovModel(
@@ -330,7 +334,7 @@ end
     )
     expected = _recursive_markov_loglikelihood(fill(dist_ref, 3), df.y)
 
-    @test isapprox(ll, expected; atol=1e-12)
+    @test isapprox(ll, expected; atol = 1e-12)
 end
 
 # ── 9. ForwardDiff gradient ────────────────────────────────────────────────────
@@ -348,21 +352,21 @@ end
         @formulas begin
             p12 = 1 / (1 + exp(-p12_r))
             p21 = 1 / (1 + exp(-p21_r))
-            T_mat = [1 - p12  p12;
-                       p21  1 - p21]
+            T_mat = [1-p12 p12;
+                     p21 1-p21]
             y ~ DiscreteTimeObservedStatesMarkovModel(T_mat, Categorical([0.5, 0.5]))
         end
     end
 
     df = DataFrame(
         ID = [1, 1, 1, 1],
-        t  = [0.0, 1.0, 2.0, 3.0],
-        y  = [1, 2, 1, 1]
+        t = [0.0, 1.0, 2.0, 3.0],
+        y = [1, 2, 1, 1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     θ0 = get_θ0_untransformed(dm.model.fixed.fixed)
-    g  = ForwardDiff.gradient(x -> NoLimits.loglikelihood(dm, x, ComponentArray()), θ0)
+    g = ForwardDiff.gradient(x -> NoLimits.loglikelihood(dm, x, ComponentArray()), θ0)
 
     @test length(g) == length(θ0)
     @test all(isfinite, g)
@@ -376,36 +380,37 @@ end
         end
 
         @fixedEffects begin
-            p12_r = RealNumber(0.0, prior=Normal(0.0, 2.0))
-            p21_r = RealNumber(0.0, prior=Normal(0.0, 2.0))
+            p12_r = RealNumber(0.0, prior = Normal(0.0, 2.0))
+            p21_r = RealNumber(0.0, prior = Normal(0.0, 2.0))
         end
 
         @formulas begin
             p12 = 0.8 / (1 + exp(-p12_r)) + 0.1
             p21 = 0.8 / (1 + exp(-p21_r)) + 0.1
-            T_mat = [1 - p12  p12;
-                       p21  1 - p21]
+            T_mat = [1-p12 p12;
+                     p21 1-p21]
             y ~ DiscreteTimeObservedStatesMarkovModel(T_mat, Categorical([0.5, 0.5]))
         end
     end
 
     df = DataFrame(
         ID = [1, 1, 1, 2, 2, 2],
-        t  = [0.0, 1.0, 2.0, 0.0, 1.0, 2.0],
-        y  = [1, 2, 1, 2, 2, 1]
+        t = [0.0, 1.0, 2.0, 0.0, 1.0, 2.0],
+        y = [1, 2, 1, 2, 2, 1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
 
-    res_mle = fit_model(dm, NoLimits.MLE(optim_kwargs=(; iterations=5)))
+    res_mle = fit_model(dm, NoLimits.MLE(optim_kwargs = (; iterations = 5)))
     @test res_mle isa FitResult
 
-    res_map = fit_model(dm, NoLimits.MAP(optim_kwargs=(; iterations=5)))
+    res_map = fit_model(dm, NoLimits.MAP(optim_kwargs = (; iterations = 5)))
     @test res_map isa FitResult
 
-    res_mcmc = fit_model(dm, NoLimits.MCMC(;
-        sampler=MH(),
-        turing_kwargs=(n_samples=2, n_adapt=2, progress=false)))
+    res_mcmc = fit_model(dm,
+        NoLimits.MCMC(;
+            sampler = MH(),
+            turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false)))
     @test res_mcmc isa FitResult
     @test NoLimits.get_chain(res_mcmc) isa MCMCChains.Chains
 end
@@ -418,44 +423,46 @@ end
         end
 
         @fixedEffects begin
-            p12_r = RealNumber(0.0, prior=Normal(0.0, 2.0))
-            p21_r = RealNumber(0.0, prior=Normal(0.0, 2.0))
+            p12_r = RealNumber(0.0, prior = Normal(0.0, 2.0))
+            p21_r = RealNumber(0.0, prior = Normal(0.0, 2.0))
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
             p12 = 0.8 / (1 + exp(-clamp(p12_r + η, -2.0, 2.0))) + 0.1
             p21 = 0.8 / (1 + exp(-clamp(p21_r, -2.0, 2.0))) + 0.1
-            T_mat = [1 - p12  p12;
-                       p21  1 - p21]
+            T_mat = [1-p12 p12;
+                     p21 1-p21]
             y ~ DiscreteTimeObservedStatesMarkovModel(T_mat, Categorical([0.5, 0.5]))
         end
     end
 
     df = DataFrame(
         ID = [:A, :A, :A, :B, :B, :B],
-        t  = [0.0, 1.0, 2.0, 0.0, 1.0, 2.0],
-        y  = [1, 2, 1, 2, 2, 1]
+        t = [0.0, 1.0, 2.0, 0.0, 1.0, 2.0],
+        y = [1, 2, 1, 2, 2, 1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
 
-    res_lap = fit_model(dm, NoLimits.Laplace(;
-        optim_kwargs=(maxiters=2,),
-        inner_kwargs=(maxiters=2,),
-        multistart_n=2, multistart_k=2))
+    res_lap = fit_model(dm,
+        NoLimits.Laplace(;
+            optim_kwargs = (maxiters = 2,),
+            inner_kwargs = (maxiters = 2,),
+            multistart_n = 2, multistart_k = 2))
     @test res_lap isa FitResult
     re = NoLimits.get_random_effects(dm, res_lap)
     @test re isa NamedTuple
 
-    res_saem = fit_model(dm, NoLimits.SAEM(;
-        sampler=MH(),
-        turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-        mcmc_steps=1, q_store_max=2, maxiters=2, progress=false, builtin_stats=:auto);
-        rng=Random.Xoshiro(42))
+    res_saem = fit_model(dm,
+        NoLimits.SAEM(;
+            sampler = MH(),
+            turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+            mcmc_steps = 1, q_store_max = 2, maxiters = 2, progress = false, builtin_stats = :auto);
+        rng = Random.Xoshiro(42))
     @test res_saem isa FitResult
 end
 
@@ -474,27 +481,27 @@ end
         @formulas begin
             p12 = 0.8 / (1 + exp(-p12_r)) + 0.1
             p21 = 0.8 / (1 + exp(-p21_r)) + 0.1
-            T_mat = [1 - p12  p12;
-                       p21  1 - p21]
+            T_mat = [1-p12 p12;
+                     p21 1-p21]
             y ~ DiscreteTimeObservedStatesMarkovModel(T_mat, Categorical([0.5, 0.5]))
         end
     end
 
     df = DataFrame(
         ID = [1, 1, 1, 2, 2, 2],
-        t  = [0.0, 1.0, 2.0, 0.0, 1.0, 2.0],
-        y  = Union{Missing, Int}[missing, missing, missing, missing, missing, missing]
+        t = [0.0, 1.0, 2.0, 0.0, 1.0, 2.0],
+        y = Union{Missing, Int}[missing, missing, missing, missing, missing, missing]
     )
 
-    dm  = DataModel(model, df; primary_id=:ID, time_col=:t)
-    sim = simulate_data(dm; rng=Random.Xoshiro(7), replace_missings=true)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    sim = simulate_data(dm; rng = Random.Xoshiro(7), replace_missings = true)
 
     @test sim isa DataFrame
     @test !any(ismissing, sim.y)
     @test all(v -> v ∈ [1, 2], sim.y)
 
     # Can refit simulated data
-    dm_sim = DataModel(model, sim; primary_id=:ID, time_col=:t)
+    dm_sim = DataModel(model, sim; primary_id = :ID, time_col = :t)
     θ0 = get_θ0_untransformed(dm_sim.model.fixed.fixed)
-    ll  = NoLimits.loglikelihood(dm_sim, θ0, ComponentArray())
+    ll = NoLimits.loglikelihood(dm_sim, θ0, ComponentArray())
 end

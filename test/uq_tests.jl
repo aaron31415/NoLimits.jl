@@ -12,9 +12,9 @@ using LinearAlgebra
             t = Covariate()
         end
         @fixedEffects begin
-            a = RealNumber(0.2, calculate_se=true)
-            b = RealNumber(0.1, calculate_se=false)
-            σ = RealNumber(0.3, scale=:log, calculate_se=true)
+            a = RealNumber(0.2, calculate_se = true)
+            b = RealNumber(0.1, calculate_se = false)
+            σ = RealNumber(0.3, scale = :log, calculate_se = true)
         end
         @formulas begin
             y ~ Normal(a + b * t, σ)
@@ -22,14 +22,14 @@ using LinearAlgebra
     end
 
     df = DataFrame(
-        ID=[1, 1, 2, 2, 3, 3],
-        t=[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y=[0.2, 0.3, 0.1, 0.2, 0.25, 0.35],
+        ID = [1, 1, 2, 2, 3, 3],
+        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        y = [0.2, 0.3, 0.1, 0.2, 0.25, 0.35]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
 
-    uq = compute_uq(res; method=:wald, n_draws=30, rng=Random.Xoshiro(1))
+    uq = compute_uq(res; method = :wald, n_draws = 30, rng = Random.Xoshiro(1))
     @test get_uq_backend(uq) == :wald
     @test get_uq_source_method(uq) == :mle
     names = get_uq_parameter_names(uq)
@@ -41,7 +41,7 @@ using LinearAlgebra
     @test hasproperty(ints, :lower)
     @test size(get_uq_vcov(uq)) == (2, 2)
     @test size(get_uq_draws(uq)) == (30, 2)
-    Vt = get_uq_vcov(uq; scale=:transformed)
+    Vt = get_uq_vcov(uq; scale = :transformed)
     λmin = minimum(eigvals(Symmetric(0.5 .* (Vt .+ Vt'))))
     @test λmin >= -1e-10
     d = get_uq_diagnostics(uq)
@@ -55,7 +55,8 @@ using LinearAlgebra
     @test d.inactive_fixed_effects_held_constant
     @test d.vcov_min_eig_used >= -1e-10
 
-    uq_const = compute_uq(res; method=:wald, constants=(a=0.2,), n_draws=30, rng=Random.Xoshiro(2))
+    uq_const = compute_uq(
+        res; method = :wald, constants = (a = 0.2,), n_draws = 30, rng = Random.Xoshiro(2))
     @test get_uq_parameter_names(uq_const) == [:σ]
 end
 
@@ -65,9 +66,10 @@ end
             t = Covariate()
         end
         @fixedEffects begin
-            a = RealNumber(0.2, prior=Normal(0.0, 1.0), calculate_se=true)
-            b = RealNumber(0.1, prior=Normal(0.0, 1.0), calculate_se=false)
-            σ = RealNumber(0.3, scale=:log, prior=LogNormal(0.0, 0.5), calculate_se=true)
+            a = RealNumber(0.2, prior = Normal(0.0, 1.0), calculate_se = true)
+            b = RealNumber(0.1, prior = Normal(0.0, 1.0), calculate_se = false)
+            σ = RealNumber(
+                0.3, scale = :log, prior = LogNormal(0.0, 0.5), calculate_se = true)
         end
         @formulas begin
             y ~ Normal(a + b * t, σ)
@@ -75,14 +77,14 @@ end
     end
 
     df = DataFrame(
-        ID=[1, 1, 2, 2],
-        t=[0.0, 1.0, 0.0, 1.0],
-        y=[0.2, 0.3, 0.1, 0.2],
+        ID = [1, 1, 2, 2],
+        t = [0.0, 1.0, 0.0, 1.0],
+        y = [0.2, 0.3, 0.1, 0.2]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MAP(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.MAP(; optim_kwargs = (maxiters = 2,)))
 
-    uq = compute_uq(res; method=:wald, n_draws=30, rng=Random.Xoshiro(3))
+    uq = compute_uq(res; method = :wald, n_draws = 30, rng = Random.Xoshiro(3))
     @test get_uq_backend(uq) == :wald
     @test get_uq_source_method(uq) == :map
     @test get_uq_parameter_names(uq) == [:a, :σ]
@@ -95,9 +97,10 @@ end
             t = Covariate()
         end
         @fixedEffects begin
-            a = RealNumber(0.2, prior=Normal(0.0, 1.0), calculate_se=true)
-            b = RealNumber(0.1, prior=Normal(0.0, 1.0), calculate_se=false)
-            σ = RealNumber(0.3, scale=:log, prior=LogNormal(0.0, 0.5), calculate_se=true)
+            a = RealNumber(0.2, prior = Normal(0.0, 1.0), calculate_se = true)
+            b = RealNumber(0.1, prior = Normal(0.0, 1.0), calculate_se = false)
+            σ = RealNumber(
+                0.3, scale = :log, prior = LogNormal(0.0, 0.5), calculate_se = true)
         end
         @formulas begin
             y ~ Normal(a + b * t, σ)
@@ -105,14 +108,15 @@ end
     end
 
     df = DataFrame(
-        ID=[1, 1, 2, 2],
-        t=[0.0, 1.0, 0.0, 1.0],
-        y=[0.2, 0.3, 0.1, 0.2],
+        ID = [1, 1, 2, 2],
+        t = [0.0, 1.0, 0.0, 1.0],
+        y = [0.2, 0.3, 0.1, 0.2]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MCMC(; turing_kwargs=(n_samples=18, n_adapt=2, progress=false)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm,
+        NoLimits.MCMC(; turing_kwargs = (n_samples = 18, n_adapt = 2, progress = false)))
 
-    uq = compute_uq(res; method=:chain, mcmc_draws=15, rng=Random.Xoshiro(4))
+    uq = compute_uq(res; method = :chain, mcmc_draws = 15, rng = Random.Xoshiro(4))
     @test get_uq_backend(uq) == :chain
     @test get_uq_source_method(uq) == :mcmc
     @test get_uq_parameter_names(uq) == [:a, :σ]
@@ -129,9 +133,10 @@ end
             t = Covariate()
         end
         @fixedEffects begin
-            a = RealNumber(0.2, prior=Normal(0.0, 1.0), calculate_se=true)
-            b = RealNumber(0.1, prior=Normal(0.0, 1.0), calculate_se=false)
-            σ = RealNumber(0.3, scale=:log, prior=LogNormal(0.0, 0.5), calculate_se=true)
+            a = RealNumber(0.2, prior = Normal(0.0, 1.0), calculate_se = true)
+            b = RealNumber(0.1, prior = Normal(0.0, 1.0), calculate_se = false)
+            σ = RealNumber(
+                0.3, scale = :log, prior = LogNormal(0.0, 0.5), calculate_se = true)
         end
         @formulas begin
             y ~ Normal(a + b * t, σ)
@@ -139,14 +144,15 @@ end
     end
 
     df = DataFrame(
-        ID=[1, 1, 2, 2],
-        t=[0.0, 1.0, 0.0, 1.0],
-        y=[0.2, 0.3, 0.1, 0.2],
+        ID = [1, 1, 2, 2],
+        t = [0.0, 1.0, 0.0, 1.0],
+        y = [0.2, 0.3, 0.1, 0.2]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.VI(; turing_kwargs=(max_iter=15, progress=false)); rng=Random.Xoshiro(401))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.VI(; turing_kwargs = (max_iter = 15, progress = false));
+        rng = Random.Xoshiro(401))
 
-    uq = compute_uq(res; method=:chain, mcmc_draws=35, rng=Random.Xoshiro(402))
+    uq = compute_uq(res; method = :chain, mcmc_draws = 35, rng = Random.Xoshiro(402))
     @test get_uq_backend(uq) == :chain
     @test get_uq_source_method(uq) == :vi
     @test get_uq_parameter_names(uq) == [:a, :σ]
@@ -156,11 +162,12 @@ end
     @test d.used_draws == 35
     @test d.source == :vi_posterior
 
-    uq_auto = compute_uq(res; method=:auto, n_draws=22, rng=Random.Xoshiro(403))
+    uq_auto = compute_uq(res; method = :auto, n_draws = 22, rng = Random.Xoshiro(403))
     @test get_uq_backend(uq_auto) == :chain
     @test size(get_uq_draws(uq_auto)) == (22, 2)
 
-    uq_const = compute_uq(res; method=:chain, constants=(a=0.2,), mcmc_draws=20, rng=Random.Xoshiro(404))
+    uq_const = compute_uq(res; method = :chain, constants = (a = 0.2,),
+        mcmc_draws = 20, rng = Random.Xoshiro(404))
     @test get_uq_parameter_names(uq_const) == [:σ]
     @test size(get_uq_draws(uq_const)) == (20, 1)
 end
@@ -171,8 +178,8 @@ end
             t = Covariate()
         end
         @fixedEffects begin
-            a = RealNumber(0.2, calculate_se=false)
-            σ = RealNumber(0.3, scale=:log, calculate_se=false)
+            a = RealNumber(0.2, calculate_se = false)
+            σ = RealNumber(0.3, scale = :log, calculate_se = false)
         end
         @formulas begin
             y ~ Normal(a, σ)
@@ -180,14 +187,14 @@ end
     end
 
     df = DataFrame(
-        ID=[1, 1],
-        t=[0.0, 1.0],
-        y=[0.2, 0.3],
+        ID = [1, 1],
+        t = [0.0, 1.0],
+        y = [0.2, 0.3]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
 
-    @test_throws ErrorException compute_uq(res; method=:wald, n_draws=50)
+    @test_throws ErrorException compute_uq(res; method = :wald, n_draws = 50)
 end
 
 @testset "UQ Wald for Laplace" begin
@@ -196,12 +203,12 @@ end
             t = Covariate()
         end
         @fixedEffects begin
-            a = RealNumber(0.2, calculate_se=true)
-            ω = RealNumber(0.6, scale=:log, calculate_se=true)
-            σ = RealNumber(0.3, scale=:log, calculate_se=false)
+            a = RealNumber(0.2, calculate_se = true)
+            ω = RealNumber(0.6, scale = :log, calculate_se = true)
+            σ = RealNumber(0.3, scale = :log, calculate_se = false)
         end
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, ω); column=:ID)
+            η = RandomEffect(Normal(0.0, ω); column = :ID)
         end
         @formulas begin
             y ~ Normal(a + η, σ)
@@ -209,14 +216,14 @@ end
     end
 
     df = DataFrame(
-        ID=[1, 1, 2, 2, 3, 3],
-        t=[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y=[0.2, 0.25, 0.1, 0.15, 0.3, 0.35],
+        ID = [1, 1, 2, 2, 3, 3],
+        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        y = [0.2, 0.25, 0.1, 0.15, 0.3, 0.35]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.Laplace(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
 
-    uq = compute_uq(res; method=:wald, n_draws=30, rng=Random.Xoshiro(5))
+    uq = compute_uq(res; method = :wald, n_draws = 30, rng = Random.Xoshiro(5))
     @test get_uq_backend(uq) == :wald
     @test get_uq_source_method(uq) == :laplace
     @test get_uq_parameter_names(uq) == [:a, :ω]
@@ -235,12 +242,12 @@ function _uq_psd_re_model(scale::Symbol)
             t = Covariate()
         end
         @fixedEffects begin
-            a = RealNumber(0.2, calculate_se=false)
-            σ = RealNumber(0.5, scale=:log, calculate_se=false)
-            Ω = RealPSDMatrix(Matrix(I, 2, 2), scale=scale, calculate_se=true)
+            a = RealNumber(0.2, calculate_se = false)
+            σ = RealNumber(0.5, scale = :log, calculate_se = false)
+            Ω = RealPSDMatrix(Matrix(I, 2, 2), scale = scale, calculate_se = true)
         end
         @randomEffects begin
-            η = RandomEffect(MvNormal([0.0, 0.0], Ω); column=:ID)
+            η = RandomEffect(MvNormal([0.0, 0.0], Ω); column = :ID)
         end
         @formulas begin
             y ~ Normal(a + η[1], σ)
@@ -250,19 +257,20 @@ end
 
 function _uq_psd_re_df()
     return DataFrame(
-        ID=[:A, :A, :B, :B, :C, :C],
-        t=[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y=[0.1, 0.2, 0.0, -0.1, 0.15, 0.18],
+        ID = [:A, :A, :B, :B, :C, :C],
+        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        y = [0.1, 0.2, 0.0, -0.1, 0.15, 0.18]
     )
 end
 
 @testset "UQ Wald for Laplace with PSD fixed covariance (cholesky/expm)" begin
     for (scale, n_coords, seed) in ((:cholesky, 4, 31), (:expm, 3, 32))
         model = _uq_psd_re_model(scale)
-        dm = DataModel(model, _uq_psd_re_df(); primary_id=:ID, time_col=:t)
-        res = fit_model(dm, NoLimits.Laplace(; optim_kwargs=(maxiters=2,)))
+        dm = DataModel(model, _uq_psd_re_df(); primary_id = :ID, time_col = :t)
+        res = fit_model(dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
 
-        uq = compute_uq(res; method=:wald, pseudo_inverse=true, n_draws=40, rng=Random.Xoshiro(seed))
+        uq = compute_uq(res; method = :wald, pseudo_inverse = true,
+            n_draws = 40, rng = Random.Xoshiro(seed))
         @test get_uq_backend(uq) == :wald
         @test get_uq_source_method(uq) == :laplace
         names = get_uq_parameter_names(uq)
@@ -271,7 +279,7 @@ end
         V = get_uq_vcov(uq)
         @test size(V) == (n_coords, n_coords)
         @test all(isfinite, V)
-        @test isapprox(V, V'; rtol=1e-10, atol=1e-10)
+        @test isapprox(V, V'; rtol = 1e-10, atol = 1e-10)
         @test size(get_uq_draws(uq)) == (40, n_coords)
     end
 end
@@ -282,12 +290,14 @@ end
             t = Covariate()
         end
         @fixedEffects begin
-            a = RealNumber(0.2, prior=Normal(0.0, 1.0), calculate_se=true)
-            ω = RealNumber(0.6, scale=:log, prior=LogNormal(0.0, 0.5), calculate_se=true)
-            σ = RealNumber(0.3, scale=:log, prior=LogNormal(0.0, 0.5), calculate_se=true)
+            a = RealNumber(0.2, prior = Normal(0.0, 1.0), calculate_se = true)
+            ω = RealNumber(
+                0.6, scale = :log, prior = LogNormal(0.0, 0.5), calculate_se = true)
+            σ = RealNumber(
+                0.3, scale = :log, prior = LogNormal(0.0, 0.5), calculate_se = true)
         end
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, ω); column=:ID)
+            η = RandomEffect(Normal(0.0, ω); column = :ID)
         end
         @formulas begin
             y ~ Normal(a + η, σ)
@@ -295,14 +305,14 @@ end
     end
 
     df = DataFrame(
-        ID=[1, 1, 2, 2, 3, 3],
-        t=[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y=[0.2, 0.25, 0.1, 0.15, 0.3, 0.35],
+        ID = [1, 1, 2, 2, 3, 3],
+        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        y = [0.2, 0.25, 0.1, 0.15, 0.3, 0.35]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.LaplaceMAP(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.LaplaceMAP(; optim_kwargs = (maxiters = 2,)))
 
-    uq = compute_uq(res; method=:wald, n_draws=30, rng=Random.Xoshiro(7))
+    uq = compute_uq(res; method = :wald, n_draws = 30, rng = Random.Xoshiro(7))
     @test get_uq_backend(uq) == :wald
     @test get_uq_source_method(uq) == :laplace_map
     @test get_uq_parameter_names(uq) == [:a, :ω, :σ]
@@ -315,8 +325,8 @@ end
             t = Covariate()
         end
         @fixedEffects begin
-            a = RealNumber(0.2, calculate_se=true)
-            σ = RealNumber(0.3, scale=:log, calculate_se=false)
+            a = RealNumber(0.2, calculate_se = true)
+            σ = RealNumber(0.3, scale = :log, calculate_se = false)
         end
         @formulas begin
             y ~ Normal(a, σ)
@@ -324,25 +334,25 @@ end
     end
 
     df = DataFrame(
-        ID=[1, 1, 2, 2, 3, 3],
-        t=[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y=[0.2, 0.25, 0.1, 0.15, 0.3, 0.35],
+        ID = [1, 1, 2, 2, 3, 3],
+        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        y = [0.2, 0.25, 0.1, 0.15, 0.3, 0.35]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
 
     uq = compute_uq(res;
-                    method=:profile,
-                    profile_method=:LIN_EXTRAPOL,
-                    profile_scan_width=1.0,
-                    profile_max_iter=80,
-                    profile_scan_tol=1e-2,
-                    profile_loss_tol=1e-2,
-                    rng=Random.Xoshiro(9))
+        method = :profile,
+        profile_method = :LIN_EXTRAPOL,
+        profile_scan_width = 1.0,
+        profile_max_iter = 80,
+        profile_scan_tol = 1e-2,
+        profile_loss_tol = 1e-2,
+        rng = Random.Xoshiro(9))
     @test get_uq_backend(uq) == :profile
     @test get_uq_source_method(uq) == :mle
     @test get_uq_parameter_names(uq) == [:a]
-    ints = get_uq_intervals(uq; as_component=false)
+    ints = get_uq_intervals(uq; as_component = false)
     @test ints !== nothing
     d = get_uq_diagnostics(uq)
     @test haskey(d, :profile_method)
@@ -355,12 +365,12 @@ end
             t = Covariate()
         end
         @fixedEffects begin
-            a = RealNumber(0.2, calculate_se=true)
-            ω = RealNumber(0.6, scale=:log, calculate_se=false)
-            σ = RealNumber(0.3, scale=:log, calculate_se=false)
+            a = RealNumber(0.2, calculate_se = true)
+            ω = RealNumber(0.6, scale = :log, calculate_se = false)
+            σ = RealNumber(0.3, scale = :log, calculate_se = false)
         end
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, ω); column=:ID)
+            η = RandomEffect(Normal(0.0, ω); column = :ID)
         end
         @formulas begin
             y ~ Normal(a + η, σ)
@@ -368,25 +378,25 @@ end
     end
 
     df = DataFrame(
-        ID=[1, 1, 2, 2, 3, 3],
-        t=[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y=[0.2, 0.25, 0.1, 0.15, 0.3, 0.35],
+        ID = [1, 1, 2, 2, 3, 3],
+        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        y = [0.2, 0.25, 0.1, 0.15, 0.3, 0.35]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.Laplace(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
 
     uq = compute_uq(res;
-                    method=:profile,
-                    profile_method=:LIN_EXTRAPOL,
-                    profile_scan_width=0.8,
-                    profile_max_iter=80,
-                    profile_scan_tol=1e-2,
-                    profile_loss_tol=1e-2,
-                    rng=Random.Xoshiro(10))
+        method = :profile,
+        profile_method = :LIN_EXTRAPOL,
+        profile_scan_width = 0.8,
+        profile_max_iter = 80,
+        profile_scan_tol = 1e-2,
+        profile_loss_tol = 1e-2,
+        rng = Random.Xoshiro(10))
     @test get_uq_backend(uq) == :profile
     @test get_uq_source_method(uq) == :laplace
     @test get_uq_parameter_names(uq) == [:a]
-    ints = get_uq_intervals(uq; as_component=false)
+    ints = get_uq_intervals(uq; as_component = false)
     @test ints !== nothing
 end
 
@@ -396,9 +406,10 @@ end
             t = Covariate()
         end
         @fixedEffects begin
-            a = RealNumber(0.2, prior=Normal(0.0, 1.0), calculate_se=true)
-            b = RealNumber(0.1, prior=Normal(0.0, 1.0), calculate_se=false)
-            σ = RealNumber(0.3, scale=:log, prior=LogNormal(0.0, 0.5), calculate_se=true)
+            a = RealNumber(0.2, prior = Normal(0.0, 1.0), calculate_se = true)
+            b = RealNumber(0.1, prior = Normal(0.0, 1.0), calculate_se = false)
+            σ = RealNumber(
+                0.3, scale = :log, prior = LogNormal(0.0, 0.5), calculate_se = true)
         end
         @formulas begin
             y ~ Normal(a + b * t, σ)
@@ -406,18 +417,18 @@ end
     end
 
     df = DataFrame(
-        ID=[1, 1, 2, 2],
-        t=[0.0, 1.0, 0.0, 1.0],
-        y=[0.2, 0.3, 0.1, 0.2],
+        ID = [1, 1, 2, 2],
+        t = [0.0, 1.0, 0.0, 1.0],
+        y = [0.2, 0.3, 0.1, 0.2]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
 
     uq = compute_uq(res;
-                    method=:mcmc_refit,
-                    mcmc_turing_kwargs=(n_samples=12, n_adapt=2, progress=false),
-                    mcmc_draws=9,
-                    rng=Random.Xoshiro(11))
+        method = :mcmc_refit,
+        mcmc_turing_kwargs = (n_samples = 12, n_adapt = 2, progress = false),
+        mcmc_draws = 9,
+        rng = Random.Xoshiro(11))
     @test get_uq_backend(uq) == :mcmc_refit
     @test get_uq_source_method(uq) == :mle
     @test get_uq_parameter_names(uq) == [:a, :σ]
@@ -436,8 +447,8 @@ end
             t = Covariate()
         end
         @fixedEffects begin
-            a = RealNumber(0.2, calculate_se=true)
-            σ = RealNumber(0.3, scale=:log, calculate_se=false)
+            a = RealNumber(0.2, calculate_se = true)
+            σ = RealNumber(0.3, scale = :log, calculate_se = false)
         end
         @formulas begin
             y ~ Normal(a, σ)
@@ -445,15 +456,15 @@ end
     end
 
     df = DataFrame(
-        ID=[1, 1],
-        t=[0.0, 1.0],
-        y=[0.2, 0.3],
+        ID = [1, 1],
+        t = [0.0, 1.0],
+        y = [0.2, 0.3]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
     @test_throws ErrorException compute_uq(res;
-                                           method=:mcmc_refit,
-                                           mcmc_turing_kwargs=(n_samples=2, n_adapt=2, progress=false))
+        method = :mcmc_refit,
+        mcmc_turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false))
 end
 
 @testset "UQ Wald sandwich for MLE" begin
@@ -462,8 +473,8 @@ end
             t = Covariate()
         end
         @fixedEffects begin
-            a = RealNumber(0.2, calculate_se=true)
-            σ = RealNumber(0.3, scale=:log, calculate_se=true)
+            a = RealNumber(0.2, calculate_se = true)
+            σ = RealNumber(0.3, scale = :log, calculate_se = true)
         end
         @formulas begin
             y ~ Normal(a, σ)
@@ -471,14 +482,15 @@ end
     end
 
     df = DataFrame(
-        ID=[1, 1, 2, 2, 3, 3, 4, 4],
-        t=[0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y=[0.2, 0.25, 0.1, 0.15, 0.3, 0.35, 0.18, 0.22],
+        ID = [1, 1, 2, 2, 3, 3, 4, 4],
+        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        y = [0.2, 0.25, 0.1, 0.15, 0.3, 0.35, 0.18, 0.22]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
 
-    uq = compute_uq(res; method=:wald, vcov=:sandwich, n_draws=30, rng=Random.Xoshiro(12))
+    uq = compute_uq(
+        res; method = :wald, vcov = :sandwich, n_draws = 30, rng = Random.Xoshiro(12))
     @test get_uq_backend(uq) == :wald
     @test get_uq_source_method(uq) == :mle
     @test size(get_uq_vcov(uq)) == (2, 2)
@@ -492,12 +504,12 @@ end
             t = Covariate()
         end
         @fixedEffects begin
-            a = RealNumber(0.2, calculate_se=true)
-            ω = RealNumber(0.6, scale=:log, calculate_se=true)
-            σ = RealNumber(0.3, scale=:log, calculate_se=false)
+            a = RealNumber(0.2, calculate_se = true)
+            ω = RealNumber(0.6, scale = :log, calculate_se = true)
+            σ = RealNumber(0.3, scale = :log, calculate_se = false)
         end
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, ω); column=:ID)
+            η = RandomEffect(Normal(0.0, ω); column = :ID)
         end
         @formulas begin
             y ~ Normal(a + η, σ)
@@ -505,14 +517,15 @@ end
     end
 
     df = DataFrame(
-        ID=[1, 1, 2, 2, 3, 3],
-        t=[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y=[0.2, 0.25, 0.1, 0.15, 0.3, 0.35],
+        ID = [1, 1, 2, 2, 3, 3],
+        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        y = [0.2, 0.25, 0.1, 0.15, 0.3, 0.35]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.Laplace(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
 
-    uq = compute_uq(res; method=:wald, vcov=:sandwich, n_draws=30, rng=Random.Xoshiro(13))
+    uq = compute_uq(
+        res; method = :wald, vcov = :sandwich, n_draws = 30, rng = Random.Xoshiro(13))
     @test get_uq_backend(uq) == :wald
     @test get_uq_source_method(uq) == :laplace
     @test size(get_uq_vcov(uq)) == (2, 2)
@@ -526,12 +539,12 @@ end
             t = Covariate()
         end
         @fixedEffects begin
-            a = RealNumber(0.2, calculate_se=true)
-            ω = RealNumber(0.6, scale=:log, calculate_se=true)
-            σ = RealNumber(0.3, scale=:log, calculate_se=false)
+            a = RealNumber(0.2, calculate_se = true)
+            ω = RealNumber(0.6, scale = :log, calculate_se = true)
+            σ = RealNumber(0.3, scale = :log, calculate_se = false)
         end
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, ω); column=:ID)
+            η = RandomEffect(Normal(0.0, ω); column = :ID)
         end
         @formulas begin
             y ~ Normal(a + η, σ)
@@ -539,24 +552,24 @@ end
     end
 
     df = DataFrame(
-        ID=[1, 1, 2, 2, 3, 3],
-        t=[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y=[0.2, 0.25, 0.1, 0.15, 0.3, 0.35],
+        ID = [1, 1, 2, 2, 3, 3],
+        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        y = [0.2, 0.25, 0.1, 0.15, 0.3, 0.35]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     res = fit_model(dm,
-                    NoLimits.MCEM(;
-                                          maxiters=2,
-                                          sample_schedule=2,
-                                          turing_kwargs=(n_adapt=2, progress=false),
-                                          optim_kwargs=(maxiters=2,)))
+        NoLimits.MCEM(;
+            maxiters = 2,
+            sample_schedule = 2,
+            turing_kwargs = (n_adapt = 2, progress = false),
+            optim_kwargs = (maxiters = 2,)))
 
-    uq = compute_uq(res; method=:wald, n_draws=40, rng=Random.Xoshiro(21))
+    uq = compute_uq(res; method = :wald, n_draws = 40, rng = Random.Xoshiro(21))
     @test get_uq_backend(uq) == :wald
     @test get_uq_source_method(uq) == :mcem
     @test get_uq_parameter_names(uq) == [:a, :ω]
     @test size(get_uq_vcov(uq)) == (2, 2)
     d = get_uq_diagnostics(uq)
     @test d.approximation_method == :laplace
-    @test_throws ErrorException compute_uq(res; method=:wald, re_approx=:invalid)
+    @test_throws ErrorException compute_uq(res; method = :wald, re_approx = :invalid)
 end

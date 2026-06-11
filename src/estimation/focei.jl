@@ -57,8 +57,12 @@ using SpecialFunctions: trigamma
 
 _focei_is_supported(::Any) = false
 _focei_dispersion_indices(::Any) = Int[]
-_focei_params(d) = error("FOCEI: distribution $(typeof(d)) is not supported (no closed-form Fisher information). Use Laplace instead, or remove this outcome.")
-_focei_expected_information(d) = error("FOCEI: no closed-form Fisher information for $(typeof(d)). Use Laplace instead.")
+function _focei_params(d)
+    error("FOCEI: distribution $(typeof(d)) is not supported (no closed-form Fisher information). Use Laplace instead, or remove this outcome.")
+end
+function _focei_expected_information(d)
+    error("FOCEI: no closed-form Fisher information for $(typeof(d)). Use Laplace instead.")
+end
 _focei_paramcount(d) = length(_focei_params(d))
 
 # --- location-scale families with a frozen dispersion parameter (the "I" in FOCEI) ---
@@ -214,7 +218,7 @@ end
 # (mirrors `_loglikelihood_individual`). `rows_f!` is called as
 # `rows_f!(out, obs_f, ctx, sol_acc, const_cov, obs_series, vrows, obs_cols)`.
 function _focei_collect_obs!(rows_f!::RF, out::Vector, dm::DataModel, idx::Int,
-                             θ, η_ind, cache::_LLCache) where {RF}
+        θ, η_ind, cache::_LLCache) where {RF}
     model = dm.model
     ind = dm.individuals[idx]
     obs_rows = dm.row_groups.obs_rows[idx]
@@ -234,12 +238,13 @@ function _focei_collect_obs!(rows_f!::RF, out::Vector, dm::DataModel, idx::Int,
     end
 
     obs_cols = dm.config.obs_cols
-    if _needs_rowwise_random_effects(dm, idx; obs_only=true)
+    if _needs_rowwise_random_effects(dm, idx; obs_only = true)
         # Per-row η selection (rare; non-DE only) — keep the dynamic path.
-        t_obs = vary_cache === nothing ? _get_col(dm.df, dm.config.time_col)[obs_rows] : nothing
+        t_obs = vary_cache === nothing ? _get_col(dm.df, dm.config.time_col)[obs_rows] :
+                nothing
         for i in eachindex(obs_rows)
             vary = vary_cache === nothing ? _varying_at(dm, ind, i, t_obs) : vary_cache[i]
-            η_row = _row_random_effects_at(dm, idx, i, η_ind, true; obs_only=true)
+            η_row = _row_random_effects_at(dm, idx, i, η_ind, true; obs_only = true)
             obs = sol_accessors === nothing ?
                   calculate_formulas_obs(model, θ, η_row, const_cov, vary) :
                   calculate_formulas_obs(model, θ, η_row, const_cov, vary, sol_accessors)
@@ -254,11 +259,11 @@ function _focei_collect_obs!(rows_f!::RF, out::Vector, dm::DataModel, idx::Int,
 
     pre === nothing && (pre = calculate_prede(model, θ, η_ind, const_cov))
     ctx = (; fixed_effects = θ, random_effects = η_ind, prede = pre,
-            helpers = cache.helpers, model_funs = cache.model_funs)
+        helpers = cache.helpers, model_funs = cache.model_funs)
     vrows = vary_cache !== nothing ? vary_cache :
             _build_vary_cache_individual(ind.series.vary, ind.series.dyn,
-                                         _get_col(dm.df, dm.config.time_col)[obs_rows],
-                                         length(obs_rows))
+        _get_col(dm.df, dm.config.time_col)[obs_rows],
+        length(obs_rows))
     sol_acc = sol_accessors === nothing ? NamedTuple() : sol_accessors
     rows_f!(out, model.formulas.obs, ctx, sol_acc, const_cov, obs_series, vrows, obs_cols)
     return true
@@ -267,10 +272,11 @@ end
 # Element push dispatch: distribution objects for the dists collector, flattened
 # native parameters for the typed Jacobian target.
 @inline _focei_collect_push!(out::Vector{Any}, dist) = push!(out, dist)
-@inline _focei_collect_push!(out::Vector{T}, dist) where {T<:Real} = append!(out, _focei_params(dist))
+@inline _focei_collect_push!(out::Vector{T}, dist) where {T <: Real} = append!(
+    out, _focei_params(dist))
 
 function _focei_rows_push!(out::Vector, obs_f::F, ctx::C, sol_acc::SA, const_cov::CC,
-                           obs_series::OS, vrows::Vector{V}, obs_cols) where {F, C, SA, CC, OS, V}
+        obs_series::OS, vrows::Vector{V}, obs_cols) where {F, C, SA, CC, OS, V}
     for i in eachindex(vrows)
         obs = obs_f(ctx, sol_acc, const_cov, vrows[i])
         for col in obs_cols
@@ -282,13 +288,16 @@ function _focei_rows_push!(out::Vector, obs_f::F, ctx::C, sol_acc::SA, const_cov
     return nothing
 end
 
-_focei_collect_obs_dists!(out::Vector, dm::DataModel, idx::Int, θ, η_ind, cache::_LLCache) =
+function _focei_collect_obs_dists!(
+        out::Vector, dm::DataModel, idx::Int, θ, η_ind, cache::_LLCache)
     _focei_collect_obs!(_focei_rows_push!, out, dm, idx, θ, η_ind, cache)
+end
 
 # Returns a Vector of the outcome distributions for every (non-missing) observation in
 # the batch, in a fixed order.
-function _focei_obs_dists_batch(dm::DataModel, batch_info::_LaplaceBatchInfo, θ_re::ComponentArray,
-                                b, const_cache::LaplaceConstantsCache, cache::_LLCache)
+function _focei_obs_dists_batch(
+        dm::DataModel, batch_info::_LaplaceBatchInfo, θ_re::ComponentArray,
+        b, const_cache::LaplaceConstantsCache, cache::_LLCache)
     out = Vector{Any}()
     for i in batch_info.inds
         η_ind = _build_eta_ind(dm, i, batch_info, b, const_cache, θ_re)
@@ -302,8 +311,9 @@ end
 # straight into a concretely-typed vector (this function runs under ForwardDiff
 # duals once per Jacobian chunk; the old Vector{Any}-of-dists + reduce(vcat)
 # route boxed every distribution and re-allocated the stack repeatedly).
-function _focei_obs_params_batch(dm::DataModel, batch_info::_LaplaceBatchInfo, θ_re::ComponentArray,
-                                 b, const_cache::LaplaceConstantsCache, cache::_LLCache)
+function _focei_obs_params_batch(
+        dm::DataModel, batch_info::_LaplaceBatchInfo, θ_re::ComponentArray,
+        b, const_cache::LaplaceConstantsCache, cache::_LLCache)
     T = promote_type(eltype(θ_re), eltype(b))
     out = Vector{T}()
     for i in batch_info.inds
@@ -321,7 +331,8 @@ struct _FOCEIPhi{DM, INFO, TH, CC, CA}
     const_cache::CC
     cache::CA
 end
-@inline (f::_FOCEIPhi)(b) = _focei_obs_params_batch(f.dm, f.info, f.θ, b, f.const_cache, f.cache)
+@inline (f::_FOCEIPhi)(b) = _focei_obs_params_batch(
+    f.dm, f.info, f.θ, b, f.const_cache, f.cache)
 
 struct _FOCEIPriorLogf{DM, INFO, TH, CC, CA}
     dm::DM
@@ -330,7 +341,8 @@ struct _FOCEIPriorLogf{DM, INFO, TH, CC, CA}
     const_cache::CC
     cache::CA
 end
-@inline (f::_FOCEIPriorLogf)(b) = _re_prior_logf_batch(f.dm, f.info, f.θ, b, f.const_cache, f.cache)
+@inline (f::_FOCEIPriorLogf)(b) = _re_prior_logf_batch(
+    f.dm, f.info, f.θ, b, f.const_cache, f.cache)
 
 # -------------------------------------------------------------------------------------
 # 3. Prior mean mᵢ in b-space (FOCE freezes dispersion parameters here).
@@ -340,12 +352,14 @@ end
 # degenerate θ the outer optimiser steps into (e.g. a singular Ω) — fall back to
 # the zero vector so the subsequent evaluations return -Inf and the optimiser
 # backtracks instead of crashing the fit (mirrors `_laplace_logf_batch`).
-function _focei_prior_mean_b(dm::DataModel, batch_info::_LaplaceBatchInfo, θ_re::ComponentArray,
-                             const_cache::LaplaceConstantsCache, cache::_LLCache)
+function _focei_prior_mean_b(
+        dm::DataModel, batch_info::_LaplaceBatchInfo, θ_re::ComponentArray,
+        const_cache::LaplaceConstantsCache, cache::_LLCache)
     try
         return _focei_prior_mean_b_impl(dm, batch_info, θ_re, const_cache, cache)
     catch err
-        if err isa LinearAlgebra.PosDefException || err isa LinearAlgebra.SingularException ||
+        if err isa LinearAlgebra.PosDefException ||
+           err isa LinearAlgebra.SingularException ||
            err isa DomainError || err isa ArgumentError
             return zeros(eltype(θ_re), batch_info.n_b)
         end
@@ -353,8 +367,9 @@ function _focei_prior_mean_b(dm::DataModel, batch_info::_LaplaceBatchInfo, θ_re
     end
 end
 
-function _focei_prior_mean_b_impl(dm::DataModel, batch_info::_LaplaceBatchInfo, θ_re::ComponentArray,
-                                  const_cache::LaplaceConstantsCache, cache::_LLCache)
+function _focei_prior_mean_b_impl(
+        dm::DataModel, batch_info::_LaplaceBatchInfo, θ_re::ComponentArray,
+        const_cache::LaplaceConstantsCache, cache::_LLCache)
     nb = batch_info.n_b
     T = eltype(θ_re)
     m = zeros(T, nb)
@@ -450,7 +465,7 @@ function _focei_data_term(J, dists_b::Vector, dists_m, interaction::Bool, T::Typ
     offset = 0
     for (j, d) in enumerate(dists_b)
         dj = _focei_paramcount(d)
-        Jj = J[offset+1:offset+dj, :]
+        Jj = J[(offset + 1):(offset + dj), :]
         offset += dj
         disp = _focei_dispersion_indices(d)
         if !interaction && !isempty(disp)
@@ -475,13 +490,14 @@ end
 # a NaN Hessian. That makes the Cholesky/log-det fail and the marginal -Inf, so the outer
 # optimiser backtracks instead of crashing the whole fit — matching Laplace's behaviour.
 function _focei_negH_batch(dm::DataModel, batch_info::_LaplaceBatchInfo, θ, b,
-                           const_cache::LaplaceConstantsCache, cache::_LLCache;
-                           interaction::Bool, tctx=nothing)
+        const_cache::LaplaceConstantsCache, cache::_LLCache;
+        interaction::Bool, tctx = nothing)
     try
         return _focei_negH_batch_impl(dm, batch_info, θ, b, const_cache, cache;
-                                      interaction=interaction, tctx=tctx)
+            interaction = interaction, tctx = tctx)
     catch err
-        if err isa LinearAlgebra.PosDefException || err isa LinearAlgebra.SingularException ||
+        if err isa LinearAlgebra.PosDefException ||
+           err isa LinearAlgebra.SingularException ||
            err isa DomainError || err isa ArgumentError
             nb = batch_info.n_b
             return fill(convert(promote_type(eltype(θ), eltype(b)), NaN), nb, nb)
@@ -491,8 +507,8 @@ function _focei_negH_batch(dm::DataModel, batch_info::_LaplaceBatchInfo, θ, b,
 end
 
 function _focei_negH_batch_impl(dm::DataModel, batch_info::_LaplaceBatchInfo, θ, b,
-                                const_cache::LaplaceConstantsCache, cache::_LLCache;
-                                interaction::Bool, tctx=nothing)
+        const_cache::LaplaceConstantsCache, cache::_LLCache;
+        interaction::Bool, tctx = nothing)
     θ_re = tctx === nothing ? _symmetrize_psd_params(θ, dm.model.fixed.fixed) : tctx.θ_re
     nb = batch_info.n_b
     T = promote_type(eltype(θ_re), eltype(b))
@@ -507,7 +523,7 @@ function _focei_negH_batch_impl(dm::DataModel, batch_info::_LaplaceBatchInfo, θ
         # Guard against an ODE solve that succeeds at the base point but reports failure
         # under the AD seed (length mismatch): signal a non-finite Hessian so the marginal
         # becomes -Inf and the outer optimiser backtracks out of the unstable region.
-        D_expected = sum(_focei_paramcount, dists_b; init=0)
+        D_expected = sum(_focei_paramcount, dists_b; init = 0)
         size(J, 1) == D_expected || return fill(convert(T, NaN), nb, nb)
         dists_m = nothing
         if !interaction && any(d -> !isempty(_focei_dispersion_indices(d)), dists_b)
@@ -547,11 +563,11 @@ struct _FOCEIHess <: _HessMode
 end
 
 @inline function _build_hess_b(m::_FOCEIHess, dm::DataModel, batch_info::_LaplaceBatchInfo,
-                               θ, b, const_cache::LaplaceConstantsCache, cache::_LLCache,
-                               ad_cache::Union{Nothing, LaplaceADCache}, bi::Int;
-                               ctx::AbstractString="", tctx=nothing)
+        θ, b, const_cache::LaplaceConstantsCache, cache::_LLCache,
+        ad_cache::Union{Nothing, LaplaceADCache}, bi::Int;
+        ctx::AbstractString = "", tctx = nothing)
     return -_focei_negH_batch(dm, batch_info, θ, b, const_cache, cache;
-                              interaction=m.interaction, tctx=tctx)
+        interaction = m.interaction, tctx = tctx)
 end
 
 # -------------------------------------------------------------------------------------
@@ -597,37 +613,45 @@ struct FOCEI{O, K, A, IO, HO, CO, MS, L, U} <: FittingMethod
     interaction::Bool
 end
 
-FOCEI(; interaction::Bool=true,
-       optimizer=OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking()),
-       optim_kwargs=NamedTuple(),
-       adtype=Optimization.AutoForwardDiff(),
-       inner_options=nothing,
-       hessian_options=nothing,
-       cache_options=nothing,
-       multistart_options=nothing,
-       inner_optimizer=OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking(maxstep=1.0)),
-       inner_kwargs=NamedTuple(),
-       inner_adtype=Optimization.AutoForwardDiff(),
-       inner_grad_tol=:auto,
-       multistart_n=50,
-       multistart_k=10,
-       multistart_grad_tol=inner_grad_tol,
-       multistart_max_rounds=1,
-       multistart_sampling=:lhs,
-       jitter=1e-6,
-       max_tries=6,
-       jitter_growth=10.0,
-       adaptive_jitter=true,
-       jitter_scale=1e-6,
-       theta_tol=0.0,
-       lb=nothing,
-       ub=nothing,
-       ignore_model_bounds=false) = begin
-    inner = inner_options === nothing ? LaplaceInnerOptions(inner_optimizer, inner_kwargs, inner_adtype, inner_grad_tol) : inner_options
-    hess = hessian_options === nothing ? LaplaceHessianOptions(jitter, max_tries, jitter_growth, adaptive_jitter, jitter_scale, true, false, 8) : hessian_options
+function FOCEI(; interaction::Bool = true,
+        optimizer = OptimizationOptimJL.LBFGS(linesearch = LineSearches.BackTracking()),
+        optim_kwargs = NamedTuple(),
+        adtype = Optimization.AutoForwardDiff(),
+        inner_options = nothing,
+        hessian_options = nothing,
+        cache_options = nothing,
+        multistart_options = nothing,
+        inner_optimizer = OptimizationOptimJL.LBFGS(linesearch = LineSearches.BackTracking(maxstep = 1.0)),
+        inner_kwargs = NamedTuple(),
+        inner_adtype = Optimization.AutoForwardDiff(),
+        inner_grad_tol = :auto,
+        multistart_n = 50,
+        multistart_k = 10,
+        multistart_grad_tol = inner_grad_tol,
+        multistart_max_rounds = 1,
+        multistart_sampling = :lhs,
+        jitter = 1e-6,
+        max_tries = 6,
+        jitter_growth = 10.0,
+        adaptive_jitter = true,
+        jitter_scale = 1e-6,
+        theta_tol = 0.0,
+        lb = nothing,
+        ub = nothing,
+        ignore_model_bounds = false)
+    inner = inner_options === nothing ?
+            LaplaceInnerOptions(
+        inner_optimizer, inner_kwargs, inner_adtype, inner_grad_tol) : inner_options
+    hess = hessian_options === nothing ?
+           LaplaceHessianOptions(
+        jitter, max_tries, jitter_growth, adaptive_jitter, jitter_scale, true, false, 8) :
+           hessian_options
     cache = cache_options === nothing ? LaplaceCacheOptions(theta_tol) : cache_options
-    ms = multistart_options === nothing ? LaplaceMultistartOptions(multistart_n, multistart_k, multistart_grad_tol, multistart_max_rounds, multistart_sampling) : multistart_options
-    FOCEI(optimizer, optim_kwargs, adtype, inner, hess, cache, ms, lb, ub, ignore_model_bounds, interaction)
+    ms = multistart_options === nothing ?
+         LaplaceMultistartOptions(multistart_n, multistart_k, multistart_grad_tol,
+        multistart_max_rounds, multistart_sampling) : multistart_options
+    FOCEI(optimizer, optim_kwargs, adtype, inner, hess, cache,
+        ms, lb, ub, ignore_model_bounds, interaction)
 end
 
 """
@@ -651,49 +675,59 @@ struct FOCEIMAP{O, K, A, IO, HO, CO, MS, L, U} <: FittingMethod
     interaction::Bool
 end
 
-FOCEIMAP(; interaction::Bool=true,
-          optimizer=OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking()),
-          optim_kwargs=NamedTuple(),
-          adtype=Optimization.AutoForwardDiff(),
-          inner_options=nothing,
-          hessian_options=nothing,
-          cache_options=nothing,
-          multistart_options=nothing,
-          inner_optimizer=OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking(maxstep=1.0)),
-          inner_kwargs=NamedTuple(),
-          inner_adtype=Optimization.AutoForwardDiff(),
-          inner_grad_tol=:auto,
-          multistart_n=50,
-          multistart_k=10,
-          multistart_grad_tol=inner_grad_tol,
-          multistart_max_rounds=5,
-          multistart_sampling=:lhs,
-          jitter=1e-6,
-          max_tries=6,
-          jitter_growth=10.0,
-          adaptive_jitter=true,
-          jitter_scale=1e-6,
-          theta_tol=0.0,
-          lb=nothing,
-          ub=nothing,
-          ignore_model_bounds=false) = begin
-    inner = inner_options === nothing ? LaplaceInnerOptions(inner_optimizer, inner_kwargs, inner_adtype, inner_grad_tol) : inner_options
-    hess = hessian_options === nothing ? LaplaceHessianOptions(jitter, max_tries, jitter_growth, adaptive_jitter, jitter_scale, true, false, 8) : hessian_options
+function FOCEIMAP(; interaction::Bool = true,
+        optimizer = OptimizationOptimJL.LBFGS(linesearch = LineSearches.BackTracking()),
+        optim_kwargs = NamedTuple(),
+        adtype = Optimization.AutoForwardDiff(),
+        inner_options = nothing,
+        hessian_options = nothing,
+        cache_options = nothing,
+        multistart_options = nothing,
+        inner_optimizer = OptimizationOptimJL.LBFGS(linesearch = LineSearches.BackTracking(maxstep = 1.0)),
+        inner_kwargs = NamedTuple(),
+        inner_adtype = Optimization.AutoForwardDiff(),
+        inner_grad_tol = :auto,
+        multistart_n = 50,
+        multistart_k = 10,
+        multistart_grad_tol = inner_grad_tol,
+        multistart_max_rounds = 5,
+        multistart_sampling = :lhs,
+        jitter = 1e-6,
+        max_tries = 6,
+        jitter_growth = 10.0,
+        adaptive_jitter = true,
+        jitter_scale = 1e-6,
+        theta_tol = 0.0,
+        lb = nothing,
+        ub = nothing,
+        ignore_model_bounds = false)
+    inner = inner_options === nothing ?
+            LaplaceInnerOptions(
+        inner_optimizer, inner_kwargs, inner_adtype, inner_grad_tol) : inner_options
+    hess = hessian_options === nothing ?
+           LaplaceHessianOptions(
+        jitter, max_tries, jitter_growth, adaptive_jitter, jitter_scale, true, false, 8) :
+           hessian_options
     cache = cache_options === nothing ? LaplaceCacheOptions(theta_tol) : cache_options
-    ms = multistart_options === nothing ? LaplaceMultistartOptions(multistart_n, multistart_k, multistart_grad_tol, multistart_max_rounds, multistart_sampling) : multistart_options
-    FOCEIMAP(optimizer, optim_kwargs, adtype, inner, hess, cache, ms, lb, ub, ignore_model_bounds, interaction)
+    ms = multistart_options === nothing ?
+         LaplaceMultistartOptions(multistart_n, multistart_k, multistart_grad_tol,
+        multistart_max_rounds, multistart_sampling) : multistart_options
+    FOCEIMAP(optimizer, optim_kwargs, adtype, inner, hess, cache,
+        ms, lb, ub, ignore_model_bounds, interaction)
 end
 
 # -------------------------------------------------------------------------------------
 # 7. Distribution guard.
 # -------------------------------------------------------------------------------------
 
-function _focei_validate_distributions(dm::DataModel; ode_args::Tuple, ode_kwargs::NamedTuple)
+function _focei_validate_distributions(
+        dm::DataModel; ode_args::Tuple, ode_kwargs::NamedTuple)
     fe = dm.model.fixed.fixed
     θ0 = get_θ0_untransformed(fe)
     θ_re = _symmetrize_psd_params(θ0, fe)
     _, batch_infos, const_cache = _build_laplace_batch_infos(dm, NamedTuple())
-    ll_cache = build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs, force_saveat=true)
+    ll_cache = build_ll_cache(
+        dm; ode_args = ode_args, ode_kwargs = ode_kwargs, force_saveat = true)
     for info in batch_infos
         info.n_b == 0 && continue
         b0 = zeros(Float64, info.n_b)
@@ -716,17 +750,18 @@ end
 # -------------------------------------------------------------------------------------
 
 function _fit_focei(dm::DataModel, method, is_map::Bool, args, fit_kwargs;
-                    constants::NamedTuple,
-                    constants_re::NamedTuple,
-                    penalty::NamedTuple,
-                    ode_args::Tuple,
-                    ode_kwargs::NamedTuple,
-                    serialization::SciMLBase.EnsembleAlgorithm,
-                    rng::AbstractRNG,
-                    theta_0_untransformed::Union{Nothing, ComponentArray},
-                    store_data_model::Bool)
+        constants::NamedTuple,
+        constants_re::NamedTuple,
+        penalty::NamedTuple,
+        ode_args::Tuple,
+        ode_kwargs::NamedTuple,
+        serialization::SciMLBase.EnsembleAlgorithm,
+        rng::AbstractRNG,
+        theta_0_untransformed::Union{Nothing, ComponentArray},
+        store_data_model::Bool)
     re_names = get_re_names(dm.model.random.random)
-    isempty(re_names) && error("FOCEI requires random effects. Use MLE/MAP for fixed-effects models.")
+    isempty(re_names) &&
+        error("FOCEI requires random effects. Use MLE/MAP for fixed-effects models.")
     fe = dm.model.fixed.fixed
     fixed_names = get_names(fe)
     isempty(fixed_names) && error("FOCEI requires at least one fixed effect.")
@@ -741,7 +776,8 @@ function _fit_focei(dm::DataModel, method, is_map::Bool, args, fit_kwargs;
     θ0_u = get_θ0_untransformed(fe)
     if theta_0_untransformed !== nothing
         for n in fixed_names
-            hasproperty(theta_0_untransformed, n) || error("theta_0_untransformed is missing parameter $(n).")
+            hasproperty(theta_0_untransformed, n) ||
+                error("theta_0_untransformed is missing parameter $(n).")
         end
         θ0_u = theta_0_untransformed
     end
@@ -749,8 +785,10 @@ function _fit_focei(dm::DataModel, method, is_map::Bool, args, fit_kwargs;
     if is_map
         priors = get_priors(fe)
         for name in fixed_names
-            hasproperty(priors, name) || error("FOCEIMAP requires priors on all fixed effects. Missing prior for $(name).")
-            getfield(priors, name) isa Priorless && error("FOCEIMAP requires priors on all fixed effects. Priorless for $(name).")
+            hasproperty(priors, name) ||
+                error("FOCEIMAP requires priors on all fixed effects. Missing prior for $(name).")
+            getfield(priors, name) isa Priorless &&
+                error("FOCEIMAP requires priors on all fixed effects. Priorless for $(name).")
         end
     end
 
@@ -761,22 +799,24 @@ function _fit_focei(dm::DataModel, method, is_map::Bool, args, fit_kwargs;
     _apply_constants!(θ_const_u, constants)
     θ_const_t = transform(θ_const_u)
 
-    _focei_validate_distributions(dm; ode_args=ode_args, ode_kwargs=ode_kwargs)
+    _focei_validate_distributions(dm; ode_args = ode_args, ode_kwargs = ode_kwargs)
 
     inner_opts = _resolve_inner_options(method.inner, dm)
     multistart_opts = _resolve_multistart_options(method.multistart, inner_opts)
 
     _, batch_infos, const_cache = _build_laplace_batch_infos(dm, constants_re)
     ll_cache = serialization isa SciMLBase.EnsembleThreads ?
-               build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs, nthreads=Threads.maxthreadid(), force_saveat=true) :
-               build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs, force_saveat=true)
+               build_ll_cache(dm; ode_args = ode_args, ode_kwargs = ode_kwargs,
+        nthreads = Threads.maxthreadid(), force_saveat = true) :
+               build_ll_cache(
+        dm; ode_args = ode_args, ode_kwargs = ode_kwargs, force_saveat = true)
     n_batches = length(batch_infos)
     Tθ = eltype(θ0_t)
     bstar_cache = _LaplaceBStarCache([Vector{Tθ}() for _ in 1:n_batches], falses(n_batches))
     grad_cache = _LaplaceGradCache([Vector{Tθ}() for _ in 1:n_batches],
-                                   fill(Tθ(NaN), n_batches),
-                                   [Vector{Tθ}() for _ in 1:n_batches],
-                                   falses(n_batches))
+        fill(Tθ(NaN), n_batches),
+        [Vector{Tθ}() for _ in 1:n_batches],
+        falses(n_batches))
     ad_cache = _init_laplace_ad_cache(n_batches)
     hess_cache = _init_laplace_hess_cache(Tθ, n_batches)
     ebe_cache = _LaplaceCache(nothing, bstar_cache, grad_cache, ad_cache, hess_cache)
@@ -789,11 +829,12 @@ function _fit_focei(dm::DataModel, method, is_map::Bool, args, fit_kwargs;
     has_penalty = !isempty(keys(penalty))
     T0 = eltype(θ0_free_t)
     obj_cache = _LaplaceObjCache{T0, ComponentArray}(nothing, T0(Inf),
-                    ComponentArray(zeros(T0, length(θ0_free_t)), axs_free), false)
+        ComponentArray(zeros(T0, length(θ0_free_t)), axs_free), false)
 
     function obj_only(θt, p)
         θt_free = θt isa ComponentArray ? θt : ComponentArray(θt, axs_free)
-        cached_obj = _laplace_obj_cache_lookup_obj(obj_cache, θt_free, method.cache.theta_tol)
+        cached_obj = _laplace_obj_cache_lookup_obj(
+            obj_cache, θt_free, method.cache.theta_tol)
         cached_obj !== nothing && return cached_obj
         T = eltype(θt_free)
         infT = convert(T, Inf)
@@ -802,10 +843,11 @@ function _fit_focei(dm::DataModel, method, is_map::Bool, args, fit_kwargs;
             setproperty!(θt_full, name, getproperty(θt_free, name))
         end
         θu = inv_transform(θt_full)
-        obj = _laplace_objective_only(dm, batch_infos, θu, const_cache, ll_cache, ebe_cache;
-                                      inner=inner_opts, hessian=method.hessian,
-                                      cache_opts=method.cache, multistart=multistart_opts,
-                                      rng=rng, serialization=serialization, hmode=hmode)
+        obj = _laplace_objective_only(
+            dm, batch_infos, θu, const_cache, ll_cache, ebe_cache;
+            inner = inner_opts, hessian = method.hessian,
+            cache_opts = method.cache, multistart = multistart_opts,
+            rng = rng, serialization = serialization, hmode = hmode)
         !isfinite(obj) && return infT
         if is_map
             lp = logprior(fe, θu)
@@ -829,10 +871,11 @@ function _fit_focei(dm::DataModel, method, is_map::Bool, args, fit_kwargs;
             setproperty!(θt_full, name, getproperty(θt_free, name))
         end
         θu = inv_transform(θt_full)
-        obj, grad_full, _ = _laplace_objective_and_grad(dm, batch_infos, θu, const_cache, ll_cache, ebe_cache;
-                                                        inner=inner_opts, hessian=method.hessian,
-                                                        cache_opts=method.cache, multistart=multistart_opts,
-                                                        rng=rng, serialization=serialization, hmode=hmode)
+        obj, grad_full, _ = _laplace_objective_and_grad(
+            dm, batch_infos, θu, const_cache, ll_cache, ebe_cache;
+            inner = inner_opts, hessian = method.hessian,
+            cache_opts = method.cache, multistart = multistart_opts,
+            rng = rng, serialization = serialization, hmode = hmode)
         !isfinite(obj) && return (infT, zgrad)
         grad_u = grad_full
         if is_map
@@ -857,11 +900,12 @@ function _fit_focei(dm::DataModel, method, is_map::Bool, args, fit_kwargs;
     end
 
     optf = OptimizationFunction(obj_only, method.adtype;
-                                grad = (G, θt, p) -> (G .= obj_grad(θt, p)[2]))
+        grad = (G, θt, p) -> (G .= obj_grad(θt, p)[2]))
     lower_t, upper_t = get_bounds_transformed(fe)
     lower_t_free = lower_t[free_names]
     upper_t_free = upper_t[free_names]
-    use_bounds = !method.ignore_model_bounds && !(all(isinf, lower_t_free) && all(isinf, upper_t_free))
+    use_bounds = !method.ignore_model_bounds &&
+                 !(all(isinf, lower_t_free) && all(isinf, upper_t_free))
     user_bounds = method.lb !== nothing || method.ub !== nothing
     if user_bounds && !isempty(keys(constants))
         @info "Bounds for constant parameters are ignored." constants=collect(keys(constants))
@@ -876,12 +920,13 @@ function _fit_focei(dm::DataModel, method, is_map::Bool, args, fit_kwargs;
         ub = upper_t_free
     end
     use_bounds = use_bounds || user_bounds
-    prob = use_bounds ? OptimizationProblem(optf, θ0_free_t; lb=lb, ub=ub) :
-                        OptimizationProblem(optf, θ0_free_t)
+    prob = use_bounds ? OptimizationProblem(optf, θ0_free_t; lb = lb, ub = ub) :
+           OptimizationProblem(optf, θ0_free_t)
     sol = Optimization.solve(prob, method.optimizer; method.optim_kwargs...)
 
     θ_hat_t_raw = sol.u
-    θ_hat_t_free = θ_hat_t_raw isa ComponentArray ? θ_hat_t_raw : ComponentArray(θ_hat_t_raw, axs_free)
+    θ_hat_t_free = θ_hat_t_raw isa ComponentArray ? θ_hat_t_raw :
+                   ComponentArray(θ_hat_t_raw, axs_free)
     T = eltype(θ_hat_t_free)
     θ_hat_t = ComponentArray(T.(θ_const_t), axs_full)
     for name in free_names
@@ -890,51 +935,56 @@ function _fit_focei(dm::DataModel, method, is_map::Bool, args, fit_kwargs;
     θ_hat_u = inv_transform(θ_hat_t)
 
     summary = FitSummary(sol.objective, sol.retcode == SciMLBase.ReturnCode.Success,
-                         FitParameters(θ_hat_t, θ_hat_u),
-                         NamedTuple())
-    diagnostics = FitDiagnostics((;), (optimizer=method.optimizer,), (retcode=sol.retcode,), NamedTuple())
-    niter = hasproperty(sol, :stats) && hasproperty(sol.stats, :iterations) ? sol.stats.iterations : missing
+        FitParameters(θ_hat_t, θ_hat_u),
+        NamedTuple())
+    diagnostics = FitDiagnostics(
+        (;), (optimizer = method.optimizer,), (retcode = sol.retcode,), NamedTuple())
+    niter = hasproperty(sol, :stats) && hasproperty(sol.stats, :iterations) ?
+            sol.stats.iterations : missing
     raw = hasproperty(sol, :original) ? sol.original : sol
     result = is_map ?
-             LaplaceMAPResult(sol, sol.objective, niter, raw, NamedTuple(), ebe_cache.bstar_cache.b_star) :
-             LaplaceResult(sol, sol.objective, niter, raw, NamedTuple(), ebe_cache.bstar_cache.b_star)
-    return FitResult(method, result, summary, diagnostics, store_data_model ? dm : nothing, args, fit_kwargs)
+             LaplaceMAPResult(
+        sol, sol.objective, niter, raw, NamedTuple(), ebe_cache.bstar_cache.b_star) :
+             LaplaceResult(
+        sol, sol.objective, niter, raw, NamedTuple(), ebe_cache.bstar_cache.b_star)
+    return FitResult(method, result, summary, diagnostics,
+        store_data_model ? dm : nothing, args, fit_kwargs)
 end
 
 function _fit_model(dm::DataModel, method::FOCEI, args...;
-                    constants::NamedTuple=NamedTuple(),
-                    constants_re::NamedTuple=NamedTuple(),
-                    penalty::NamedTuple=NamedTuple(),
-                    ode_args::Tuple=(),
-                    ode_kwargs::NamedTuple=NamedTuple(),
-                    serialization::SciMLBase.EnsembleAlgorithm=EnsembleThreads(),
-                    rng::AbstractRNG=Xoshiro(0),
-                    theta_0_untransformed::Union{Nothing, ComponentArray}=nothing,
-                    store_data_model::Bool=true)
-    fit_kwargs = (constants=constants, constants_re=constants_re, penalty=penalty,
-                  ode_args=ode_args, ode_kwargs=ode_kwargs, serialization=serialization,
-                  rng=rng, theta_0_untransformed=theta_0_untransformed, store_data_model=store_data_model)
+        constants::NamedTuple = NamedTuple(),
+        constants_re::NamedTuple = NamedTuple(),
+        penalty::NamedTuple = NamedTuple(),
+        ode_args::Tuple = (),
+        ode_kwargs::NamedTuple = NamedTuple(),
+        serialization::SciMLBase.EnsembleAlgorithm = EnsembleThreads(),
+        rng::AbstractRNG = Xoshiro(0),
+        theta_0_untransformed::Union{Nothing, ComponentArray} = nothing,
+        store_data_model::Bool = true)
+    fit_kwargs = (constants = constants, constants_re = constants_re, penalty = penalty,
+        ode_args = ode_args, ode_kwargs = ode_kwargs, serialization = serialization,
+        rng = rng, theta_0_untransformed = theta_0_untransformed, store_data_model = store_data_model)
     return _fit_focei(dm, method, false, args, fit_kwargs;
-                      constants=constants, constants_re=constants_re, penalty=penalty,
-                      ode_args=ode_args, ode_kwargs=ode_kwargs, serialization=serialization,
-                      rng=rng, theta_0_untransformed=theta_0_untransformed, store_data_model=store_data_model)
+        constants = constants, constants_re = constants_re, penalty = penalty,
+        ode_args = ode_args, ode_kwargs = ode_kwargs, serialization = serialization,
+        rng = rng, theta_0_untransformed = theta_0_untransformed, store_data_model = store_data_model)
 end
 
 function _fit_model(dm::DataModel, method::FOCEIMAP, args...;
-                    constants::NamedTuple=NamedTuple(),
-                    constants_re::NamedTuple=NamedTuple(),
-                    penalty::NamedTuple=NamedTuple(),
-                    ode_args::Tuple=(),
-                    ode_kwargs::NamedTuple=NamedTuple(),
-                    serialization::SciMLBase.EnsembleAlgorithm=EnsembleThreads(),
-                    rng::AbstractRNG=Xoshiro(0),
-                    theta_0_untransformed::Union{Nothing, ComponentArray}=nothing,
-                    store_data_model::Bool=true)
-    fit_kwargs = (constants=constants, constants_re=constants_re, penalty=penalty,
-                  ode_args=ode_args, ode_kwargs=ode_kwargs, serialization=serialization,
-                  rng=rng, theta_0_untransformed=theta_0_untransformed, store_data_model=store_data_model)
+        constants::NamedTuple = NamedTuple(),
+        constants_re::NamedTuple = NamedTuple(),
+        penalty::NamedTuple = NamedTuple(),
+        ode_args::Tuple = (),
+        ode_kwargs::NamedTuple = NamedTuple(),
+        serialization::SciMLBase.EnsembleAlgorithm = EnsembleThreads(),
+        rng::AbstractRNG = Xoshiro(0),
+        theta_0_untransformed::Union{Nothing, ComponentArray} = nothing,
+        store_data_model::Bool = true)
+    fit_kwargs = (constants = constants, constants_re = constants_re, penalty = penalty,
+        ode_args = ode_args, ode_kwargs = ode_kwargs, serialization = serialization,
+        rng = rng, theta_0_untransformed = theta_0_untransformed, store_data_model = store_data_model)
     return _fit_focei(dm, method, true, args, fit_kwargs;
-                      constants=constants, constants_re=constants_re, penalty=penalty,
-                      ode_args=ode_args, ode_kwargs=ode_kwargs, serialization=serialization,
-                      rng=rng, theta_0_untransformed=theta_0_untransformed, store_data_model=store_data_model)
+        constants = constants, constants_re = constants_re, penalty = penalty,
+        ode_args = ode_args, ode_kwargs = ode_kwargs, serialization = serialization,
+        rng = rng, theta_0_untransformed = theta_0_untransformed, store_data_model = store_data_model)
 end

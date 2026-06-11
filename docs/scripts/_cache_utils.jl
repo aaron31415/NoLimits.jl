@@ -1,11 +1,11 @@
 using Serialization
 
-@inline function _docs_tutorial_env_is_true(name::AbstractString, default::Bool=false)
+@inline function _docs_tutorial_env_is_true(name::AbstractString, default::Bool = false)
     value = lowercase(strip(get(ENV, name, default ? "true" : "false")))
     return value in ("1", "true", "yes", "on")
 end
 
-@inline function _docs_tutorial_env_is_false(name::AbstractString, default::Bool=false)
+@inline function _docs_tutorial_env_is_false(name::AbstractString, default::Bool = false)
     value = lowercase(strip(get(ENV, name, default ? "false" : "true")))
     return value in ("0", "false", "no", "off")
 end
@@ -54,10 +54,11 @@ function load_or_compute_tutorial_cache(cache_key::AbstractString, compute_fn::F
             return deserialize(cache_file)
         catch err
             if docs_tutorials_debug_cache()
-                @warn "Failed to deserialize tutorial cache. Recomputing." cache_file exception=(err, catch_backtrace())
+                @warn "Failed to deserialize tutorial cache. Recomputing." cache_file exception=(
+                    err, catch_backtrace())
             end
             try
-                rm(cache_file; force=true)
+                rm(cache_file; force = true)
             catch
             end
         end
@@ -70,7 +71,8 @@ function load_or_compute_tutorial_cache(cache_key::AbstractString, compute_fn::F
             write_tutorial_cache(cache_key, payload)
         catch err
             if docs_tutorials_debug_cache()
-                @warn "Failed to write tutorial cache." cache_file exception=(err, catch_backtrace())
+                @warn "Failed to write tutorial cache." cache_file exception=(
+                    err, catch_backtrace())
             end
         end
     end

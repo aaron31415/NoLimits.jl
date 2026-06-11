@@ -8,9 +8,9 @@ using Random
 using NormalizingFlows
 using FunctionChains
 
-
 export AbstractParameterBlock
-export RealNumber, RealVector, RealPSDMatrix, RealDiagonalMatrix, NNParameters, NPFParameter, SoftTreeParameters, SplineParameters
+export RealNumber, RealVector, RealPSDMatrix, RealDiagonalMatrix, NNParameters,
+       NPFParameter, SoftTreeParameters, SplineParameters
 export ProbabilityVector, DiscreteTransitionMatrix, ContinuousTransitionMatrix
 export Priorless
 
@@ -53,7 +53,7 @@ A scalar real-valued fixed-effect parameter block.
 - `prior = Priorless()`: prior distribution (`Distributions.Distribution`) or `Priorless()`.
 - `calculate_se::Bool = true`: whether to include this parameter in standard-error calculations.
 """
-@with_kw struct RealNumber{T<:Real} <: AbstractParameterBlock
+@with_kw struct RealNumber{T <: Real} <: AbstractParameterBlock
     name::Symbol = :unnamed
     value::T
     scale::Symbol = :identity
@@ -64,22 +64,27 @@ A scalar real-valued fixed-effect parameter block.
 end
 
 function RealNumber(value::Real; name::Symbol = :unnamed, scale::Symbol = :identity,
-    lower::Real = -Inf, upper::Real = Inf, prior = Priorless(), calculate_se::Bool = true)
+        lower::Real = -Inf, upper::Real = Inf, prior = Priorless(), calculate_se::Bool = true)
     _check_prior(prior, name)
-    scale in REAL_SCALES || error("Invalid scale for parameter $(name). Expected one of $(REAL_SCALES); got $(scale).")
+    scale in REAL_SCALES ||
+        error("Invalid scale for parameter $(name). Expected one of $(REAL_SCALES); got $(scale).")
     scale == :log && lower == -Inf && (lower = EPSILON)
-    lower < upper || error("Invalid bounds for parameter $(name). Expected lower < upper; got lower=$(lower), upper=$(upper).")
+    lower < upper ||
+        error("Invalid bounds for parameter $(name). Expected lower < upper; got lower=$(lower), upper=$(upper).")
     if scale == :log
-        lower >= 0 || error("Invalid lower bound for parameter $(name). Expected lower > 0 for scale :log; got lower=$(lower).")
+        lower >= 0 ||
+            error("Invalid lower bound for parameter $(name). Expected lower > 0 for scale :log; got lower=$(lower).")
     end
     if scale == :logit
-        (value > 0 && value < 1) || error("Invalid initial value for parameter $(name). Expected value ∈ (0, 1) for scale :logit; got value=$(value).")
+        (value > 0 && value < 1) ||
+            error("Invalid initial value for parameter $(name). Expected value ∈ (0, 1) for scale :logit; got value=$(value).")
     end
     T = value isa AbstractFloat ? typeof(value) : Float64
     v = T(value)
     l = T(lower)
     u = T(upper)
-    v >= l && v <= u || error("Initial value out of bounds for parameter $(name). Expected $(l) ≤ value ≤ $(u); got value=$(v).")
+    v >= l && v <= u ||
+        error("Initial value out of bounds for parameter $(name). Expected $(l) ≤ value ≤ $(u); got value=$(v).")
     return RealNumber{T}(name, v, scale, l, u, prior, calculate_se)
 end
 
@@ -102,7 +107,7 @@ A vector of real-valued fixed-effect parameters with per-element scale options.
   matching length, or `Priorless()`.
 - `calculate_se::Bool = true`: whether to include this parameter in standard-error calculations.
 """
-@with_kw struct RealVector{T<:Real, VT<:AbstractVector{T}} <: AbstractParameterBlock
+@with_kw struct RealVector{T <: Real, VT <: AbstractVector{T}} <: AbstractParameterBlock
     name::Symbol = :unnamed
     value::VT
     scale::Vector{Symbol} = fill(:identity, length(value))
@@ -113,14 +118,15 @@ A vector of real-valued fixed-effect parameters with per-element scale options.
 end
 
 function RealVector(value::AbstractVector{<:Real};
-    name::Symbol = :unnamed,
-    scale = fill(:identity, length(value)),
-    lower = fill(-Inf, length(value)),
-    upper = fill(Inf, length(value)),
-    prior = Priorless(),
-    calculate_se::Bool = true)
+        name::Symbol = :unnamed,
+        scale = fill(:identity, length(value)),
+        lower = fill(-Inf, length(value)),
+        upper = fill(Inf, length(value)),
+        prior = Priorless(),
+        calculate_se::Bool = true)
     _check_prior(prior, name)
-    all(s -> s in REAL_SCALES, scale) || error("Invalid scale for parameter $(name). Expected each scale in $(REAL_SCALES); got $(scale).")
+    all(s -> s in REAL_SCALES, scale) ||
+        error("Invalid scale for parameter $(name). Expected each scale in $(REAL_SCALES); got $(scale).")
     s = collect(scale)
     if any(s .== :log)
         lower = map((l, sc) -> (sc == :log && l == -Inf) ? EPSILON : l, lower, s)
@@ -136,10 +142,14 @@ function RealVector(value::AbstractVector{<:Real};
     l = T.(lower)
     u = T.(upper)
 
-    length(v) == length(s) || error("Scale length mismatch for parameter $(name). Expected length $(length(v)); got $(length(s)).")
-    length(v) == length(l) || error("Lower bound length mismatch for parameter $(name). Expected length $(length(v)); got $(length(l)).")
-    length(v) == length(u) || error("Upper bound length mismatch for parameter $(name). Expected length $(length(v)); got $(length(u)).")
-    all(l .< u) || error("Invalid bounds for parameter $(name). Expected all lower < upper; got lower=$(l), upper=$(u).")
+    length(v) == length(s) ||
+        error("Scale length mismatch for parameter $(name). Expected length $(length(v)); got $(length(s)).")
+    length(v) == length(l) ||
+        error("Lower bound length mismatch for parameter $(name). Expected length $(length(v)); got $(length(l)).")
+    length(v) == length(u) ||
+        error("Upper bound length mismatch for parameter $(name). Expected length $(length(v)); got $(length(u)).")
+    all(l .< u) ||
+        error("Invalid bounds for parameter $(name). Expected all lower < upper; got lower=$(l), upper=$(u).")
     for (idx, (sc, lb)) in enumerate(zip(s, l))
         if sc == :log && lb < 0
             error("Invalid lower bound for parameter $(name) at index $(idx). Expected lower > 0 for scale :log; got lower=$(lb).")
@@ -171,7 +181,7 @@ automatically satisfied.
 - `prior = Priorless()`: a `Distributions.Distribution` (e.g. `Wishart`) or `Priorless()`.
 - `calculate_se::Bool = false`: whether to include this parameter in standard-error calculations.
 """
-@with_kw struct RealPSDMatrix{T<:Real, MT<:AbstractMatrix{T}} <: AbstractParameterBlock
+@with_kw struct RealPSDMatrix{T <: Real, MT <: AbstractMatrix{T}} <: AbstractParameterBlock
     name::Symbol = :unnamed
     value::MT
     scale::Symbol = :cholesky
@@ -186,12 +196,14 @@ function _is_psd(mat::AbstractMatrix{<:Real}; atol::Real = EPSILON)
 end
 
 function RealPSDMatrix(value::AbstractMatrix{<:Real}; name::Symbol = :unnamed,
-    scale::Symbol = :cholesky, prior = Priorless(), calculate_se::Bool = false)
+        scale::Symbol = :cholesky, prior = Priorless(), calculate_se::Bool = false)
     _check_prior(prior, name)
-    scale in PSD_SCALES || error("Invalid scale for parameter $(name). Expected one of $(PSD_SCALES); got $(scale).")
+    scale in PSD_SCALES ||
+        error("Invalid scale for parameter $(name). Expected one of $(PSD_SCALES); got $(scale).")
     T = eltype(value) <: AbstractFloat ? eltype(value) : Float64
     v = T.(value)
-    _is_psd(v) || error("Invalid initial value for parameter $(name). Expected symmetric positive semi-definite matrix; got matrix with min eigenvalue $(minimum(eigen(Symmetric(v)).values)).")
+    _is_psd(v) ||
+        error("Invalid initial value for parameter $(name). Expected symmetric positive semi-definite matrix; got matrix with min eigenvalue $(minimum(eigen(Symmetric(v)).values)).")
     return RealPSDMatrix{T, typeof(v)}(name, v, scale, prior, calculate_se)
 end
 
@@ -214,7 +226,8 @@ log scale.
 - `prior = Priorless()`: a `Distributions.Distribution` or `Priorless()`.
 - `calculate_se::Bool = false`: whether to include this parameter in standard-error calculations.
 """
-@with_kw struct RealDiagonalMatrix{T<:Real, VT<:AbstractVector{T}} <: AbstractParameterBlock
+@with_kw struct RealDiagonalMatrix{T <: Real, VT <: AbstractVector{T}} <:
+                AbstractParameterBlock
     name::Symbol = :unnamed
     value::VT
     scale::Symbol = :identity
@@ -223,22 +236,26 @@ log scale.
 end
 
 function RealDiagonalMatrix(value::AbstractVector{<:Real}; name::Symbol = :unnamed,
-    scale::Symbol = :log, prior = Priorless(), calculate_se::Bool = false)
+        scale::Symbol = :log, prior = Priorless(), calculate_se::Bool = false)
     _check_prior(prior, name)
-    scale in DIAGONAL_SCALES || error("Invalid scale for parameter $(name). Expected one of $(DIAGONAL_SCALES); got $(scale).")
+    scale in DIAGONAL_SCALES ||
+        error("Invalid scale for parameter $(name). Expected one of $(DIAGONAL_SCALES); got $(scale).")
     T = eltype(value) <: AbstractFloat ? eltype(value) : Float64
     v = T.(value)
-    all(v .> 0) || error("Invalid diagonal values for parameter $(name). Expected all entries > 0 for scale :log; got values=$(v).")
+    all(v .> 0) ||
+        error("Invalid diagonal values for parameter $(name). Expected all entries > 0 for scale :log; got values=$(v).")
     return RealDiagonalMatrix{T, typeof(v)}(name, v, scale, prior, calculate_se)
 end
 
 function RealDiagonalMatrix(value::AbstractMatrix{<:Real}; name::Symbol = :unnamed,
-    scale::Symbol = :log, prior = Priorless(), calculate_se::Bool = false)
+        scale::Symbol = :log, prior = Priorless(), calculate_se::Bool = false)
     diag_only = Diagonal(value)
-    if !isapprox(Matrix(diag_only), Matrix(value); atol=zero(eltype(value)), rtol=zero(eltype(value)))
+    if !isapprox(Matrix(diag_only), Matrix(value);
+        atol = zero(eltype(value)), rtol = zero(eltype(value)))
         @warn "RealDiagonalMatrix received a matrix with non-zero off-diagonals for parameter $(name). Using diagonal entries only."
     end
-    return RealDiagonalMatrix(diag(value); name=name, scale=scale, prior=prior, calculate_se=calculate_se)
+    return RealDiagonalMatrix(
+        diag(value); name = name, scale = scale, prior = prior, calculate_se = calculate_se)
 end
 
 """
@@ -269,7 +286,8 @@ the fixed-effects `ComponentArray`.
   the number of parameters, or a multivariate `Distribution` with matching `length`.
 - `calculate_se::Bool = false`: whether to include this parameter in standard-error calculations.
 """
-@with_kw struct NNParameters{T<:Real, VT<:AbstractVector{T}, C, R} <: AbstractParameterBlock
+@with_kw struct NNParameters{T <: Real, VT <: AbstractVector{T}, C, R} <:
+                AbstractParameterBlock
     name::Symbol = :unnamed
     function_name::Symbol
     chain::C
@@ -281,8 +299,9 @@ the fixed-effects `ComponentArray`.
     calculate_se::Bool = false
 end
 
-function NNParameters(chain; name::Symbol = :unnamed, function_name::Symbol, seed::Integer = 0,
-    prior = Priorless(), calculate_se::Bool = false)
+function NNParameters(
+        chain; name::Symbol = :unnamed, function_name::Symbol, seed::Integer = 0,
+        prior = Priorless(), calculate_se::Bool = false)
     if !isa(chain, Lux.Chain)
         error("Invalid chain for parameter $(name). Expected a `Lux.Chain` or a `SimpleChains.SimpleChain`; got $(typeof(chain)).")
     end
@@ -294,7 +313,8 @@ function NNParameters(chain; name::Symbol = :unnamed, function_name::Symbol, see
     l = fill(T(-Inf), length(v))
     u = fill(T(Inf), length(v))
     _check_nn_prior(prior, name, length(v))
-    return NNParameters{T, typeof(v), typeof(chain), typeof(reconstructor)}(name, function_name, chain, v, reconstructor, l, u, prior, calculate_se)
+    return NNParameters{T, typeof(v), typeof(chain), typeof(reconstructor)}(
+        name, function_name, chain, v, reconstructor, l, u, prior, calculate_se)
 end
 
 """
@@ -306,8 +326,9 @@ round-trip); at runtime the network is evaluated directly as `chain(input, θ_sl
 are initialised as `Float64`. This backend is ForwardDiff-compatible but **not**
 Enzyme-differentiable — see the main [`NNParameters`](@ref) docstring for the full caveat.
 """
-function NNParameters(chain::SimpleChain; name::Symbol = :unnamed, function_name::Symbol, seed::Integer = 0,
-    prior = Priorless(), calculate_se::Bool = false)
+function NNParameters(chain::SimpleChain; name::Symbol = :unnamed,
+        function_name::Symbol, seed::Integer = 0,
+        prior = Priorless(), calculate_se::Bool = false)
     T = Float64
     v = Vector{T}(SimpleChains.init_params(chain, T; rng = Xoshiro(seed)))
     l = fill(T(-Inf), length(v))
@@ -316,7 +337,8 @@ function NNParameters(chain::SimpleChain; name::Symbol = :unnamed, function_name
     # SimpleChains parameters are already flat; the `reconstructor` field is unused for this
     # backend (the model-function builder in FixedEffects.jl calls `chain(x, θ)` directly), so
     # it is set to `identity`.
-    return NNParameters{T, typeof(v), typeof(chain), typeof(identity)}(name, function_name, chain, v, identity, l, u, prior, calculate_se)
+    return NNParameters{T, typeof(v), typeof(chain), typeof(identity)}(
+        name, function_name, chain, v, identity, l, u, prior, calculate_se)
 end
 
 """
@@ -343,7 +365,8 @@ base distribution. Parameters are stored as a flat real vector.
 - `prior = Priorless()`: `Priorless()`, a `Vector{Distribution}`, or a multivariate `Distribution`.
 - `calculate_se::Bool = false`: whether to include this parameter in standard-error calculations.
 """
-@with_kw struct NPFParameter{T<:Real, VT<:AbstractVector{T}, R, BD} <: AbstractParameterBlock
+@with_kw struct NPFParameter{T <: Real, VT <: AbstractVector{T}, R, BD} <:
+                AbstractParameterBlock
     name::Symbol = :unnamed
     n_input::Int
     n_layers::Int
@@ -358,12 +381,15 @@ base distribution. Parameters are stored as a flat real vector.
     calculate_se::Bool = false
 end
 
-function NPFParameter(n_input::Integer, n_layers::Integer; name::Symbol = :unnamed, seed::Integer = 0,
-    init::Function = x -> sqrt((1 / n_input)) .* x, base_dist = nothing,
-    weights::Union{AbstractVector, Nothing} = nothing,
-    prior = Priorless(), calculate_se::Bool = false)
-    n_input > 0 || error("Invalid n_input for parameter $(name). Expected n_input > 0; got $(n_input).")
-    n_layers > 0 || error("Invalid n_layers for parameter $(name). Expected n_layers > 0; got $(n_layers).")
+function NPFParameter(
+        n_input::Integer, n_layers::Integer; name::Symbol = :unnamed, seed::Integer = 0,
+        init::Function = x -> sqrt((1 / n_input)) .* x, base_dist = nothing,
+        weights::Union{AbstractVector, Nothing} = nothing,
+        prior = Priorless(), calculate_se::Bool = false)
+    n_input > 0 ||
+        error("Invalid n_input for parameter $(name). Expected n_input > 0; got $(n_input).")
+    n_layers > 0 ||
+        error("Invalid n_layers for parameter $(name). Expected n_layers > 0; got $(n_layers).")
     rng = Xoshiro(seed)
     d = Int(n_input)
     Ls = [PlanarLayer(d, init) for _ in 1:Int(n_layers)]
@@ -371,7 +397,8 @@ function NPFParameter(n_input::Integer, n_layers::Integer; name::Symbol = :unnam
     flat, reconstructor = Optimisers.destructure(ts)
     T = eltype(flat) <: AbstractFloat ? eltype(flat) : Float64
     if !isnothing(weights)
-        length(weights) == length(flat) || error("Provided weights length ($(length(weights))) does not match expected flat parameter length ($(length(flat))) for parameter $(name).")
+        length(weights) == length(flat) ||
+            error("Provided weights length ($(length(weights))) does not match expected flat parameter length ($(length(flat))) for parameter $(name).")
         v = T.(weights)
     else
         v = T.(flat)
@@ -380,7 +407,9 @@ function NPFParameter(n_input::Integer, n_layers::Integer; name::Symbol = :unnam
     u = fill(T(Inf), length(v))
     _check_nn_prior(prior, name, length(v))
     resolved_base = isnothing(base_dist) ? MvNormal(zeros(T, d), I) : base_dist
-    return NPFParameter{T, typeof(v), typeof(reconstructor), typeof(resolved_base)}(name, d, Int(n_layers), Int(seed), init, v, reconstructor, resolved_base, l, u, prior, calculate_se)
+    return NPFParameter{T, typeof(v), typeof(reconstructor), typeof(resolved_base)}(
+        name, d, Int(n_layers), Int(seed), init, v,
+        reconstructor, resolved_base, l, u, prior, calculate_se)
 end
 
 """
@@ -402,7 +431,8 @@ are initialised to zero. Inside model blocks the spline is evaluated as
 - `prior = Priorless()`: `Priorless()`, a `Vector{Distribution}`, or a multivariate `Distribution`.
 - `calculate_se::Bool = false`: whether to include this parameter in standard-error calculations.
 """
-@with_kw struct SplineParameters{T<:Real, VT<:AbstractVector{T}} <: AbstractParameterBlock
+@with_kw struct SplineParameters{T <: Real, VT <: AbstractVector{T}} <:
+                AbstractParameterBlock
     name::Symbol = :unnamed
     function_name::Symbol
     knots::Vector{T}
@@ -415,18 +445,21 @@ are initialised to zero. Inside model blocks the spline is evaluated as
 end
 
 function SplineParameters(knots::AbstractVector{<:Real}; name::Symbol = :unnamed,
-    function_name::Symbol, degree::Integer = 3, prior = Priorless(), calculate_se::Bool = false)
+        function_name::Symbol, degree::Integer = 3, prior = Priorless(), calculate_se::Bool = false)
     _check_prior(prior, name)
-    degree >= 0 || error("Invalid degree for parameter $(name). Expected degree >= 0; got $(degree).")
+    degree >= 0 ||
+        error("Invalid degree for parameter $(name). Expected degree >= 0; got $(degree).")
     n = length(knots) - Int(degree) - 1
-    n > 0 || error("Invalid knots/degree for parameter $(name). Expected length(knots) > degree+1; got length(knots)=$(length(knots)), degree=$(degree).")
+    n > 0 ||
+        error("Invalid knots/degree for parameter $(name). Expected length(knots) > degree+1; got length(knots)=$(length(knots)), degree=$(degree).")
     T = eltype(knots) <: AbstractFloat ? eltype(knots) : Float64
     k = T.(knots)
     v = zeros(T, n)
     l = fill(T(-Inf), n)
     u = fill(T(Inf), n)
     _check_nn_prior(prior, name, n)
-    return SplineParameters{T, typeof(v)}(name, function_name, collect(k), Int(degree), v, l, u, prior, calculate_se)
+    return SplineParameters{T, typeof(v)}(
+        name, function_name, collect(k), Int(degree), v, l, u, prior, calculate_se)
 end
 """
     SoftTreeParameters(input_dim, depth; name, function_name, n_output, seed, prior, calculate_se) -> SoftTreeParameters
@@ -449,7 +482,8 @@ the tree is called as `function_name(x, θ_slice)`.
 - `prior = Priorless()`: `Priorless()`, a `Vector{Distribution}`, or a multivariate `Distribution`.
 - `calculate_se::Bool = false`: whether to include this parameter in standard-error calculations.
 """
-@with_kw struct SoftTreeParameters{T<:Real, VT<:AbstractVector{T}, R} <: AbstractParameterBlock
+@with_kw struct SoftTreeParameters{T <: Real, VT <: AbstractVector{T}, R} <:
+                AbstractParameterBlock
     name::Symbol = :unnamed
     function_name::Symbol
     input_dim::Int
@@ -465,11 +499,14 @@ the tree is called as `function_name(x, θ_slice)`.
 end
 
 function SoftTreeParameters(input_dim::Integer, depth::Integer; name::Symbol = :unnamed,
-    function_name::Symbol, n_output::Integer = 1, seed::Integer = 0,
-    prior = Priorless(), calculate_se::Bool = false)
-    input_dim > 0 || error("Invalid input_dim for parameter $(name). Expected input_dim > 0; got $(input_dim).")
-    depth > 0 || error("Invalid depth for parameter $(name). Expected depth > 0; got $(depth).")
-    n_output > 0 || error("Invalid n_output for parameter $(name). Expected n_output > 0; got $(n_output).")
+        function_name::Symbol, n_output::Integer = 1, seed::Integer = 0,
+        prior = Priorless(), calculate_se::Bool = false)
+    input_dim > 0 ||
+        error("Invalid input_dim for parameter $(name). Expected input_dim > 0; got $(input_dim).")
+    depth > 0 ||
+        error("Invalid depth for parameter $(name). Expected depth > 0; got $(depth).")
+    n_output > 0 ||
+        error("Invalid n_output for parameter $(name). Expected n_output > 0; got $(n_output).")
 
     tree = SoftTree(Int(input_dim), Int(depth), Int(n_output))
     params = init_params(tree, Xoshiro(seed))
@@ -479,7 +516,9 @@ function SoftTreeParameters(input_dim::Integer, depth::Integer; name::Symbol = :
     l = fill(T(-Inf), length(v))
     u = fill(T(Inf), length(v))
     _check_nn_prior(prior, name, length(v))
-    return SoftTreeParameters{T, typeof(v), typeof(recon)}(name, function_name, Int(input_dim), Int(depth), Int(n_output), Int(seed), v, recon, l, u, prior, calculate_se)
+    return SoftTreeParameters{T, typeof(v), typeof(recon)}(
+        name, function_name, Int(input_dim), Int(depth),
+        Int(n_output), Int(seed), v, recon, l, u, prior, calculate_se)
 end
 
 """
@@ -500,7 +539,8 @@ maps the simplex to `k-1` unconstrained reals.
 - `prior = Priorless()`: a `Distributions.Distribution` or `Priorless()`.
 - `calculate_se::Bool = true`: whether to include this parameter in standard-error calculations.
 """
-@with_kw struct ProbabilityVector{T<:Real, VT<:AbstractVector{T}} <: AbstractParameterBlock
+@with_kw struct ProbabilityVector{T <: Real, VT <: AbstractVector{T}} <:
+                AbstractParameterBlock
     name::Symbol = :unnamed
     value::VT
     scale::Symbol = :stickbreak
@@ -509,19 +549,23 @@ maps the simplex to `k-1` unconstrained reals.
 end
 
 function ProbabilityVector(value::AbstractVector{<:Real};
-    name::Symbol = :unnamed,
-    scale::Symbol = :stickbreak,
-    prior = Priorless(),
-    calculate_se::Bool = true)
+        name::Symbol = :unnamed,
+        scale::Symbol = :stickbreak,
+        prior = Priorless(),
+        calculate_se::Bool = true)
     _check_prior(prior, name)
-    scale in PROBABILITY_SCALES || error("Invalid scale for parameter $(name). Expected one of $(PROBABILITY_SCALES); got $(scale).")
-    length(value) >= 2 || error("ProbabilityVector for parameter $(name) requires at least 2 elements; got $(length(value)).")
+    scale in PROBABILITY_SCALES ||
+        error("Invalid scale for parameter $(name). Expected one of $(PROBABILITY_SCALES); got $(scale).")
+    length(value) >= 2 ||
+        error("ProbabilityVector for parameter $(name) requires at least 2 elements; got $(length(value)).")
     T = eltype(value) <: AbstractFloat ? eltype(value) : Float64
     v = T.(value)
-    all(v .>= 0) || error("All entries of ProbabilityVector for parameter $(name) must be non-negative.")
+    all(v .>= 0) ||
+        error("All entries of ProbabilityVector for parameter $(name) must be non-negative.")
     s = sum(v)
     atol = T(1e-6)
-    abs(s - one(T)) <= atol || error("ProbabilityVector for parameter $(name) must sum to 1 (within 1e-6); got sum=$(s).")
+    abs(s - one(T)) <= atol ||
+        error("ProbabilityVector for parameter $(name) must sum to 1 (within 1e-6); got sum=$(s).")
     v = v ./ s   # silent normalisation
     return ProbabilityVector{T, typeof(v)}(name, v, scale, prior, calculate_se)
 end
@@ -543,7 +587,8 @@ stick-breaking transform, yielding `n*(n-1)` unconstrained reals.
 - `prior = Priorless()`: a `Distributions.Distribution` or `Priorless()`.
 - `calculate_se::Bool = true`: whether to include this parameter in standard-error calculations.
 """
-@with_kw struct DiscreteTransitionMatrix{T<:Real, MT<:AbstractMatrix{T}} <: AbstractParameterBlock
+@with_kw struct DiscreteTransitionMatrix{T <: Real, MT <: AbstractMatrix{T}} <:
+                AbstractParameterBlock
     name::Symbol = :unnamed
     value::MT
     scale::Symbol = :stickbreakrows
@@ -552,21 +597,26 @@ stick-breaking transform, yielding `n*(n-1)` unconstrained reals.
 end
 
 function DiscreteTransitionMatrix(value::AbstractMatrix{<:Real};
-    name::Symbol = :unnamed,
-    scale::Symbol = :stickbreakrows,
-    prior = Priorless(),
-    calculate_se::Bool = true)
+        name::Symbol = :unnamed,
+        scale::Symbol = :stickbreakrows,
+        prior = Priorless(),
+        calculate_se::Bool = true)
     _check_prior(prior, name)
-    scale in TRANSITION_SCALES || error("Invalid scale for parameter $(name). Expected one of $(TRANSITION_SCALES); got $(scale).")
+    scale in TRANSITION_SCALES ||
+        error("Invalid scale for parameter $(name). Expected one of $(TRANSITION_SCALES); got $(scale).")
     n, m = size(value)
-    n == m || error("DiscreteTransitionMatrix for parameter $(name) must be square; got $(n)×$(m).")
-    n >= 2 || error("DiscreteTransitionMatrix for parameter $(name) requires at least 2 states; got $(n).")
+    n == m ||
+        error("DiscreteTransitionMatrix for parameter $(name) must be square; got $(n)×$(m).")
+    n >= 2 ||
+        error("DiscreteTransitionMatrix for parameter $(name) requires at least 2 states; got $(n).")
     T = eltype(value) <: AbstractFloat ? eltype(value) : Float64
     v = T.(value)
-    all(v .>= 0) || error("All entries of DiscreteTransitionMatrix for parameter $(name) must be non-negative.")
-    row_sums = sum(v; dims=2)
+    all(v .>= 0) ||
+        error("All entries of DiscreteTransitionMatrix for parameter $(name) must be non-negative.")
+    row_sums = sum(v; dims = 2)
     atol = T(1e-6)
-    all(abs.(row_sums .- one(T)) .<= atol) || error("Each row of DiscreteTransitionMatrix for parameter $(name) must sum to 1 (within 1e-6); got row sums=$(vec(row_sums)).")
+    all(abs.(row_sums .- one(T)) .<= atol) ||
+        error("Each row of DiscreteTransitionMatrix for parameter $(name) must sum to 1 (within 1e-6); got row sums=$(vec(row_sums)).")
     v = v ./ row_sums   # silent row-wise normalisation
     return DiscreteTransitionMatrix{T, typeof(v)}(name, v, scale, prior, calculate_se)
 end
@@ -595,7 +645,8 @@ and is not an independent free parameter.
 - `prior = Priorless()`: a `Distributions.Distribution` or `Priorless()`.
 - `calculate_se::Bool = true`: whether to include this parameter in standard-error calculations.
 """
-@with_kw struct ContinuousTransitionMatrix{T<:Real, MT<:AbstractMatrix{T}} <: AbstractParameterBlock
+@with_kw struct ContinuousTransitionMatrix{T <: Real, MT <: AbstractMatrix{T}} <:
+                AbstractParameterBlock
     name::Symbol = :unnamed
     value::MT
     scale::Symbol = :lograterows
@@ -604,22 +655,26 @@ and is not an independent free parameter.
 end
 
 function ContinuousTransitionMatrix(value::AbstractMatrix{<:Real};
-    name::Symbol = :unnamed,
-    scale::Symbol = :lograterows,
-    prior = Priorless(),
-    calculate_se::Bool = true)
+        name::Symbol = :unnamed,
+        scale::Symbol = :lograterows,
+        prior = Priorless(),
+        calculate_se::Bool = true)
     _check_prior(prior, name)
-    scale in RATE_MATRIX_SCALES || error("Invalid scale for parameter $(name). Expected one of $(RATE_MATRIX_SCALES); got $(scale).")
+    scale in RATE_MATRIX_SCALES ||
+        error("Invalid scale for parameter $(name). Expected one of $(RATE_MATRIX_SCALES); got $(scale).")
     n, m = size(value)
-    n == m || error("ContinuousTransitionMatrix for parameter $(name) must be square; got $(n)×$(m).")
-    n >= 2 || error("ContinuousTransitionMatrix for parameter $(name) requires at least 2 states; got $(n).")
+    n == m ||
+        error("ContinuousTransitionMatrix for parameter $(name) must be square; got $(n)×$(m).")
+    n >= 2 ||
+        error("ContinuousTransitionMatrix for parameter $(name) requires at least 2 states; got $(n).")
     T = eltype(value) <: AbstractFloat ? eltype(value) : Float64
     v = T.(value)
     # Validate off-diagonals: must be non-negative.
     for i in 1:n
         for j in 1:n
             i == j && continue
-            v[i, j] >= zero(T) || error("ContinuousTransitionMatrix for parameter $(name): off-diagonal entry Q[$(i),$(j)] must be non-negative; got $(v[i,j]).")
+            v[i, j] >= zero(T) ||
+                error("ContinuousTransitionMatrix for parameter $(name): off-diagonal entry Q[$(i),$(j)] must be non-negative; got $(v[i,j]).")
         end
     end
     # Always recompute diagonal from off-diagonals (diagonal is a derived quantity).
@@ -639,13 +694,15 @@ end
 function _check_nn_prior(prior, name::Symbol, n::Integer)
     prior isa Priorless && return nothing
     if prior isa AbstractVector{<:Distribution}
-        length(prior) == n || error("Invalid prior for parameter $(name). Expected length $(n); got $(length(prior)).")
+        length(prior) == n ||
+            error("Invalid prior for parameter $(name). Expected length $(n); got $(length(prior)).")
         return nothing
     end
     if prior isa Distribution
         if hasmethod(length, Tuple{typeof(prior)})
             d = length(prior)
-            d == n || error("Invalid prior for parameter $(name). Expected distribution length $(n); got $(d).")
+            d == n ||
+                error("Invalid prior for parameter $(name). Expected distribution length $(n); got $(d).")
             return nothing
         end
         error("Invalid prior for parameter $(name). Expected a vector of Distributions with length $(n) or a Distribution with length $(n); got $(typeof(prior)).")

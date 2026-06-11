@@ -8,7 +8,7 @@ using Statistics
 @testset "UQ distribution plotting with draws" begin
     rng = Random.Xoshiro(101)
     draws = randn(rng, 300, 2)
-    est = vec(mean(draws; dims=1))
+    est = vec(mean(draws; dims = 1))
     lower = [quantile(view(draws, :, 1), 0.025), quantile(view(draws, :, 2), 0.025)]
     upper = [quantile(view(draws, :, 1), 0.975), quantile(view(draws, :, 2), 0.975)]
     ints = UQIntervals(0.95, lower, upper)
@@ -27,32 +27,34 @@ using Statistics
         V,
         draws,
         draws,
-        (; vcov=:hessian)
+        (; vcov = :hessian)
     )
 
-    p_all = @test_logs (:info, r"sampling \+ KDE") plot_uq_distributions(uq; scale=:natural)
+    p_all = @test_logs (:info, r"sampling \+ KDE") plot_uq_distributions(
+        uq; scale = :natural)
     @test p_all !== nothing
 
     p_one = @test_logs (:info, r"sampling \+ KDE") plot_uq_distributions(uq;
-                                                                          scale=:natural,
-                                                                          parameters=[:σ],
-                                                                          ncols=1,
-                                                                          show_legend=true)
+        scale = :natural,
+        parameters = [:σ],
+        ncols = 1,
+        show_legend = true)
     @test p_one !== nothing
 
     mktempdir() do tmp
         p_path = joinpath(tmp, "plot_uq_distributions.png")
-        @test_logs (:info, r"sampling \+ KDE") plot_uq_distributions(uq; scale=:natural, plot_path=p_path)
+        @test_logs (:info, r"sampling \+ KDE") plot_uq_distributions(
+            uq; scale = :natural, plot_path = p_path)
         @test isfile(p_path)
     end
 
-    @test_throws ErrorException plot_uq_distributions(uq; parameters=[:does_not_exist])
+    @test_throws ErrorException plot_uq_distributions(uq; parameters = [:does_not_exist])
 end
 
 @testset "UQ distribution plotting supports histogram mode" begin
     rng = Random.Xoshiro(112)
     draws = randn(rng, 250, 2)
-    est = vec(mean(draws; dims=1))
+    est = vec(mean(draws; dims = 1))
     ints = UQIntervals(0.95, [-1.2, -1.0], [1.2, 1.0])
     V = Matrix(I, 2, 2)
     uq = UQResult(
@@ -68,18 +70,18 @@ end
         V,
         draws,
         draws,
-        (; vcov=:hessian)
+        (; vcov = :hessian)
     )
-    p_hist = plot_uq_distributions(uq; plot_type=:histogram, scale=:natural, ncols=1)
+    p_hist = plot_uq_distributions(uq; plot_type = :histogram, scale = :natural, ncols = 1)
     @test p_hist !== nothing
     @test p_hist.subplots[1][:yaxis][:guide] == "Wald Histogram Density"
-    @test_throws ErrorException plot_uq_distributions(uq; plot_type=:unknown)
+    @test_throws ErrorException plot_uq_distributions(uq; plot_type = :unknown)
 end
 
 @testset "UQ distribution plotting keeps exact parameter labels" begin
     rng = Random.Xoshiro(111)
     draws = randn(rng, 250, 2)
-    est = vec(mean(draws; dims=1))
+    est = vec(mean(draws; dims = 1))
     ints = UQIntervals(0.95, [-1.5, -1.2], [1.5, 1.2])
     V = Matrix(I, 2, 2)
     uq = UQResult(
@@ -95,9 +97,9 @@ end
         V,
         draws,
         draws,
-        (; vcov=:hessian)
+        (; vcov = :hessian)
     )
-    p = plot_uq_distributions(uq; scale=:natural, parameters=[:a], ncols=1)
+    p = plot_uq_distributions(uq; scale = :natural, parameters = [:a], ncols = 1)
     @test p.subplots[1][:xaxis][:guide] == "a"
     @test p.subplots[1][:title] == "a"
 end
@@ -117,9 +119,9 @@ end
         reshape([0.25], 1, 1),
         nothing,
         nothing,
-        (; vcov=:hessian)
+        (; vcov = :hessian)
     )
-    p = plot_uq_distributions(uq; scale=:transformed, ncols=1)
+    p = plot_uq_distributions(uq; scale = :transformed, ncols = 1)
     @test p !== nothing
     @test p.subplots[1][:yaxis][:guide] == "Wald Approximate Density"
 end
@@ -138,9 +140,9 @@ end
         nothing,
         nothing,
         nothing,
-        (; vcov=:hessian, coordinate_transforms=[:identity, :log])
+        (; vcov = :hessian, coordinate_transforms = [:identity, :log])
     )
-    p = plot_uq_distributions(uq; scale=:natural, ncols=1)
+    p = plot_uq_distributions(uq; scale = :natural, ncols = 1)
     @test p !== nothing
     @test p.subplots[1][:yaxis][:guide] == "Wald Approximate Density"
 end
@@ -161,17 +163,17 @@ end
         nothing,
         nothing,
         nothing,
-        (; vcov=:hessian, coordinate_transforms=[:log])
+        (; vcov = :hessian, coordinate_transforms = [:log])
     )
     p = plot_uq_distributions(uq;
-                              scale=:natural,
-                              ncols=1,
-                              show_estimate=false,
-                              show_interval=false,
-                              show_legend=false)
+        scale = :natural,
+        ncols = 1,
+        show_estimate = false,
+        show_interval = false,
+        show_legend = false)
     @test p !== nothing
     xs = p.subplots[1].series_list[1][:x]
-    @test all(x -> isapprox(x, σ_n; atol=1e-12), xs)
+    @test all(x -> isapprox(x, σ_n; atol = 1e-12), xs)
 end
 
 @testset "UQ distribution plotting uses KDE for Wald natural scale and logs fallback" begin
@@ -191,9 +193,10 @@ end
         reshape([0.04], 1, 1),
         nothing,
         draws_n,
-        (; vcov=:hessian)
+        (; vcov = :hessian)
     )
-    p = @test_logs (:info, r"sampling \+ KDE") plot_uq_distributions(uq; scale=:natural, ncols=1)
+    p = @test_logs (:info, r"sampling \+ KDE") plot_uq_distributions(
+        uq; scale = :natural, ncols = 1)
     @test p !== nothing
     @test p.subplots[1][:yaxis][:guide] == "Wald KDE Density"
 end
@@ -216,7 +219,7 @@ end
         (;)
     )
     @test_throws ErrorException plot_uq_distributions(uq_profile)
-    @test_throws ErrorException plot_uq_distributions(uq_profile; plot_type=:histogram)
+    @test_throws ErrorException plot_uq_distributions(uq_profile; plot_type = :histogram)
 end
 
 @testset "UQ distribution plotting xlims include estimate and distribution support" begin
@@ -238,15 +241,16 @@ end
         V,
         draws,
         draws,
-        (; vcov=:hessian)
+        (; vcov = :hessian)
     )
 
-    p_density = @test_logs (:info, r"sampling \+ KDE") plot_uq_distributions(uq; scale=:natural, ncols=1)
+    p_density = @test_logs (:info, r"sampling \+ KDE") plot_uq_distributions(
+        uq; scale = :natural, ncols = 1)
     xl_density = xlims(p_density.subplots[1])
     @test xl_density[1] <= minimum(draws)
     @test xl_density[2] >= est[1]
 
-    p_hist = plot_uq_distributions(uq; scale=:natural, plot_type=:histogram, ncols=1)
+    p_hist = plot_uq_distributions(uq; scale = :natural, plot_type = :histogram, ncols = 1)
     xl_hist = xlims(p_hist.subplots[1])
     @test xl_hist[1] <= minimum(draws)
     @test xl_hist[2] >= est[1]

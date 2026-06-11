@@ -5,8 +5,8 @@ import DataFrames: DataFrame, rename!, transform!, groupby, combine, leftjoin,
                    unstack, unique, nrow, select!
 
 const _WARFARIN_MONOLIX_URL = "https://monolixsuite.slp-software.com/__attachments/" *
-    "a_44285f45df8e1b4242acd496410a6dc60ad42b6b4eded11a2ed4c760015ae9dd/" *
-    "warfarin_data.txt?cb=71a33cd5079262af4e0b83e495043d52"
+                              "a_44285f45df8e1b4242acd496410a6dc60ad42b6b4eded11a2ed4c760015ae9dd/" *
+                              "warfarin_data.txt?cb=71a33cd5079262af4e0b83e495043d52"
 
 function _prepare_warfarin_df(df::DataFrame)
     DataFrames.rename!(df, :amt => :d, :time => :t)
@@ -27,7 +27,7 @@ function _prepare_warfarin_df(df::DataFrame)
 
     df = DataFrames.combine(
         DataFrames.groupby(df, [:id, :t, :d, :dvid, :wt, :sex, :age, :R0]),
-        :dv => mean => :dv,
+        :dv => mean => :dv
     )
 
     df = DataFrames.unstack(df, [:id, :t, :d, :wt, :sex, :age, :R0], :dvid, :dv)

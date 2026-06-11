@@ -24,11 +24,11 @@ import NoLimits: loglikelihood
 
         @covariates begin
             t = Covariate()
-            x = ConstantCovariateVector([:Age]; constant_on=:ID)
+            x = ConstantCovariateVector([:Age]; constant_on = :ID)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -44,7 +44,7 @@ import NoLimits: loglikelihood
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     θ = get_θ0_untransformed(model.fixed.fixed)
     η_list = [ComponentArray(η = 0.1), ComponentArray(η = -0.1)]
 
@@ -69,7 +69,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @preDifferentialEquation begin
@@ -95,8 +95,8 @@ end
         y = [1.0, 1.1]
     )
 
-    model_saveat = set_solver_config(model; saveat_mode=:saveat)
-    dm = DataModel(model_saveat, df; primary_id=:ID, time_col=:t)
+    model_saveat = set_solver_config(model; saveat_mode = :saveat)
+    dm = DataModel(model_saveat, df; primary_id = :ID, time_col = :t)
     θ = get_θ0_untransformed(model_saveat.fixed.fixed)
     η_list = [ComponentArray((η = 0.2,))]
 
@@ -117,7 +117,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -131,13 +131,14 @@ end
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     θ = get_θ0_untransformed(model.fixed.fixed)
     η_list = [ComponentArray((η = 0.1,)), ComponentArray((η = -0.1,))]
 
     ll_serial = loglikelihood(dm, θ, η_list)
-    ll_thread = loglikelihood(dm, θ, η_list; serialization=EnsembleThreads())
-    ll_thread_cached = loglikelihood(dm, θ, η_list; serialization=EnsembleThreads(), cache=build_ll_cache(dm; nthreads=Threads.maxthreadid()))
+    ll_thread = loglikelihood(dm, θ, η_list; serialization = EnsembleThreads())
+    ll_thread_cached = loglikelihood(dm, θ, η_list; serialization = EnsembleThreads(),
+        cache = build_ll_cache(dm; nthreads = Threads.maxthreadid()))
     @test ll_serial == ll_thread
     @test ll_serial == ll_thread_cached
 end
@@ -152,21 +153,23 @@ end
 
         @fixedEffects begin
             σ = RealNumber(0.4)
-            ζ = NNParameters(chain; function_name=:NN1, calculate_se=false)
-            Γ = SoftTreeParameters(3, 2; function_name=:ST1, calculate_se=false)
-            ψ = NPFParameter(1, 3, seed=1, calculate_se=false)
+            ζ = NNParameters(chain; function_name = :NN1, calculate_se = false)
+            Γ = SoftTreeParameters(3, 2; function_name = :ST1, calculate_se = false)
+            ψ = NPFParameter(1, 3, seed = 1, calculate_se = false)
         end
 
         @covariates begin
             t = Covariate()
-            x = ConstantCovariateVector([:Age, :BMI, :CRP]; constant_on=[:ID, :SITE])
+            x = ConstantCovariateVector([:Age, :BMI, :CRP]; constant_on = [:ID, :SITE])
         end
 
         @randomEffects begin
-            η_mv = RandomEffect(MvNormal(zeros(2), LinearAlgebra.I); column=:ID)
-            η_flow = RandomEffect(NormalizingPlanarFlow(ψ); column=:SITE)
-            η_nn = RandomEffect(LogNormal(NN1([x.Age, x.BMI, x.CRP], ζ)[1], 0.2); column=:ID)
-            η_st = RandomEffect(Gumbel(ST1([x.Age, x.BMI, x.CRP], Γ)[1], 0.3); column=:SITE)
+            η_mv = RandomEffect(MvNormal(zeros(2), LinearAlgebra.I); column = :ID)
+            η_flow = RandomEffect(NormalizingPlanarFlow(ψ); column = :SITE)
+            η_nn = RandomEffect(
+                LogNormal(NN1([x.Age, x.BMI, x.CRP], ζ)[1], 0.2); column = :ID)
+            η_st = RandomEffect(
+                Gumbel(ST1([x.Age, x.BMI, x.CRP], Γ)[1], 0.3); column = :SITE)
         end
 
         @formulas begin
@@ -185,7 +188,7 @@ end
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     θ = get_θ0_untransformed(model.fixed.fixed)
     η_list = [
         ComponentArray((η_mv = zeros(2), η_flow = 0.1, η_nn = 0.2, η_st = 0.3)),
@@ -197,7 +200,7 @@ end
 
 @testset "loglikelihood complex ODE (NN/SoftTree/Spline, multi-RE)" begin
     chain = Chain(Dense(2, 3, tanh), Dense(3, 1))
-    knots = collect(range(0.0, 1.0; length=6))
+    knots = collect(range(0.0, 1.0; length = 6))
 
     model = @Model begin
         @helpers begin
@@ -207,24 +210,26 @@ end
         @fixedEffects begin
             a = RealNumber(0.15)
             σ = RealNumber(0.35)
-            ζ = NNParameters(chain; function_name=:NN1, calculate_se=false)
-            Γ = SoftTreeParameters(2, 2; function_name=:ST1, calculate_se=false)
-            sp = SplineParameters(knots; function_name=:SP1, degree=2, calculate_se=false)
+            ζ = NNParameters(chain; function_name = :NN1, calculate_se = false)
+            Γ = SoftTreeParameters(2, 2; function_name = :ST1, calculate_se = false)
+            sp = SplineParameters(
+                knots; function_name = :SP1, degree = 2, calculate_se = false)
         end
 
         @covariates begin
             t = Covariate()
-            x = ConstantCovariateVector([:Age, :BMI]; constant_on=[:ID, :SITE])
-            w = DynamicCovariate(; interpolation=LinearInterpolation)
+            x = ConstantCovariateVector([:Age, :BMI]; constant_on = [:ID, :SITE])
+            w = DynamicCovariate(; interpolation = LinearInterpolation)
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(0.0, 1.0); column=:ID)
-            η_site = RandomEffect(Normal(0.0, 1.0); column=:SITE)
+            η_id = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            η_site = RandomEffect(Normal(0.0, 1.0); column = :SITE)
         end
 
         @preDifferentialEquation begin
-            pre = sat(NN1([x.Age, x.BMI], ζ)[1] + ST1([x.Age, x.BMI], Γ)[1]) + SP1(x.Age / 100, sp) + η_id
+            pre = sat(NN1([x.Age, x.BMI], ζ)[1] + ST1([x.Age, x.BMI], Γ)[1]) +
+                  SP1(x.Age / 100, sp) + η_id
         end
 
         @DifferentialEquation begin
@@ -250,8 +255,8 @@ end
         y = [1.0, 1.05, 1.1, 0.9, 0.95, 1.0]
     )
 
-    model_saveat = set_solver_config(model; saveat_mode=:saveat)
-    dm = DataModel(model_saveat, df; primary_id=:ID, time_col=:t)
+    model_saveat = set_solver_config(model; saveat_mode = :saveat)
+    dm = DataModel(model_saveat, df; primary_id = :ID, time_col = :t)
     θ = get_θ0_untransformed(model_saveat.fixed.fixed)
     η_list = [
         ComponentArray((η_id = 0.1, η_site = -0.1)),
@@ -277,7 +282,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -291,7 +296,7 @@ end
         y = [1.0, 1.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     θ = get_θ0_untransformed(model.fixed.fixed)
     η_list = [ComponentArray((η = 0.1,))]
 
@@ -316,7 +321,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -330,7 +335,7 @@ end
         y = [1.0, 1.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     θ = get_θ0_untransformed(model.fixed.fixed)
     η0 = ComponentArray((η = 0.1,))
 
@@ -351,7 +356,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @DifferentialEquation begin
@@ -373,8 +378,8 @@ end
         y = [1.0, 0.9]
     )
 
-    model_saveat = set_solver_config(model; saveat_mode=:saveat)
-    dm = DataModel(model_saveat, df; primary_id=:ID, time_col=:t)
+    model_saveat = set_solver_config(model; saveat_mode = :saveat)
+    dm = DataModel(model_saveat, df; primary_id = :ID, time_col = :t)
     θ = get_θ0_untransformed(model_saveat.fixed.fixed)
     η_list = [ComponentArray((η = 0.1,))]
 
@@ -395,7 +400,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @DifferentialEquation begin
@@ -417,8 +422,8 @@ end
         y = [1.0, 0.9]
     )
 
-    model_saveat = set_solver_config(model; saveat_mode=:saveat)
-    dm = DataModel(model_saveat, df; primary_id=:ID, time_col=:t)
+    model_saveat = set_solver_config(model; saveat_mode = :saveat)
+    dm = DataModel(model_saveat, df; primary_id = :ID, time_col = :t)
     θ = get_θ0_untransformed(model_saveat.fixed.fixed)
     η0 = ComponentArray((η = 0.1,))
 
@@ -454,7 +459,7 @@ end
         z = Union{Missing, Float64}[2.2, 2.0, missing]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     θ = get_θ0_untransformed(model.fixed.fixed)
     ll = loglikelihood(dm, θ, ComponentArray())
 
@@ -463,7 +468,7 @@ end
     ll_expected = logpdf(Normal(μ1, 0.5), 1.1) +
                   logpdf(Normal(μ1 + 1.0, 0.7), 2.2) +
                   logpdf(Normal(μ2 + 1.0, 0.7), 2.0)
-    @test ll ≈ ll_expected atol=1e-12
+    @test ll≈ll_expected atol=1e-12
 end
 
 @testset "loglikelihood skips missing scalar observables (ODE regression)" begin
@@ -499,8 +504,8 @@ end
         z = Union{Missing, Float64}[2.05, 1.9, missing, missing]
     )
 
-    model_saveat = set_solver_config(model; saveat_mode=:saveat)
-    dm = DataModel(model_saveat, df; primary_id=:ID, time_col=:t)
+    model_saveat = set_solver_config(model; saveat_mode = :saveat)
+    dm = DataModel(model_saveat, df; primary_id = :ID, time_col = :t)
     θ = get_θ0_untransformed(model_saveat.fixed.fixed)
     ll = loglikelihood(dm, θ, ComponentArray())
 
@@ -508,7 +513,7 @@ end
                   logpdf(Normal(2.0, 0.3), 2.05) +
                   logpdf(Normal(2.0, 0.3), 1.9) +
                   logpdf(Normal(1.0, 0.2), 0.95)
-    @test ll ≈ ll_expected atol=1e-12
+    @test ll≈ll_expected atol=1e-12
 end
 
 @testset "loglikelihood non-ODE uses row-specific random effects for varying groups" begin
@@ -523,7 +528,7 @@ end
         end
 
         @randomEffects begin
-            η_year = RandomEffect(Normal(0.0, 1.0); column=:YEAR)
+            η_year = RandomEffect(Normal(0.0, 1.0); column = :YEAR)
         end
 
         @formulas begin
@@ -538,7 +543,7 @@ end
         y = [0.05, 0.55, 0.35, -0.15, 0.2]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     θ = get_θ0_untransformed(model.fixed.fixed)
     η_list = [
         ComponentArray((; η_year = [0.1, 0.4])),
@@ -552,7 +557,7 @@ end
                   logpdf(Normal(0.1, 0.2), -0.15) +
                   logpdf(Normal(0.3, 0.2), 0.2)
 
-    @test NoLimits._needs_rowwise_random_effects(dm, 1; obs_only=true)
-    @test NoLimits._needs_rowwise_random_effects(dm, 2; obs_only=true)
-    @test ll ≈ ll_expected atol=1e-12
+    @test NoLimits._needs_rowwise_random_effects(dm, 1; obs_only = true)
+    @test NoLimits._needs_rowwise_random_effects(dm, 2; obs_only = true)
+    @test ll≈ll_expected atol=1e-12
 end

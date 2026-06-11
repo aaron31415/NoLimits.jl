@@ -40,24 +40,24 @@ struct MVContinuousTimeDiscreteStatesHMM{
     M <: AbstractMatrix{<:Real},
     E <: Tuple,
     D <: Distributions.Categorical,
-    T <: Real,
+    T <: Real
 } <: Distribution{Multivariate, Continuous}
-    n_states          :: Int
-    n_outcomes        :: Int
-    transition_matrix :: M
-    emission_dists    :: E
-    initial_dist      :: D
-    Δt                :: T
-    propagation_mode  :: Symbol
+    n_states::Int
+    n_outcomes::Int
+    transition_matrix::M
+    emission_dists::E
+    initial_dist::D
+    Δt::T
+    propagation_mode::Symbol
 end
 
 function MVContinuousTimeDiscreteStatesHMM(
-    transition_matrix :: AbstractMatrix{<:Real},
-    emission_dists    :: Tuple,
-    initial_dist      :: Distributions.Categorical,
-    Δt                :: Real,
-    ;
-    propagation_mode  :: Symbol = :auto,
+        transition_matrix::AbstractMatrix{<:Real},
+        emission_dists::Tuple,
+        initial_dist::Distributions.Categorical,
+        Δt::Real,
+        ;
+        propagation_mode::Symbol = :auto
 )
     _ct_hmm_validate_mode(propagation_mode)
     n_states = size(transition_matrix, 1)
@@ -92,7 +92,7 @@ time, propagated from `hmm.initial_dist` via `exp(Q · Δt)`.
 """
 function probabilities_hidden_states(hmm::MVContinuousTimeDiscreteStatesHMM)
     return _ct_hmm_probabilities_hidden_states(
-        hmm.transition_matrix, hmm.initial_dist.p, hmm.Δt; mode=hmm.propagation_mode)
+        hmm.transition_matrix, hmm.initial_dist.p, hmm.Δt; mode = hmm.propagation_mode)
 end
 
 """
@@ -103,8 +103,8 @@ Posterior probabilities of hidden states given the length-M observation vector
 """
 function posterior_hidden_states(hmm::MVContinuousTimeDiscreteStatesHMM, y::AbstractVector)
     p_hidden = probabilities_hidden_states(hmm)
-    p_obs    = [exp(_mv_emission_logpdf(hmm.emission_dists[k], y)) for k in 1:hmm.n_states]
-    unnorm   = p_hidden .* p_obs
+    p_obs = [exp(_mv_emission_logpdf(hmm.emission_dists[k], y)) for k in 1:(hmm.n_states)]
+    unnorm = p_hidden .* p_obs
     return unnorm ./ sum(unnorm)
 end
 
@@ -114,12 +114,13 @@ end
 
 function Distributions.logpdf(hmm::MVContinuousTimeDiscreteStatesHMM, y::AbstractVector)
     log_p = log.(probabilities_hidden_states(hmm))
-    log_l = [_mv_emission_logpdf(hmm.emission_dists[k], y) for k in 1:hmm.n_states]
+    log_l = [_mv_emission_logpdf(hmm.emission_dists[k], y) for k in 1:(hmm.n_states)]
     return _hmm_logsumexp(log_p .+ log_l)
 end
 
-Distributions.pdf(hmm::MVContinuousTimeDiscreteStatesHMM, y::AbstractVector) =
+function Distributions.pdf(hmm::MVContinuousTimeDiscreteStatesHMM, y::AbstractVector)
     exp(logpdf(hmm, y))
+end
 
 function Distributions.rand(rng::AbstractRNG, hmm::MVContinuousTimeDiscreteStatesHMM)
     state = rand(rng, Categorical(probabilities_hidden_states(hmm)))
@@ -128,7 +129,7 @@ end
 
 function Distributions.mean(hmm::MVContinuousTimeDiscreteStatesHMM)
     p = probabilities_hidden_states(hmm)
-    return sum(p[k] * _mv_emission_mean(hmm.emission_dists[k]) for k in 1:hmm.n_states)
+    return sum(p[k] * _mv_emission_mean(hmm.emission_dists[k]) for k in 1:(hmm.n_states))
 end
 
 """
@@ -140,11 +141,12 @@ covariance:
     Cov[Y] = E[Cov[Y|S]] + Cov[E[Y|S]]
 """
 function Distributions.cov(hmm::MVContinuousTimeDiscreteStatesHMM)
-    p     = probabilities_hidden_states(hmm)
-    μ_k   = [_mv_emission_mean(hmm.emission_dists[k]) for k in 1:hmm.n_states]
-    μ     = sum(p[k] * μ_k[k] for k in 1:hmm.n_states)
-    within  = sum(p[k] * Matrix(_mv_emission_cov(hmm.emission_dists[k])) for k in 1:hmm.n_states)
-    between = sum(p[k] * (μ_k[k] - μ) * (μ_k[k] - μ)' for k in 1:hmm.n_states)
+    p = probabilities_hidden_states(hmm)
+    μ_k = [_mv_emission_mean(hmm.emission_dists[k]) for k in 1:(hmm.n_states)]
+    μ = sum(p[k] * μ_k[k] for k in 1:(hmm.n_states))
+    within = sum(p[k] * Matrix(_mv_emission_cov(hmm.emission_dists[k]))
+    for k in 1:(hmm.n_states))
+    between = sum(p[k] * (μ_k[k] - μ) * (μ_k[k] - μ)' for k in 1:(hmm.n_states))
     return within + between
 end
 
@@ -152,5 +154,6 @@ Distributions.var(hmm::MVContinuousTimeDiscreteStatesHMM) = diag(cov(hmm))
 
 Base.length(hmm::MVContinuousTimeDiscreteStatesHMM) = hmm.n_outcomes
 
-Distributions.params(hmm::MVContinuousTimeDiscreteStatesHMM) =
+function Distributions.params(hmm::MVContinuousTimeDiscreteStatesHMM)
     (hmm.transition_matrix, hmm.emission_dists, hmm.initial_dist, hmm.Δt)
+end

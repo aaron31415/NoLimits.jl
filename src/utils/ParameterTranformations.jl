@@ -61,20 +61,23 @@ function (it::InverseTransform)(θ::ComponentArray)
 end
 
 # Legacy dynamic assembly (runtime names; ForwardDiff-compatible, not Enzyme-forward).
-function _assemble_ca(vals, names::Vector{Symbol}, ::Nothing, n_out::Int, ::Type{T}) where {T}
+function _assemble_ca(
+        vals, names::Vector{Symbol}, ::Nothing, n_out::Int, ::Type{T}) where {T}
     return ComponentArray(NamedTuple{Tuple(names)}(Tuple(vals)))
 end
 
 # Type-stable assembly: write the heterogeneous per-parameter values into one flat
 # vector (single up-front allocation, assigned-once slots) and wrap it with the
 # precomputed axes.
-function _assemble_ca(vals, names::Vector{Symbol}, out_axes::Tuple, n_out::Int, ::Type{T}) where {T}
+function _assemble_ca(
+        vals, names::Vector{Symbol}, out_axes::Tuple, n_out::Int, ::Type{T}) where {T}
     flat = Vector{T}(undef, n_out)
     k = 1
     for v in vals
         k = _write_flat!(flat, v, k)
     end
-    k == n_out + 1 || error("Transform output length mismatch: expected $(n_out), got $(k - 1).")
+    k == n_out + 1 ||
+        error("Transform output length mismatch: expected $(n_out), got $(k - 1).")
     return ComponentArray(flat, out_axes)
 end
 
@@ -162,7 +165,7 @@ function stickbreak_inverse(t::AbstractVector{<:Real})
     # remainders[i] = prod(1-σ[1:i-1]); remainders[1]=1, remainders[k]=prod(1-σ)
     remainders = cumprod(vcat(one(eltype(σ)), one_minus_σ))
     k1 = length(t)
-    return vcat(σ .* remainders[1:k1], remainders[k1+1:k1+1])
+    return vcat(σ .* remainders[1:k1], remainders[(k1 + 1):(k1 + 1)])
 end
 
 # Apply stickbreak_forward row-wise to an n×n matrix; returns n*(n-1) flat vector.
@@ -173,7 +176,7 @@ end
 
 # Apply stickbreak_inverse row-wise; reconstructs n×n row-stochastic matrix.
 function _stickbreakrow_inverse(t::AbstractVector{<:Real}, n::Int)
-    rows = [stickbreak_inverse(t[(i - 1) * (n - 1) + 1 : i * (n - 1)]) for i in 1:n]
+    rows = [stickbreak_inverse(t[((i - 1) * (n - 1) + 1):(i * (n - 1))]) for i in 1:n]
     reduce(vcat, [r' for r in rows])
 end
 
@@ -254,19 +257,19 @@ function _stickbreak_inv_jacobian_T(t::AbstractVector{<:Real}, g::AbstractVector
 end
 
 @inline function _scalar_forward(kind::Symbol, x::Real)
-    kind === :log   && return log(x)
+    kind === :log && return log(x)
     kind === :logit && return logit_forward(x)
     return x
 end
 
 @inline function _scalar_inverse(kind::Symbol, x::Real)
-    kind === :log   && return exp(x)
+    kind === :log && return exp(x)
     kind === :logit && return logit_inverse(x)
     return x
 end
 
 @inline function _scalar_inv_jacobian(kind::Symbol, g::Real, x::Real)
-    kind === :log   && return _safe_log_inv_jac(g, x)
+    kind === :log && return _safe_log_inv_jac(g, x)
     kind === :logit && return g * _logit_inv_jacobian(x)
     return g
 end
@@ -308,7 +311,7 @@ function _expm_frechet(A::AbstractMatrix{<:Real}, E::AbstractMatrix{<:Real})
     Z = zeros(TT, n, n)
     M = [Matrix{TT}(A) Matrix{TT}(E); Z Matrix{TT}(A)]
     EM = exp(M)
-    return EM[1:n, 1:n], EM[1:n, n+1:2n]
+    return EM[1:n, 1:n], EM[1:n, (n + 1):(2n)]
 end
 
 # ForwardDiff-aware matrix exponential of a symmetric matrix (single-level Dual).
@@ -321,7 +324,8 @@ end
 # the transform already uses and yields finite, exactly-symmetric derivatives, so the
 # reconstructed covariance is accepted by the (stricter) `cholesky` inside MvNormal/PDMats.
 # Nested Duals fall back to the generic `<:Real` method above.
-function expm_inverse(T::AbstractMatrix{ForwardDiff.Dual{Tg, V, N}}) where {Tg, V<:AbstractFloat, N}
+function expm_inverse(T::AbstractMatrix{ForwardDiff.Dual{
+        Tg, V, N}}) where {Tg, V <: AbstractFloat, N}
     n = size(T, 1)
     Tv = ForwardDiff.value.(T)
     Sv = 0.5 .* (Tv .+ Tv')                          # symmetric value
@@ -347,14 +351,15 @@ end
 function _sym_from_upper(v::AbstractVector{<:Real}, n::Int)
     idx = 1
     return [begin
-        if i <= j
-            val = v[idx]
-            idx += 1
-            val
-        else
-            v[(j - 1) * j ÷ 2 + i]
-        end
-    end for i in 1:n, j in 1:n]
+                if i <= j
+                    val = v[idx]
+                    idx += 1
+                    val
+                else
+                    v[(j - 1) * j ÷ 2 + i]
+                end
+            end
+            for i in 1:n, j in 1:n]
 end
 
 function _upper_tri_vec_grad(G::AbstractMatrix{<:Real})
@@ -370,7 +375,8 @@ function _upper_tri_vec_grad(G::AbstractMatrix{<:Real})
     return out
 end
 
-function apply_inv_jacobian_T(it::InverseTransform, θt::ComponentArray, grad_u::ComponentArray)
+function apply_inv_jacobian_T(
+        it::InverseTransform, θt::ComponentArray, grad_u::ComponentArray)
     names = it.names
     specs = it.specs
     vals = map(1:length(names)) do i
@@ -383,7 +389,8 @@ function apply_inv_jacobian_T(it::InverseTransform, θt::ComponentArray, grad_u:
         elseif spec.kind == :logit
             return gu .* _logit_inv_jacobian.(θti)
         elseif spec.kind == :elementwise
-            return [_scalar_inv_jacobian(spec.mask[j], gu[j], θti[j]) for j in eachindex(θti)]
+            return [_scalar_inv_jacobian(spec.mask[j], gu[j], θti[j])
+                    for j in eachindex(θti)]
         elseif spec.kind == :cholesky
             n1, n2 = spec.size
             T = reshape(θti, n1, n2)
@@ -421,10 +428,10 @@ function apply_inv_jacobian_T(it::InverseTransform, θt::ComponentArray, grad_u:
             T_acc = promote_type(eltype(θti), eltype(gu), Float64)
             out = Vector{T_acc}(undef, n * (n - 1))
             for i in 1:n
-                chunk_t = @view θti[(i - 1) * (n - 1) + 1 : i * (n - 1)]
+                chunk_t = @view θti[((i - 1) * (n - 1) + 1):(i * (n - 1))]
                 g_row = vec(gu[i, :])
                 g_t_row = _stickbreak_inv_jacobian_T(chunk_t, g_row)
-                out[(i - 1) * (n - 1) + 1 : i * (n - 1)] .= g_t_row
+                out[((i - 1) * (n - 1) + 1):(i * (n - 1))] .= g_t_row
             end
             return out
         elseif spec.kind == :lograterows
@@ -456,7 +463,8 @@ function apply_inv_jacobian_T(it::InverseTransform, θt::ComponentArray, grad_u:
     return out
 end
 
-function _transform_vals(θ::ComponentArray, names::Vector{Symbol}, specs::Vector{TransformSpec})
+function _transform_vals(
+        θ::ComponentArray, names::Vector{Symbol}, specs::Vector{TransformSpec})
     return map(1:length(names)) do i
         name = names[i]
         spec = specs[i]
@@ -485,7 +493,8 @@ function _transform_vals(θ::ComponentArray, names::Vector{Symbol}, specs::Vecto
     end
 end
 
-function _inverse_vals(θ::ComponentArray, names::Vector{Symbol}, specs::Vector{TransformSpec})
+function _inverse_vals(
+        θ::ComponentArray, names::Vector{Symbol}, specs::Vector{TransformSpec})
     return map(1:length(names)) do i
         name = names[i]
         spec = specs[i]

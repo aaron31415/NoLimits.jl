@@ -37,8 +37,10 @@ end
 # keyword — it must be a SciMLLogging verbosity (e.g. `None()` for silent). v6 still
 # requires a `Bool`. Resolve the right "silent"/"loud" values once for the installed
 # DiffEqBase version. On v6 the `DiffEqBase.SciMLLogging` branch is never evaluated.
-const _ODE_VERBOSE_SILENT = pkgversion(DiffEqBase) >= v"7" ? DiffEqBase.SciMLLogging.None() : false
-const _ODE_VERBOSE_LOUD   = pkgversion(DiffEqBase) >= v"7" ? DiffEqBase.SciMLLogging.Standard() : true
+const _ODE_VERBOSE_SILENT = pkgversion(DiffEqBase) >= v"7" ?
+                            DiffEqBase.SciMLLogging.None() : false
+const _ODE_VERBOSE_LOUD = pkgversion(DiffEqBase) >= v"7" ?
+                          DiffEqBase.SciMLLogging.Standard() : true
 @inline _ode_verbose(v::Bool) = v ? _ODE_VERBOSE_LOUD : _ODE_VERBOSE_SILENT
 @inline _ode_verbose(v) = v   # already a verbosity object — pass through unchanged
 
@@ -48,21 +50,21 @@ function hessian_fwd_over_zygote(f, x)
 end
 
 function build_ode_params(de, θ;
-                          random_effects=ComponentArray(NamedTuple()),
-                          constant_covariates=NamedTuple(),
-                          varying_covariates=NamedTuple(),
-                          helpers=NamedTuple(),
-                          model_funs=NamedTuple(),
-                          prede_builder=(fe, re, consts, model_funs, helpers) -> NamedTuple(),
-                          inverse_transform=identity)
+        random_effects = ComponentArray(NamedTuple()),
+        constant_covariates = NamedTuple(),
+        varying_covariates = NamedTuple(),
+        helpers = NamedTuple(),
+        model_funs = NamedTuple(),
+        prede_builder = (fe, re, consts, model_funs, helpers) -> NamedTuple(),
+        inverse_transform = identity)
     return build_de_params(de, θ;
-                           random_effects=random_effects,
-                           constant_covariates=constant_covariates,
-                           varying_covariates=varying_covariates,
-                           helpers=helpers,
-                           model_funs=model_funs,
-                           prede_builder=prede_builder,
-                           inverse_transform=inverse_transform)
+        random_effects = random_effects,
+        constant_covariates = constant_covariates,
+        varying_covariates = varying_covariates,
+        helpers = helpers,
+        model_funs = model_funs,
+        prede_builder = prede_builder,
+        inverse_transform = inverse_transform)
 end
 
 function flatten_re_names(name::Symbol, val)
@@ -96,13 +98,13 @@ end
 # Dispatch instead of an `isa Bool` branch: the branch makes the return type a Union of
 # two NamedTuple types, which survives into LLVM and breaks Enzyme forward mode
 # (invalid phi node); dispatch resolves to a single concrete return type per input.
-@inline _ode_normalize_verbose(kw::NamedTuple, v::Bool) =
-    merge(kw, (verbose = _ode_verbose(v),))
+@inline _ode_normalize_verbose(kw::NamedTuple, v::Bool) = merge(
+    kw, (verbose = _ode_verbose(v),))
 @inline _ode_normalize_verbose(kw::NamedTuple, v) = kw
 
 @inline function _ode_solve_kwargs(base::NamedTuple,
-                                   extra::NamedTuple=NamedTuple(),
-                                   overrides::NamedTuple=NamedTuple())
-    merged = merge((verbose=_ODE_VERBOSE_SILENT,), base, extra, overrides)
+        extra::NamedTuple = NamedTuple(),
+        overrides::NamedTuple = NamedTuple())
+    merged = merge((verbose = _ODE_VERBOSE_SILENT,), base, extra, overrides)
     return _ode_normalize_verbose(merged, merged.verbose)
 end

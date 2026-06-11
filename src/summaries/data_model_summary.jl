@@ -81,12 +81,12 @@ function _descriptive_stats(values)
     return DescriptiveStats(
         length(vals),
         mean(vals),
-        std(vals; corrected=false),
+        std(vals; corrected = false),
         minimum(vals),
         q25,
         q50,
         q75,
-        maximum(vals),
+        maximum(vals)
     )
 end
 
@@ -177,9 +177,9 @@ function _format_float(x::Float64)
     end
     ax = abs(x)
     if ax >= 1e4 || (ax > 0 && ax < 1e-3)
-        return string(round(x; sigdigits=4))
+        return string(round(x; sigdigits = 4))
     end
-    return string(round(x; digits=4))
+    return string(round(x; digits = 4))
 end
 
 function _print_key_values(io::IO, title::String, rows::AbstractVector{<:Pair})
@@ -209,7 +209,8 @@ function _print_distribution_types(io::IO, title::String, nt::NamedTuple)
     end
 end
 
-function _print_descriptive_table(io::IO, title::String, rows::AbstractVector; name_header::String="Variable")
+function _print_descriptive_table(
+        io::IO, title::String, rows::AbstractVector; name_header::String = "Variable")
     println(io, title)
     if isempty(rows)
         println(io, "  (none)")
@@ -217,30 +218,30 @@ function _print_descriptive_table(io::IO, title::String, rows::AbstractVector; n
     end
     name_w = max(length(name_header), maximum(length(string(row.name)) for row in rows))
     println(io,
-            "  ",
-            rpad(name_header, name_w), "  ",
-            lpad("n", 6), "  ",
-            lpad("mean", 12), "  ",
-            lpad("sd", 12), "  ",
-            lpad("min", 12), "  ",
-            lpad("q25", 12), "  ",
-            lpad("median", 12), "  ",
-            lpad("q75", 12), "  ",
-            lpad("max", 12))
+        "  ",
+        rpad(name_header, name_w), "  ",
+        lpad("n", 6), "  ",
+        lpad("mean", 12), "  ",
+        lpad("sd", 12), "  ",
+        lpad("min", 12), "  ",
+        lpad("q25", 12), "  ",
+        lpad("median", 12), "  ",
+        lpad("q75", 12), "  ",
+        lpad("max", 12))
     println(io, "  ", repeat("-", name_w + 7 * 14 + 8))
     for row in rows
         s = row.stats
         println(io,
-                "  ",
-                rpad(string(row.name), name_w), "  ",
-                lpad(string(s.n), 6), "  ",
-                lpad(_format_float(s.mean), 12), "  ",
-                lpad(_format_float(s.sd), 12), "  ",
-                lpad(_format_float(s.min), 12), "  ",
-                lpad(_format_float(s.q25), 12), "  ",
-                lpad(_format_float(s.median), 12), "  ",
-                lpad(_format_float(s.q75), 12), "  ",
-                lpad(_format_float(s.max), 12))
+            "  ",
+            rpad(string(row.name), name_w), "  ",
+            lpad(string(s.n), 6), "  ",
+            lpad(_format_float(s.mean), 12), "  ",
+            lpad(_format_float(s.sd), 12), "  ",
+            lpad(_format_float(s.min), 12), "  ",
+            lpad(_format_float(s.q25), 12), "  ",
+            lpad(_format_float(s.median), 12), "  ",
+            lpad(_format_float(s.q75), 12), "  ",
+            lpad(_format_float(s.max), 12))
     end
 end
 
@@ -256,7 +257,8 @@ function _print_covariate_declarations(io::IO, decls::AbstractVector)
     println(io, "  ", repeat("-", name_w + kind_w + 24))
     for d in decls
         cols = isempty(d.columns) ? "(none)" : join(string.(d.columns), ", ")
-        println(io, "  ", rpad(string(d.name), name_w), "  ", rpad(string(d.kind), kind_w), "  ", cols)
+        println(io, "  ", rpad(string(d.name), name_w), "  ",
+            rpad(string(d.kind), kind_w), "  ", cols)
     end
 end
 
@@ -282,7 +284,8 @@ function summarize(dm::DataModel)
     ir = get_formulas_ir(formulas)
     obs_names = ir.obs_names
     n_outcomes = length(obs_names)
-    outcome_dist_types = _namedtuple_from_symbols(obs_names, [_distribution_type_from_expr(ex) for ex in ir.obs_exprs])
+    outcome_dist_types = _namedtuple_from_symbols(
+        obs_names, [_distribution_type_from_expr(ex) for ex in ir.obs_exprs])
 
     re_model = dm.model.random.random
     re_names = get_re_names(re_model)
@@ -353,7 +356,7 @@ function summarize(dm::DataModel)
     for obs in dm.config.obs_cols
         col = getproperty(dm.df, obs)
         vals = col[obs_rows]
-        push!(outcome_stats, (; name=obs, stats=_descriptive_stats(vals)))
+        push!(outcome_stats, (; name = obs, stats = _descriptive_stats(vals)))
     end
 
     # Declared covariates + per-column stats (observation rows only)
@@ -363,7 +366,8 @@ function summarize(dm::DataModel)
     for cname in cov.names
         p = getfield(cov.params, cname)
         kind, cols, constant_on = _covariate_kind_and_columns(p)
-        push!(covariate_declarations, (; name=cname, kind=kind, columns=cols, constant_on=constant_on))
+        push!(covariate_declarations,
+            (; name = cname, kind = kind, columns = cols, constant_on = constant_on))
         for colname in cols
             col = getproperty(dm.df, colname)
             vals = col[obs_rows]
@@ -371,7 +375,8 @@ function summarize(dm::DataModel)
             if st.n == 0
                 push!(nonnumeric_covariate_columns, string(cname, ".", colname))
             else
-                push!(covariate_stats, (; name=Symbol(string(cname, ".", colname)), stats=st))
+                push!(covariate_stats,
+                    (; name = Symbol(string(cname, ".", colname)), stats = st))
             end
         end
     end
@@ -391,13 +396,14 @@ function summarize(dm::DataModel)
                 1 <= idx <= n_levels || continue
                 counts[idx] += 1
             end
-            push!(random_effect_summaries, (;
-                name=re,
-                group=getfield(re_groups, re),
-                dist_type=getfield(re_types, re),
-                n_levels=n_levels,
-                rows_per_level=_descriptive_stats(counts),
-            ))
+            push!(random_effect_summaries,
+                (;
+                    name = re,
+                    group = getfield(re_groups, re),
+                    dist_type = getfield(re_types, re),
+                    n_levels = n_levels,
+                    rows_per_level = _descriptive_stats(counts)
+                ))
         end
     end
 
@@ -430,7 +436,7 @@ function summarize(dm::DataModel)
         covariate_declarations,
         covariate_stats,
         nonnumeric_covariate_columns,
-        random_effect_summaries,
+        random_effect_summaries
     )
 end
 
@@ -440,51 +446,65 @@ function Base.show(io::IO, ::MIME"text/plain", s::DataModelSummary)
     println(io, "DataModelSummary")
     println(io, repeat("═", 96))
 
-    _print_key_values(io, "Overview", [
-        "model type" => (s.model_type == :ode ? "ODE" : "non-ODE"),
-        "event-aware" => s.has_events,
-        "individuals" => s.n_individuals,
-        "rows (total / obs / event)" => "$(s.n_rows_total) / $(s.n_obs_rows) / $(s.n_event_rows)",
-        "fixed effects (top-level)" => s.n_fixed_effects,
-        "outcomes" => s.n_outcomes,
-        "covariates (declared)" => s.n_covariates,
-        "random effects" => s.n_random_effects,
-    ])
+    _print_key_values(io,
+        "Overview",
+        [
+            "model type" => (s.model_type == :ode ? "ODE" : "non-ODE"),
+            "event-aware" => s.has_events,
+            "individuals" => s.n_individuals,
+            "rows (total / obs / event)" => "$(s.n_rows_total) / $(s.n_obs_rows) / $(s.n_event_rows)",
+            "fixed effects (top-level)" => s.n_fixed_effects,
+            "outcomes" => s.n_outcomes,
+            "covariates (declared)" => s.n_covariates,
+            "random effects" => s.n_random_effects
+        ])
     println(io)
 
-    _print_key_values(io, "Covariate classes", [
-        "varying" => s.n_covariates_varying,
-        "constant" => s.n_covariates_constant,
-        "dynamic" => s.n_covariates_dynamic,
-    ])
+    _print_key_values(io,
+        "Covariate classes",
+        [
+            "varying" => s.n_covariates_varying,
+            "constant" => s.n_covariates_constant,
+            "dynamic" => s.n_covariates_dynamic
+        ])
     println(io)
 
-    _print_distribution_types(io, "Outcome distribution types", s.outcome_distribution_types)
+    _print_distribution_types(
+        io, "Outcome distribution types", s.outcome_distribution_types)
     println(io)
-    _print_distribution_types(io, "Random-effect distribution types", s.random_effect_distribution_types)
-    println(io)
-
-    _print_key_values(io, "Individual design diagnostics", [
-        "individuals with one observation" => s.n_single_obs_individuals,
-        "global observed time range" => "$( _format_float(s.global_time_min) ) to $( _format_float(s.global_time_max) )",
-        "unique observed time points" => s.n_unique_obs_times,
-        "duplicate (ID, time) observation rows" => s.n_duplicate_id_time_obs,
-        "monotonic-time violations (observation order)" => s.n_monotonic_time_violations,
-    ])
+    _print_distribution_types(
+        io, "Random-effect distribution types", s.random_effect_distribution_types)
     println(io)
 
-    _print_descriptive_table(io, "Observations per individual", [ (; name=:count, stats=s.obs_per_individual) ]; name_header="metric")
-    println(io)
-    _print_descriptive_table(io, "Time span per individual", [ (; name=:span, stats=s.time_span_per_individual) ]; name_header="metric")
-    println(io)
-    _print_descriptive_table(io, "Median sampling interval per individual", [ (; name=:median_dt, stats=s.median_dt_per_individual) ]; name_header="metric")
+    _print_key_values(io,
+        "Individual design diagnostics",
+        [
+            "individuals with one observation" => s.n_single_obs_individuals,
+            "global observed time range" => "$( _format_float(s.global_time_min) ) to $( _format_float(s.global_time_max) )",
+            "unique observed time points" => s.n_unique_obs_times,
+            "duplicate (ID, time) observation rows" => s.n_duplicate_id_time_obs,
+            "monotonic-time violations (observation order)" => s.n_monotonic_time_violations
+        ])
     println(io)
 
-    _print_descriptive_table(io, "Outcome descriptive statistics (observation rows)", s.outcome_stats)
+    _print_descriptive_table(io, "Observations per individual",
+        [(; name = :count, stats = s.obs_per_individual)]; name_header = "metric")
+    println(io)
+    _print_descriptive_table(io, "Time span per individual",
+        [(; name = :span, stats = s.time_span_per_individual)]; name_header = "metric")
+    println(io)
+    _print_descriptive_table(io, "Median sampling interval per individual",
+        [(; name = :median_dt, stats = s.median_dt_per_individual)];
+        name_header = "metric")
+    println(io)
+
+    _print_descriptive_table(
+        io, "Outcome descriptive statistics (observation rows)", s.outcome_stats)
     println(io)
     _print_covariate_declarations(io, s.covariate_declarations)
     println(io)
-    _print_descriptive_table(io, "Covariate descriptive statistics (observation rows)", s.covariate_stats)
+    _print_descriptive_table(
+        io, "Covariate descriptive statistics (observation rows)", s.covariate_stats)
     if !isempty(s.nonnumeric_covariate_columns)
         println(io)
         println(io, "Non-numeric/unsupported covariate columns (observation rows):")
@@ -496,30 +516,33 @@ function Base.show(io::IO, ::MIME"text/plain", s::DataModelSummary)
     if !isempty(s.random_effect_summaries)
         println(io)
         println(io, "Per-random-effect summary")
-        name_w = max(length("random effect"), maximum(length(string(r.name)) for r in s.random_effect_summaries))
-        grp_w = max(length("group"), maximum(length(string(r.group)) for r in s.random_effect_summaries))
-        dst_w = max(length("dist"), maximum(length(string(r.dist_type)) for r in s.random_effect_summaries))
+        name_w = max(length("random effect"),
+            maximum(length(string(r.name)) for r in s.random_effect_summaries))
+        grp_w = max(length("group"),
+            maximum(length(string(r.group)) for r in s.random_effect_summaries))
+        dst_w = max(length("dist"),
+            maximum(length(string(r.dist_type)) for r in s.random_effect_summaries))
         println(io,
-                "  ",
-                rpad("random effect", name_w), "  ",
-                rpad("group", grp_w), "  ",
-                rpad("dist", dst_w), "  ",
-                lpad("levels", 8), "  ",
-                lpad("rows/level min", 14), "  ",
-                lpad("median", 12), "  ",
-                lpad("max", 12))
+            "  ",
+            rpad("random effect", name_w), "  ",
+            rpad("group", grp_w), "  ",
+            rpad("dist", dst_w), "  ",
+            lpad("levels", 8), "  ",
+            lpad("rows/level min", 14), "  ",
+            lpad("median", 12), "  ",
+            lpad("max", 12))
         println(io, "  ", repeat("-", name_w + grp_w + dst_w + 56))
         for r in s.random_effect_summaries
             st = r.rows_per_level
             println(io,
-                    "  ",
-                    rpad(string(r.name), name_w), "  ",
-                    rpad(string(r.group), grp_w), "  ",
-                    rpad(string(r.dist_type), dst_w), "  ",
-                    lpad(string(r.n_levels), 8), "  ",
-                    lpad(_format_float(st.min), 14), "  ",
-                    lpad(_format_float(st.median), 12), "  ",
-                    lpad(_format_float(st.max), 12))
+                "  ",
+                rpad(string(r.name), name_w), "  ",
+                rpad(string(r.group), grp_w), "  ",
+                rpad(string(r.dist_type), dst_w), "  ",
+                lpad(string(r.n_levels), 8), "  ",
+                lpad(_format_float(st.min), 14), "  ",
+                lpad(_format_float(st.median), 12), "  ",
+                lpad(_format_float(st.max), 12))
         end
     end
 end

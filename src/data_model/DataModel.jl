@@ -163,7 +163,9 @@ function _nl_datamodel_show_line(dm::DataModel)
 end
 
 Base.show(io::IO, dm::DataModel) = print(io, _nl_datamodel_show_line(dm))
-Base.show(io::IO, ::MIME"text/plain", dm::DataModel) = print(io, _nl_datamodel_show_line(dm))
+function Base.show(io::IO, ::MIME"text/plain", dm::DataModel)
+    print(io, _nl_datamodel_show_line(dm))
+end
 
 mutable struct UnionFind
     parent::Vector{Int}
@@ -197,16 +199,19 @@ end
 
 function _require_cols(df, cols::Vector{Symbol})
     for c in cols
-        hasproperty(df, c) || error("DataModel expects column $(c). Add it or change constructor keyword arguments.")
+        hasproperty(df, c) ||
+            error("DataModel expects column $(c). Add it or change constructor keyword arguments.")
     end
 end
 
 function _require_col(df, col::Symbol, label::AbstractString)
-    hasproperty(df, col) || error("DataModel requires $(label) column $(col) in the DataFrame. Provide it or override the corresponding keyword.")
+    hasproperty(df, col) ||
+        error("DataModel requires $(label) column $(col) in the DataFrame. Provide it or override the corresponding keyword.")
 end
 
 function _check_missing(col, name::Symbol)
-    any(ismissing, col) && error("Column $(name) contains missing values. Remove/replace missings before constructing DataModel.")
+    any(ismissing, col) &&
+        error("Column $(name) contains missing values. Remove/replace missings before constructing DataModel.")
 end
 
 function _validate_schema(model, df, config::DataModelConfig)
@@ -239,7 +244,8 @@ function _validate_schema(model, df, config::DataModelConfig)
     formula_obs = get_formulas_meta(model.formulas.formulas).obs_names
     if !isempty(formula_obs)
         missing_cols = [s for s in formula_obs if !(s in config.obs_cols)]
-        !isempty(missing_cols) && error("Missing observation columns $(missing_cols) required by @formulas. Add them to the data.")
+        !isempty(missing_cols) &&
+            error("Missing observation columns $(missing_cols) required by @formulas. Add them to the data.")
     end
     _validate_formula_covariates_missing(model, df, config)
     return nothing
@@ -253,7 +259,8 @@ function _formula_used_covariates(model)
     return [name for name in covariates.names if name in used]
 end
 
-function _check_covariate_missing(df, col::Symbol, idx, cov_name::Symbol, scope::AbstractString)
+function _check_covariate_missing(
+        df, col::Symbol, idx, cov_name::Symbol, scope::AbstractString)
     data = idx === nothing ? _get_col(df, col) : _get_col(df, col)[idx]
     if any(ismissing, data)
         error("Covariate $(cov_name) uses column $(col) in @formulas, but $(col) contains missing values on $(scope). Remove/replace missings before constructing DataModel.")
@@ -303,10 +310,11 @@ end
 @inline _is_observed_markov_outcome_dist(::ContinuousTimeObservedStatesMarkovModel) = true
 @inline _is_observed_markov_outcome_dist(::CoarsedObservedStatesMarkovModel) = true
 
-@inline _is_observed_markov_call_name(name) =
-    (name === :DiscreteTimeObservedStatesMarkovModel) ||
-    (name === :ContinuousTimeObservedStatesMarkovModel) ||
-    (name === :coarsed)
+@inline _is_observed_markov_call_name(name) = (name ===
+                                               :DiscreteTimeObservedStatesMarkovModel) ||
+                                              (name ===
+                                               :ContinuousTimeObservedStatesMarkovModel) ||
+                                              (name === :coarsed)
 
 function _has_observed_markov_outcomes(model)
     ir = get_formulas_ir(model.formulas.formulas)
@@ -345,9 +353,9 @@ function _validate_observed_markov_coarsed_usage(model, df, config::DataModelCon
     obs_probe = _probe_first_observation_distributions(
         model,
         df;
-        primary_id=config.primary_id,
-        time_col=config.time_col,
-        evid_col=config.evid_col
+        primary_id = config.primary_id,
+        time_col = config.time_col,
+        evid_col = config.evid_col
     )
     for col in config.obs_cols
         hasproperty(obs_probe, col) || continue
@@ -407,7 +415,8 @@ function _validate_time_col_covariate(model, config::DataModelConfig)
     if !isempty(bad)
         error("time_col $(time_col) must be declared as Covariate() or DynamicCovariate(); it is declared as $(bad).")
     end
-    found || error("time_col $(time_col) must be declared as Covariate() or DynamicCovariate() in @covariates.")
+    found ||
+        error("time_col $(time_col) must be declared as Covariate() or DynamicCovariate() in @covariates.")
 end
 
 function _const_cov_columns(covariates, name::Symbol)
@@ -454,7 +463,8 @@ function _validate_re_group_constants(model, df, covariates)
         cov_cols = Symbol[]
         for dep in deps
             p = getfield(covariates.params, dep)
-            constant_on = p isa ConstantCovariate ? p.constant_on : (p isa ConstantCovariateVector ? p.constant_on : Symbol[])
+            constant_on = p isa ConstantCovariate ? p.constant_on :
+                          (p isa ConstantCovariateVector ? p.constant_on : Symbol[])
             if !(group_col in constant_on)
                 error("RandomEffect $(re) uses constant covariate $(dep), but $(dep) is not declared constant_on for group $(group_col).")
             end
@@ -483,12 +493,14 @@ function _validate_constant_covariates_primary(model, df, primary_id::Symbol, co
         # Must be constant within primary_id
         bad_primary = _check_constant_within_group(df, primary_id, cov_cols)
         if !isempty(bad_primary)
-            details = join(["$(k) => $(unique(bad_primary[k]))" for k in keys(bad_primary)], ", ")
+            details = join(
+                ["$(k) => $(unique(bad_primary[k]))" for k in keys(bad_primary)], ", ")
             error("Constant covariate $(name) (columns: $(cov_cols)) varies within primary_id $(primary_id). Offending ids: $(details). Constant covariates must be constant within primary_id.")
         end
 
         # Must be constant within each constant_on group, if specified
-        constant_on = p isa ConstantCovariate ? p.constant_on : (p isa ConstantCovariateVector ? p.constant_on : Symbol[])
+        constant_on = p isa ConstantCovariate ? p.constant_on :
+                      (p isa ConstantCovariateVector ? p.constant_on : Symbol[])
         for grp in constant_on
             bad = _check_constant_within_group(df, grp, cov_cols)
             if !isempty(bad)
@@ -521,7 +533,8 @@ end
 function _validate_re_dist_covariates(model, covariates)
     re = model.random.random
     re_syms = get_re_syms(re)
-    cov_syms = Set(vcat(covariates.names, covariates.flat_names, covariates.constants, covariates.varying, covariates.dynamic))
+    cov_syms = Set(vcat(covariates.names, covariates.flat_names, covariates.constants,
+        covariates.varying, covariates.dynamic))
     const_syms = Set(covariates.constants)
     for r in get_re_names(re)
         syms = getfield(re_syms, r)
@@ -533,11 +546,13 @@ function _validate_re_dist_covariates(model, covariates)
     end
 end
 
-@inline _is_continuous_time_hmm_dist(dist) =
-    (dist isa ContinuousTimeDiscreteStatesHMM) || (dist isa MVContinuousTimeDiscreteStatesHMM)
+@inline _is_continuous_time_hmm_dist(dist) = (dist isa ContinuousTimeDiscreteStatesHMM) ||
+                                             (dist isa MVContinuousTimeDiscreteStatesHMM)
 
-@inline _is_continuous_time_hmm_call_name(name) =
-    (name === :ContinuousTimeDiscreteStatesHMM) || (name === :MVContinuousTimeDiscreteStatesHMM)
+@inline _is_continuous_time_hmm_call_name(name) = (name ===
+                                                   :ContinuousTimeDiscreteStatesHMM) ||
+                                                  (name ===
+                                                   :MVContinuousTimeDiscreteStatesHMM)
 
 function _probe_random_effects(model, const_cov::NamedTuple)
     re_names = get_re_names(model.random.random)
@@ -577,10 +592,10 @@ function _probe_varying_covariates(covariates, df, rows, obs_row::Int, time_col:
 end
 
 function _probe_first_observation_distributions(model,
-                                                df;
-                                                primary_id::Symbol,
-                                                time_col::Symbol,
-                                                evid_col::Union{Nothing, Symbol}=nothing)
+        df;
+        primary_id::Symbol,
+        time_col::Symbol,
+        evid_col::Union{Nothing, Symbol} = nothing)
     cov = model.covariates.covariates
     _, groups = _group_indices(df, primary_id)
     for rows in groups
@@ -601,10 +616,10 @@ function _probe_first_observation_distributions(model,
 end
 
 function _has_continuous_time_hmm_outcomes(model,
-                                           df;
-                                           primary_id::Symbol,
-                                           time_col::Symbol,
-                                           evid_col::Union{Nothing, Symbol}=nothing)
+        df;
+        primary_id::Symbol,
+        time_col::Symbol,
+        evid_col::Union{Nothing, Symbol} = nothing)
     ir = get_formulas_ir(model.formulas.formulas)
     any(_is_continuous_time_hmm_call_name, ir.call_heads) && return true
     model.de.de !== nothing && return false
@@ -612,9 +627,9 @@ function _has_continuous_time_hmm_outcomes(model,
         obs = _probe_first_observation_distributions(
             model,
             df;
-            primary_id=primary_id,
-            time_col=time_col,
-            evid_col=evid_col
+            primary_id = primary_id,
+            time_col = time_col,
+            evid_col = evid_col
         )
         for name in get_formulas_meta(model.formulas.formulas).obs_names
             hasproperty(obs, name) || continue
@@ -627,10 +642,10 @@ function _has_continuous_time_hmm_outcomes(model,
 end
 
 function _supports_row_varying_re_groups(model,
-                                         df;
-                                         primary_id::Symbol,
-                                         time_col::Symbol,
-                                         evid_col::Union{Nothing, Symbol}=nothing)
+        df;
+        primary_id::Symbol,
+        time_col::Symbol,
+        evid_col::Union{Nothing, Symbol} = nothing)
     return model.de.de === nothing
 end
 
@@ -655,9 +670,9 @@ function _validate_re_group_within_primary(model, df, config::DataModelConfig)
     _supports_row_varying_re_groups(
         model,
         df;
-        primary_id=primary_id,
-        time_col=config.time_col,
-        evid_col=config.evid_col
+        primary_id = primary_id,
+        time_col = config.time_col,
+        evid_col = config.evid_col
     ) && return nothing
     re_groups = get_re_groups(model.random.random)
     for re in re_names
@@ -770,7 +785,8 @@ function _build_const_cov(covariates, df, rows)
             val = _get_col(df, col)[rows[1]]
             push!(out, name => val)
         elseif p isa ConstantCovariateVector
-            vals = NamedTuple{Tuple(p.columns)}(Tuple(_get_col(df, c)[rows[1]] for c in p.columns))
+            vals = NamedTuple{Tuple(p.columns)}(Tuple(_get_col(df, c)[rows[1]]
+            for c in p.columns))
             push!(out, name => vals)
         end
     end
@@ -789,7 +805,8 @@ function _build_vary_cov(covariates, df, rows, obs_rows, time_col, include_t::Bo
             col = p.column
             push!(out, name => _get_col(df, col)[obs_rows])
         elseif p isa CovariateVector
-            vals = NamedTuple{Tuple(p.columns)}(Tuple(_get_col(df, c)[obs_rows] for c in p.columns))
+            vals = NamedTuple{Tuple(p.columns)}(Tuple(_get_col(df, c)[obs_rows]
+            for c in p.columns))
             push!(out, name => vals)
         elseif p isa DynamicCovariate || p isa DynamicCovariateVector
             # dynamic covariates are handled separately
@@ -799,8 +816,8 @@ function _build_vary_cov(covariates, df, rows, obs_rows, time_col, include_t::Bo
 end
 
 function _build_saveat(df, rows, obs_rows, time_col, config::DataModelConfig,
-                       time_offsets::Vector{Float64},
-                       callback_times::Vector{Float64}=Float64[])
+        time_offsets::Vector{Float64},
+        callback_times::Vector{Float64} = Float64[])
     config.saveat_mode == :dense && return nothing
     tvals = _get_col(df, time_col)[obs_rows]
     if !isempty(time_offsets)
@@ -839,7 +856,9 @@ function _build_dyn_cov(covariates, df, rows, time_col)
             interp = p.interpolation(y, t)
             push!(out, name => interp)
         elseif p isa DynamicCovariateVector
-            vals = NamedTuple{Tuple(p.columns)}(Tuple(p.interpolations[i](_get_col(df, p.columns[i])[rows], t) for i in eachindex(p.columns)))
+            vals = NamedTuple{Tuple(p.columns)}(Tuple(p.interpolations[i](
+                                                          _get_col(df, p.columns[i])[rows],
+                                                          t) for i in eachindex(p.columns)))
             push!(out, name => vals)
         end
     end
@@ -848,7 +867,8 @@ end
 
 function _validate_dynamic_covariates(covariates, rows, t, id_val)
     isempty(covariates.dynamic) && return nothing
-    issorted(t) || error("Dynamic covariates require time to be sorted for each individual. Individual $(id_val) has unsorted time values.")
+    issorted(t) ||
+        error("Dynamic covariates require time to be sorted for each individual. Individual $(id_val) has unsorted time values.")
     n = length(rows)
     min_obs = Dict(
         ConstantInterpolation => 1,
@@ -858,7 +878,7 @@ function _validate_dynamic_covariates(covariates, rows, t, id_val)
         LagrangeInterpolation => 2,
         QuadraticSpline => 3,
         CubicSpline => 3,
-        AkimaInterpolation => 2,
+        AkimaInterpolation => 2
     )
     alt_by_req = Dict{Int, Vector{Symbol}}()
     for (itp, req) in min_obs
@@ -882,7 +902,7 @@ function _validate_dynamic_covariates(covariates, rows, t, id_val)
                 alts = _alternatives(req, n)
                 alt_str = isempty(alts) ? "none" : join(alts, ", ")
                 push!(offenders,
-                      "Dynamic covariate $(name) uses $(itp_name) as interpolation method, this requires at least $(req) observations per individual. This is violated by individual $(id_val). It has only $(n) observations. Alternatives requiring at most $(n) observations are: $(alt_str).")
+                    "Dynamic covariate $(name) uses $(itp_name) as interpolation method, this requires at least $(req) observations per individual. This is violated by individual $(id_val). It has only $(n) observations. Alternatives requiring at most $(n) observations are: $(alt_str).")
             end
         elseif p isa DynamicCovariateVector
             for (i, itp) in enumerate(p.interpolations)
@@ -892,7 +912,7 @@ function _validate_dynamic_covariates(covariates, rows, t, id_val)
                     alts = _alternatives(req, n)
                     alt_str = isempty(alts) ? "none" : join(alts, ", ")
                     push!(offenders,
-                          "Dynamic covariate $(name).$(p.columns[i]) uses $(itp_name) as interpolation method, this requires at least $(req) observations per individual. This is violated by individual $(id_val). It has only $(n) observations. Alternatives requiring at most $(n) observations are: $(alt_str).")
+                        "Dynamic covariate $(name).$(p.columns[i]) uses $(itp_name) as interpolation method, this requires at least $(req) observations per individual. This is violated by individual $(id_val). It has only $(n) observations. Alternatives requiring at most $(n) observations are: $(alt_str).")
                 end
             end
         end
@@ -947,7 +967,8 @@ function _build_callbacks(model, df, rows, config::DataModelConfig)
         v === missing && continue
         push!(cmt_types, typeof(v))
     end
-    if any(t -> t <: Integer, cmt_types) && any(t -> (t <: AbstractString || t <: Symbol), cmt_types)
+    if any(t -> t <: Integer, cmt_types) &&
+       any(t -> (t <: AbstractString || t <: Symbol), cmt_types)
         error("CMT values must use a single style per DataFrame (all indices or all names). Mixed types were found.")
     end
 
@@ -987,11 +1008,13 @@ function _build_callbacks(model, df, rows, config::DataModelConfig)
         if v isa Integer
             return Int(v)
         elseif v isa Symbol
-            haskey(state_map, v) || error("CMT $(v) does not match any state. Closest matches: $(_suggest_states(v)).")
+            haskey(state_map, v) ||
+                error("CMT $(v) does not match any state. Closest matches: $(_suggest_states(v)).")
             return state_map[v]
         elseif v isa AbstractString
             sym = Symbol(v)
-            haskey(state_map, sym) || error("CMT $(v) does not match any state. Closest matches: $(_suggest_states(sym)).")
+            haskey(state_map, sym) ||
+                error("CMT $(v) does not match any state. Closest matches: $(_suggest_states(sym)).")
             return state_map[sym]
         else
             error("CMT values must be Int, Symbol, or String; got $(typeof(v)).")
@@ -1004,7 +1027,8 @@ function _build_callbacks(model, df, rows, config::DataModelConfig)
         amt_i = Float64(amt[i])
         rate_i = Float64(rate[i])
         cmt_i = _resolve_cmt(cmt[i])
-        (1 <= cmt_i <= n_states) || error("CMT $(cmt_i) is out of bounds for $(n_states) ODE states.")
+        (1 <= cmt_i <= n_states) ||
+            error("CMT $(cmt_i) is out of bounds for $(n_states) ODE states.")
 
         if ev == 1
             if t == t0
@@ -1074,8 +1098,8 @@ function _build_callbacks(model, df, rows, config::DataModelConfig)
     end
 
     times = unique!(vcat(collect(keys(bolus_by_time)),
-                         collect(keys(reset_by_time)),
-                         collect(keys(rate_delta_by_time))))
+        collect(keys(reset_by_time)),
+        collect(keys(rate_delta_by_time))))
     sort!(times)
     cb = isempty(times) ? nothing : PresetTimeCallback(times, affect!)
 
@@ -1087,7 +1111,8 @@ function _build_callbacks(model, df, rows, config::DataModelConfig)
     resets_out = isempty(init_resets) ? nothing : init_resets
     bolus_out = isempty(init_bolus_pairs) ? nothing : init_bolus_pairs
     (cb === nothing && resets_out === nothing && bolus_out === nothing) && return nothing
-    return EventCallbacks(cb, infusion_rates, copy(infusion_rates), resets_out, bolus_out, times)
+    return EventCallbacks(
+        cb, infusion_rates, copy(infusion_rates), resets_out, bolus_out, times)
 end
 
 @inline function _apply_initial_events!(u0, callbacks::EventCallbacks)
@@ -1115,7 +1140,8 @@ end
 
 function _build_re_group_info(model, df, individuals, row_groups::RowGroups)
     re_names = get_re_names(model.random.random)
-    isempty(re_names) && return REGroupInfo(NamedTuple(), NamedTuple(), NamedTuple(), NamedTuple(), nothing)
+    isempty(re_names) &&
+        return REGroupInfo(NamedTuple(), NamedTuple(), NamedTuple(), NamedTuple(), nothing)
     re_groups = get_re_groups(model.random.random)
     values_pairs = Pair{Symbol, Any}[]
     index_pairs = Pair{Symbol, Any}[]
@@ -1171,7 +1197,8 @@ function _build_re_group_info(model, df, individuals, row_groups::RowGroups)
         push!(values_pairs, re => values)
         push!(index_pairs, re => index_by_row)
         push!(index_by_individual_pairs,
-              re => REIndividualRowIndex(level_ids_all, level_ids_obs, unique_pos_all, unique_pos_obs))
+            re => REIndividualRowIndex(
+                level_ids_all, level_ids_obs, unique_pos_all, unique_pos_obs))
         push!(representative_row_pairs, re => representative_rows)
     end
     values_nt = NamedTuple(values_pairs)
@@ -1179,7 +1206,8 @@ function _build_re_group_info(model, df, individuals, row_groups::RowGroups)
     index_by_individual_nt = NamedTuple(index_by_individual_pairs)
     representative_row_nt = NamedTuple(representative_row_pairs)
     cache = _build_laplace_re_cache(model, individuals, values_nt)
-    return REGroupInfo(values_nt, index_nt, index_by_individual_nt, representative_row_nt, cache)
+    return REGroupInfo(
+        values_nt, index_nt, index_by_individual_nt, representative_row_nt, cache)
 end
 
 function _build_pairing(individuals, model)
@@ -1273,7 +1301,7 @@ function _build_laplace_re_cache(model, individuals, values_nt)
     # Used by `_build_eta_ind` to avoid Pair{Symbol,Any}[] boxing on the hot path.
     eta_template = if !isempty(individuals) && !isempty(re_names) &&
                       all(all(length(ind_level_ids[i][ri]) == 1 for ri in 1:nre)
-                          for i in eachindex(ind_level_ids))
+                      for i in eachindex(ind_level_ids))
         nt_pairs = Pair{Symbol, Any}[]
         for (ri, re) in enumerate(re_names)
             # Only univariate REs become a scalar component. A length-1 multivariate
@@ -1320,15 +1348,14 @@ observation counts, and saveat-mode resolution.
   strategy for ODE solving. Use `EnsembleThreads()` for multi-threaded evaluation.
 """
 function DataModel(model,
-                   df;
-                   primary_id::Union{Nothing, Symbol}=nothing,
-                   time_col::Symbol=:TIME,
-                   evid_col::Union{Nothing, Symbol}=nothing,
-                   amt_col::Symbol=:AMT,
-                   rate_col::Symbol=:RATE,
-                   cmt_col::Symbol=:CMT,
-                   serialization::SciMLBase.EnsembleAlgorithm=EnsembleSerial())
-
+        df;
+        primary_id::Union{Nothing, Symbol} = nothing,
+        time_col::Symbol = :TIME,
+        evid_col::Union{Nothing, Symbol} = nothing,
+        amt_col::Symbol = :AMT,
+        rate_col::Symbol = :RATE,
+        cmt_col::Symbol = :CMT,
+        serialization::SciMLBase.EnsembleAlgorithm = EnsembleSerial())
     if primary_id === nothing
         re_groups = get_re_groups(model.random.random)
         re_cols = unique([getfield(re_groups, n) for n in get_re_names(model.random.random)])
@@ -1342,9 +1369,11 @@ function DataModel(model,
     obs_cols = collect(get_formulas_meta(model.formulas.formulas).obs_names)
     solver_cfg = get_solver_config(model)
     saveat_mode = solver_cfg.saveat_mode
-    saveat_mode in (:dense, :saveat, :auto) || error("Unknown saveat_mode $(saveat_mode). Use :dense, :saveat, or :auto.")
+    saveat_mode in (:dense, :saveat, :auto) ||
+        error("Unknown saveat_mode $(saveat_mode). Use :dense, :saveat, or :auto.")
     saveat_mode = saveat_mode == :auto ? :saveat : saveat_mode
-    config = DataModelConfig(primary_id, time_col, evid_col, amt_col, rate_col, cmt_col, obs_cols, serialization, saveat_mode)
+    config = DataModelConfig(primary_id, time_col, evid_col, amt_col, rate_col,
+        cmt_col, obs_cols, serialization, saveat_mode)
     _validate_schema(model, df, config)
     _validate_observed_markov_coarsed_usage(model, df, config)
 
@@ -1361,7 +1390,8 @@ function DataModel(model,
     include_t = model.de.de !== nothing
     state_names = model.de.de === nothing ? Symbol[] : get_de_states(model.de.de)
     signal_names = model.de.de === nothing ? Symbol[] : get_de_signals(model.de.de)
-    (time_offsets, requires_dense) = get_formulas_time_offsets(model.formulas.formulas, state_names, signal_names)
+    (time_offsets, requires_dense) = get_formulas_time_offsets(
+        model.formulas.formulas, state_names, signal_names)
     if saveat_mode != :dense && requires_dense
         error("Formulas include non-constant time offsets for DE states/signals. Use saveat_mode=:dense or rewrite formulas to use constant offsets.")
     end
@@ -1422,7 +1452,8 @@ function DataModel(model,
     id_index = Dict{Any, Int}((keys_sorted[i] => i) for i in eachindex(keys_sorted))
     row_groups = RowGroups(groups, obs_groups)
     re_group_info = _build_re_group_info(model, df, individuals, row_groups)
-    return DataModel(model, df, individuals, pairing, config, id_index, row_groups, re_group_info)
+    return DataModel(
+        model, df, individuals, pairing, config, id_index, row_groups, re_group_info)
 end
 
 """
@@ -1505,19 +1536,20 @@ or its integer position in `get_individuals(dm)`.
 - `obs_only::Bool = true`: if `true`, only return indices for observation rows;
   if `false`, include all rows (including event rows).
 """
-function get_re_indices(dm::DataModel, ind::Individual; obs_only::Bool=true)
+function get_re_indices(dm::DataModel, ind::Individual; obs_only::Bool = true)
     idx = _find_individual_index(dm, ind)
     idx === nothing && error("Individual not found in DataModel.")
-    return get_re_indices(dm, idx; obs_only=obs_only)
+    return get_re_indices(dm, idx; obs_only = obs_only)
 end
 
-function get_re_indices(dm::DataModel, id; obs_only::Bool=true)
+function get_re_indices(dm::DataModel, id; obs_only::Bool = true)
     idx = get(dm.id_index, id, nothing)
-    idx === nothing && error("No individual found for id $(id). Check primary_id or data values.")
-    return get_re_indices(dm, idx; obs_only=obs_only)
+    idx === nothing &&
+        error("No individual found for id $(id). Check primary_id or data values.")
+    return get_re_indices(dm, idx; obs_only = obs_only)
 end
 
-function get_re_indices(dm::DataModel, idx::Int; obs_only::Bool=true)
+function get_re_indices(dm::DataModel, idx::Int; obs_only::Bool = true)
     re_names = get_re_names(dm.model.random.random)
     info = dm.re_group_info.index_by_individual
     pairs = Pair{Symbol, Any}[]
@@ -1537,7 +1569,8 @@ Raises an error if the id is not found.
 """
 function get_individual(dm::DataModel, id)
     idx = get(dm.id_index, id, nothing)
-    idx === nothing && error("No individual found for id $(id). Check primary_id or data values.")
+    idx === nothing &&
+        error("No individual found for id $(id). Check primary_id or data values.")
     return dm.individuals[idx]
 end
 

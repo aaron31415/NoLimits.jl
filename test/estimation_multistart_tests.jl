@@ -17,7 +17,7 @@ const LD = NoLimits
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @formulas begin
@@ -29,13 +29,14 @@ const LD = NoLimits
         t = [0.0, 1.0, 0.0, 1.0],
         y = [0.1, 0.2, 0.0, -0.1]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    ms = NoLimits.Multistart(dists=(; a=Normal(1.0, 0.2)), n_draws_requested=4, n_draws_used=3)
-    res = fit_model(ms, dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    ms = NoLimits.Multistart(
+        dists = (; a = Normal(1.0, 0.2)), n_draws_requested = 4, n_draws_used = 3)
+    res = fit_model(ms, dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
     @test res isa NoLimits.MultistartFitResult
     @test length(NoLimits.get_multistart_results(res)) == 3
     @test NoLimits.get_multistart_best_index(res) in 1:3
-    @test NoLimits.get_params(res; scale=:untransformed) isa ComponentArray
+    @test NoLimits.get_params(res; scale = :untransformed) isa ComponentArray
 end
 
 @testset "Multistart LHS + fixed params" begin
@@ -46,7 +47,7 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @formulas begin
@@ -58,9 +59,10 @@ end
         t = [0.0, 1.0, 0.0, 1.0],
         y = [0.1, 0.2, 0.0, -0.1]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    ms = NoLimits.Multistart(dists=(; a=Normal(0.0, 1.0)), n_draws_requested=4, n_draws_used=3, sampling=:lhs)
-    res = fit_model(ms, dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    ms = NoLimits.Multistart(dists = (; a = Normal(0.0, 1.0)), n_draws_requested = 4,
+        n_draws_used = 3, sampling = :lhs)
+    res = fit_model(ms, dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
     starts = NoLimits.get_multistart_starts(res)
     @test length(starts) == 3
     @test all(s -> s.σ == starts[1].σ, starts) # σ not sampled, stays fixed
@@ -73,7 +75,7 @@ end
         end
 
         @fixedEffects begin
-            a = RealNumber(0.2; lower=-1.0, upper=1.0, scale=:identity)
+            a = RealNumber(0.2; lower = -1.0, upper = 1.0, scale = :identity)
         end
 
         @formulas begin
@@ -85,9 +87,11 @@ end
         t = [0.0, 1.0],
         y = [0.1, 0.2]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    ms = NoLimits.Multistart(dists=(; a=Normal(10.0, 0.1)), n_draws_requested=2, n_draws_used=2)
-    @test_throws ErrorException fit_model(ms, dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    ms = NoLimits.Multistart(
+        dists = (; a = Normal(10.0, 0.1)), n_draws_requested = 2, n_draws_used = 2)
+    @test_throws ErrorException fit_model(
+        ms, dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
 end
 
 @testset "Multistart MAP" begin
@@ -97,8 +101,8 @@ end
         end
 
         @fixedEffects begin
-            a = RealNumber(0.2, prior=Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale=:log, prior=LogNormal(0.0, 0.2))
+            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
+            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.2))
         end
 
         @formulas begin
@@ -110,9 +114,9 @@ end
         t = [0.0, 1.0, 0.0, 1.0],
         y = [0.1, 0.2, 0.0, -0.1]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    ms = NoLimits.Multistart(n_draws_requested=4, n_draws_used=3)
-    res = fit_model(ms, dm, NoLimits.MAP(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    ms = NoLimits.Multistart(n_draws_requested = 4, n_draws_used = 3)
+    res = fit_model(ms, dm, NoLimits.MAP(; optim_kwargs = (maxiters = 2,)))
     @test res isa NoLimits.MultistartFitResult
 end
 
@@ -124,11 +128,11 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -140,9 +144,10 @@ end
         t = [0.0, 1.0, 0.0, 1.0],
         y = [0.1, 0.2, 0.0, -0.1]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    ms = NoLimits.Multistart(dists=(; a=Normal(0.0, 1.0)), n_draws_requested=4, n_draws_used=3)
-    res = fit_model(ms, dm, NoLimits.Laplace(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    ms = NoLimits.Multistart(
+        dists = (; a = Normal(0.0, 1.0)), n_draws_requested = 4, n_draws_used = 3)
+    res = fit_model(ms, dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
     @test !isempty(NoLimits.get_random_effects(res))
 
     model_map = @Model begin
@@ -151,20 +156,20 @@ end
         end
 
         @fixedEffects begin
-            a = RealNumber(0.2, prior=Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale=:log, prior=LogNormal(0.0, 0.2))
+            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
+            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.2))
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
             y ~ Normal(a + η, σ)
         end
     end
-    dm_map = DataModel(model_map, df; primary_id=:ID, time_col=:t)
-    res_map = fit_model(ms, dm_map, NoLimits.LaplaceMAP(; optim_kwargs=(maxiters=2,)))
+    dm_map = DataModel(model_map, df; primary_id = :ID, time_col = :t)
+    res_map = fit_model(ms, dm_map, NoLimits.LaplaceMAP(; optim_kwargs = (maxiters = 2,)))
     @test !isempty(NoLimits.get_random_effects(res_map))
 end
 
@@ -175,8 +180,8 @@ end
         end
 
         @fixedEffects begin
-            a = RealNumber(0.2, prior=Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale=:log, prior=LogNormal(0.0, 0.2))
+            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
+            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.2))
         end
 
         @formulas begin
@@ -188,9 +193,12 @@ end
         t = [0.0, 1.0, 0.0, 1.0],
         y = [0.1, 0.2, 0.0, -0.1]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    ms = NoLimits.Multistart(n_draws_requested=3, n_draws_used=2)
-    res = fit_model(ms, dm, NoLimits.MCMC(; sampler=MH(), turing_kwargs=(n_samples=2, n_adapt=2, progress=false)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    ms = NoLimits.Multistart(n_draws_requested = 3, n_draws_used = 2)
+    res = fit_model(ms,
+        dm,
+        NoLimits.MCMC(; sampler = MH(),
+            turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false)))
     @test NoLimits.get_chain(res) isa MCMCChains.Chains
 end
 
@@ -202,11 +210,11 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -218,14 +226,21 @@ end
         t = [0.0, 1.0, 0.0, 1.0],
         y = [0.1, 0.2, 0.0, -0.1]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    ms = NoLimits.Multistart(dists=(; a=Normal(0.0, 1.0)), n_draws_requested=3, n_draws_used=2)
-    res_mcem = fit_model(ms, dm, NoLimits.MCEM(; sampler=MH(), turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-                                        maxiters=2))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    ms = NoLimits.Multistart(
+        dists = (; a = Normal(0.0, 1.0)), n_draws_requested = 3, n_draws_used = 2)
+    res_mcem = fit_model(ms,
+        dm,
+        NoLimits.MCEM(;
+            sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+            maxiters = 2))
     @test !isempty(NoLimits.get_random_effects(res_mcem))
-    res_saem = fit_model(ms, dm, NoLimits.SAEM(; sampler=MH(), turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-                                        q_store_max=2,
-                                        maxiters=2))
+    res_saem = fit_model(ms,
+        dm,
+        NoLimits.SAEM(;
+            sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+            q_store_max = 2,
+            maxiters = 2))
     @test !isempty(NoLimits.get_random_effects(res_saem))
 end
 
@@ -237,12 +252,12 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
-            τ = RealNumber(0.4, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
+            τ = RealNumber(0.4, scale = :log)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, τ); column=:ID)
+            η = RandomEffect(Normal(0.0, τ); column = :ID)
         end
 
         @formulas begin
@@ -254,14 +269,18 @@ end
         t = [0.0, 1.0, 0.0, 1.0],
         y = [0.1, 0.2, 0.0, -0.1]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    ms = NoLimits.Multistart(dists=(; a=Normal(0.0, 1.0)), n_draws_requested=3, n_draws_used=2)
-    res = fit_model(ms, dm, NoLimits.SAEM(; sampler=MH(), turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-                                     q_store_max=2,
-                                     builtin_stats=:closed_form,
-                                     resid_var_param=:σ,
-                                     re_cov_params=(; η=:τ),
-                                     maxiters=2))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    ms = NoLimits.Multistart(
+        dists = (; a = Normal(0.0, 1.0)), n_draws_requested = 3, n_draws_used = 2)
+    res = fit_model(ms,
+        dm,
+        NoLimits.SAEM(;
+            sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+            q_store_max = 2,
+            builtin_stats = :closed_form,
+            resid_var_param = :σ,
+            re_cov_params = (; η = :τ),
+            maxiters = 2))
     @test !isempty(NoLimits.get_random_effects(res))
 end
 
@@ -273,7 +292,7 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @formulas begin
@@ -285,9 +304,11 @@ end
         t = [0.0, 1.0],
         y = [0.1, 0.2]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    ms = NoLimits.Multistart(dists=(; a=Normal(0.0, 1.0)), n_draws_requested=2, n_draws_used=2)
-    res = fit_model(ms, dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)); store_data_model=false)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    ms = NoLimits.Multistart(
+        dists = (; a = Normal(0.0, 1.0)), n_draws_requested = 2, n_draws_used = 2)
+    res = fit_model(
+        ms, dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)); store_data_model = false)
     @test_throws ErrorException NoLimits.get_loglikelihood(res)
 end
 
@@ -300,7 +321,7 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @formulas begin
@@ -312,9 +333,10 @@ end
         t = [0.0, 1.0],
         y = [0.1, 0.2]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    ms = NoLimits.Multistart(dists=(; a=Normal(0.0, 1.0)), n_draws_requested=4, n_draws_used=3, serialization=EnsembleThreads())
-    res = fit_model(ms, dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    ms = NoLimits.Multistart(dists = (; a = Normal(0.0, 1.0)), n_draws_requested = 4,
+        n_draws_used = 3, serialization = EnsembleThreads())
+    res = fit_model(ms, dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
     @test res isa NoLimits.MultistartFitResult
 end
 
@@ -325,8 +347,8 @@ end
         end
 
         @fixedEffects begin
-            a = RealNumber(0.2, prior=Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale=:log, prior=LogNormal(0.0, 0.2))
+            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
+            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.2))
         end
 
         @formulas begin
@@ -338,9 +360,10 @@ end
         t = [0.0, 1.0, 0.0, 1.0],
         y = [0.1, 0.2, 0.0, -0.1]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    ms = NoLimits.Multistart(dists=(; a=Normal(5.0, 0.1)), n_draws_requested=6, n_draws_used=4, sampling=:lhs)
-    res = fit_model(ms, dm, NoLimits.MAP(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    ms = NoLimits.Multistart(dists = (; a = Normal(5.0, 0.1)), n_draws_requested = 6,
+        n_draws_used = 4, sampling = :lhs)
+    res = fit_model(ms, dm, NoLimits.MAP(; optim_kwargs = (maxiters = 2,)))
     starts = NoLimits.get_multistart_starts(res)
     @test length(starts) == 4
     @test any(s -> abs(s.a - 5.0) < 1.0, starts)
@@ -354,7 +377,7 @@ end
 
         @fixedEffects begin
             v = RealVector([0.1, -0.2, 0.3])
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @formulas begin
@@ -366,12 +389,13 @@ end
         t = [0.0, 1.0, 0.0, 1.0],
         y = [0.1, 0.2, 0.0, -0.1]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     dists = (;
         v = fill(Normal(0.0, 1.0), 3)
     )
-    ms = NoLimits.Multistart(dists=dists, n_draws_requested=6, n_draws_used=4, sampling=:lhs)
-    res = fit_model(ms, dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
+    ms = NoLimits.Multistart(
+        dists = dists, n_draws_requested = 6, n_draws_used = 4, sampling = :lhs)
+    res = fit_model(ms, dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
     starts = NoLimits.get_multistart_starts(res)
     @test length(starts) == 4
     @test any(s -> s.v != starts[1].v, starts[2:end])
@@ -385,12 +409,12 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
-            Ω = RealPSDMatrix(Matrix(I, 2, 2), scale=:cholesky)
+            σ = RealNumber(0.5, scale = :log)
+            Ω = RealPSDMatrix(Matrix(I, 2, 2), scale = :cholesky)
         end
 
         @randomEffects begin
-            η = RandomEffect(MvNormal([0.0, 0.0], Ω); column=:ID)
+            η = RandomEffect(MvNormal([0.0, 0.0], Ω); column = :ID)
         end
 
         @formulas begin
@@ -402,12 +426,12 @@ end
         t = [0.0, 1.0, 0.0, 1.0],
         y = [0.1, 0.2, 0.0, -0.1]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     dists = (;
         Ω = Wishart(3, Matrix(I, 2, 2))
     )
-    ms = Multistart(dists=dists, n_draws_requested=6, n_draws_used=4, sampling=:lhs)
-    res = fit_model(ms, dm, NoLimits.Laplace(; optim_kwargs=(maxiters=2,)));
+    ms = Multistart(dists = dists, n_draws_requested = 6, n_draws_used = 4, sampling = :lhs)
+    res = fit_model(ms, dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
     starts = NoLimits.get_multistart_starts(res)
     @test length(starts) == 4
     @test any(s -> s.Ω != starts[1].Ω, starts[2:end])
@@ -425,10 +449,10 @@ end
         end
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
         @randomEffects begin
-            η = RandomEffect(Normal(2.0, 0.5); column=:ID)
+            η = RandomEffect(Normal(2.0, 0.5); column = :ID)
         end
         @formulas begin
             y ~ Normal(a + η, σ)
@@ -436,13 +460,14 @@ end
     end
     df = DataFrame(
         ID = [:A, :A, :B, :B],
-        t  = [0.0, 1.0, 0.0, 1.0],
-        y  = [2.1, 2.2, 1.9, 2.0]
+        t = [0.0, 1.0, 0.0, 1.0],
+        y = [2.1, 2.2, 1.9, 2.0]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     # n_draws_requested > n_draws_used → screening branch exercises _build_mean_eta
-    ms = NoLimits.Multistart(dists=(; a=Normal(0.0, 1.0)), n_draws_requested=4, n_draws_used=2)
-    res = fit_model(ms, dm, NoLimits.Laplace(; optim_kwargs=(maxiters=2,)))
+    ms = NoLimits.Multistart(
+        dists = (; a = Normal(0.0, 1.0)), n_draws_requested = 4, n_draws_used = 2)
+    res = fit_model(ms, dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
     @test res isa NoLimits.MultistartFitResult
     @test length(NoLimits.get_multistart_results(res)) == 2
 end
@@ -452,31 +477,32 @@ end
     # Verifies per-individual eta vector is built correctly.
     model = @Model begin
         @covariates begin
-            t   = Covariate()
-            Age = ConstantCovariate(; constant_on=:ID)
+            t = Covariate()
+            Age = ConstantCovariate(; constant_on = :ID)
         end
         @fixedEffects begin
-            a  = RealNumber(0.2)
-            b  = RealNumber(0.1)
-            σ  = RealNumber(0.5, scale=:log)
-            τ  = RealNumber(0.5, scale=:log)
+            a = RealNumber(0.2)
+            b = RealNumber(0.1)
+            σ = RealNumber(0.5, scale = :log)
+            τ = RealNumber(0.5, scale = :log)
         end
         @randomEffects begin
-            η = RandomEffect(Normal(b * Age, τ); column=:ID)
+            η = RandomEffect(Normal(b * Age, τ); column = :ID)
         end
         @formulas begin
             y ~ Normal(a + η, σ)
         end
     end
     df = DataFrame(
-        ID  = [:A, :A, :B, :B],
-        t   = [0.0, 1.0, 0.0, 1.0],
+        ID = [:A, :A, :B, :B],
+        t = [0.0, 1.0, 0.0, 1.0],
         Age = [30.0, 30.0, 50.0, 50.0],
-        y   = [3.2, 3.3, 5.1, 5.0]
+        y = [3.2, 3.3, 5.1, 5.0]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    ms = NoLimits.Multistart(dists=(; a=Normal(0.0, 1.0)), n_draws_requested=4, n_draws_used=2)
-    res = fit_model(ms, dm, NoLimits.Laplace(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    ms = NoLimits.Multistart(
+        dists = (; a = Normal(0.0, 1.0)), n_draws_requested = 4, n_draws_used = 2)
+    res = fit_model(ms, dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
     @test res isa NoLimits.MultistartFitResult
     re = NoLimits.get_random_effects(res)
     @test haskey(re, :η)
@@ -491,11 +517,11 @@ end
         end
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
-            Ω = RealPSDMatrix(Matrix(I, 2, 2), scale=:cholesky)
+            σ = RealNumber(0.5, scale = :log)
+            Ω = RealPSDMatrix(Matrix(I, 2, 2), scale = :cholesky)
         end
         @randomEffects begin
-            η = RandomEffect(MvNormal([1.0, -1.0], Ω); column=:ID)
+            η = RandomEffect(MvNormal([1.0, -1.0], Ω); column = :ID)
         end
         @formulas begin
             y ~ Normal(a + η[1], σ)
@@ -503,12 +529,13 @@ end
     end
     df = DataFrame(
         ID = [:A, :A, :B, :B],
-        t  = [0.0, 1.0, 0.0, 1.0],
-        y  = [1.2, 1.3, 1.0, 0.9]
+        t = [0.0, 1.0, 0.0, 1.0],
+        y = [1.2, 1.3, 1.0, 0.9]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    ms = NoLimits.Multistart(dists=(; a=Normal(0.0, 1.0)), n_draws_requested=4, n_draws_used=2)
-    res = fit_model(ms, dm, NoLimits.Laplace(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    ms = NoLimits.Multistart(
+        dists = (; a = Normal(0.0, 1.0)), n_draws_requested = 4, n_draws_used = 2)
+    res = fit_model(ms, dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
     @test res isa NoLimits.MultistartFitResult
 end
 
@@ -520,11 +547,11 @@ end
         end
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
-            ψ = NPFParameter(1, 2; seed=1, calculate_se=false)
+            σ = RealNumber(0.5, scale = :log)
+            ψ = NPFParameter(1, 2; seed = 1, calculate_se = false)
         end
         @randomEffects begin
-            η = RandomEffect(NormalizingPlanarFlow(ψ); column=:ID)
+            η = RandomEffect(NormalizingPlanarFlow(ψ); column = :ID)
         end
         @formulas begin
             y ~ Normal(a + η[1], σ)
@@ -532,12 +559,13 @@ end
     end
     df = DataFrame(
         ID = [:A, :A, :B, :B],
-        t  = [0.0, 1.0, 0.0, 1.0],
-        y  = [0.1, 0.2, 0.0, -0.1]
+        t = [0.0, 1.0, 0.0, 1.0],
+        y = [0.1, 0.2, 0.0, -0.1]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    ms = NoLimits.Multistart(dists=(; a=Normal(0.0, 1.0)), n_draws_requested=4, n_draws_used=2)
-    res = fit_model(ms, dm, NoLimits.Laplace(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    ms = NoLimits.Multistart(
+        dists = (; a = Normal(0.0, 1.0)), n_draws_requested = 4, n_draws_used = 2)
+    res = fit_model(ms, dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
     @test res isa NoLimits.MultistartFitResult
 end
 
@@ -549,10 +577,10 @@ end
         end
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
         @randomEffects begin
-            η = RandomEffect(Normal(1.5, 0.5); column=:ID)
+            η = RandomEffect(Normal(1.5, 0.5); column = :ID)
         end
         @formulas begin
             y ~ Normal(a + η, σ)
@@ -560,12 +588,13 @@ end
     end
     df = DataFrame(
         ID = [:A, :A, :B, :B],
-        t  = [0.0, 1.0, 0.0, 1.0],
-        y  = [1.7, 1.8, 1.6, 1.5]
+        t = [0.0, 1.0, 0.0, 1.0],
+        y = [1.7, 1.8, 1.6, 1.5]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    ms = NoLimits.Multistart(dists=(; a=Normal(0.0, 1.0)), n_draws_requested=2, n_draws_used=2)
-    res = fit_model(ms, dm, NoLimits.Laplace(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    ms = NoLimits.Multistart(
+        dists = (; a = Normal(0.0, 1.0)), n_draws_requested = 2, n_draws_used = 2)
+    res = fit_model(ms, dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
     @test res isa NoLimits.MultistartFitResult
     @test length(NoLimits.get_multistart_results(res)) == 2
 end
@@ -578,25 +607,26 @@ end
         end
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
         @randomEffects begin
-            η_id   = RandomEffect(Normal( 1.0, 0.5); column=:ID)
-            η_site = RandomEffect(Normal(-0.5, 0.5); column=:SITE)
+            η_id = RandomEffect(Normal(1.0, 0.5); column = :ID)
+            η_site = RandomEffect(Normal(-0.5, 0.5); column = :SITE)
         end
         @formulas begin
             y ~ Normal(a + η_id + η_site, σ)
         end
     end
     df = DataFrame(
-        ID   = [1, 1, 2, 2, 3, 3, 4, 4],
+        ID = [1, 1, 2, 2, 3, 3, 4, 4],
         SITE = [:A, :A, :A, :A, :B, :B, :B, :B],
-        t    = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y    = [1.0, 1.1, 0.9, 1.0, 1.2, 1.1, 1.0, 0.95]
+        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        y = [1.0, 1.1, 0.9, 1.0, 1.2, 1.1, 1.0, 0.95]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    ms = NoLimits.Multistart(dists=(; a=Normal(0.0, 1.0)), n_draws_requested=4, n_draws_used=2)
-    res = fit_model(ms, dm, NoLimits.Laplace(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    ms = NoLimits.Multistart(
+        dists = (; a = Normal(0.0, 1.0)), n_draws_requested = 4, n_draws_used = 2)
+    res = fit_model(ms, dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
     @test res isa NoLimits.MultistartFitResult
     re = NoLimits.get_random_effects(res)
     @test haskey(re, :η_id)

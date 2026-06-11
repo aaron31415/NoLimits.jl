@@ -52,8 +52,8 @@ Return the names of the free fixed-effect parameters covered by this result.
   scale includes the derived last probability / last-column entries and may have more
   names than the transformed scale.
 """
-get_uq_parameter_names(uq::UQResult; scale::Symbol=:transformed) =
-    copy(_uq_names_for_scale(uq, scale))
+get_uq_parameter_names(uq::UQResult; scale::Symbol = :transformed) = copy(_uq_names_for_scale(
+    uq, scale))
 
 """
     get_uq_estimates(uq::UQResult; scale=:natural, as_component=true)
@@ -66,7 +66,7 @@ Return point estimates from a [`UQResult`](@ref).
 - `as_component::Bool = true`: if `true`, return a `ComponentArray` keyed by parameter
   name; otherwise return a plain `Vector{Float64}`.
 """
-function get_uq_estimates(uq::UQResult; scale::Symbol=:natural, as_component::Bool=true)
+function get_uq_estimates(uq::UQResult; scale::Symbol = :natural, as_component::Bool = true)
     vals = if scale == :natural
         uq.estimates_natural
     elseif scale == :transformed
@@ -90,7 +90,7 @@ available.
 - `as_component::Bool = true`: if `true`, `lower` and `upper` are `ComponentArray`s;
   otherwise plain `Vector{Float64}`.
 """
-function get_uq_intervals(uq::UQResult; scale::Symbol=:natural, as_component::Bool=true)
+function get_uq_intervals(uq::UQResult; scale::Symbol = :natural, as_component::Bool = true)
     ints = if scale == :natural
         uq.intervals_natural
     elseif scale == :transformed
@@ -101,11 +101,11 @@ function get_uq_intervals(uq::UQResult; scale::Symbol=:natural, as_component::Bo
     ints === nothing && return nothing
     names = _uq_names_for_scale(uq, scale)
     if as_component
-        return (level=ints.level,
-                lower=_uq_component(names, ints.lower),
-                upper=_uq_component(names, ints.upper))
+        return (level = ints.level,
+            lower = _uq_component(names, ints.lower),
+            upper = _uq_component(names, ints.upper))
     end
-    return (level=ints.level, lower=copy(ints.lower), upper=copy(ints.upper))
+    return (level = ints.level, lower = copy(ints.lower), upper = copy(ints.upper))
 end
 
 """
@@ -117,7 +117,7 @@ available.
 # Keyword Arguments
 - `scale::Symbol = :natural`: `:natural` or `:transformed`.
 """
-function get_uq_vcov(uq::UQResult; scale::Symbol=:natural)
+function get_uq_vcov(uq::UQResult; scale::Symbol = :natural)
     if scale == :natural
         return uq.vcov_natural === nothing ? nothing : copy(uq.vcov_natural)
     elseif scale == :transformed
@@ -135,7 +135,7 @@ or `nothing` if not available.
 # Keyword Arguments
 - `scale::Symbol = :natural`: `:natural` or `:transformed`.
 """
-function get_uq_draws(uq::UQResult; scale::Symbol=:natural)
+function get_uq_draws(uq::UQResult; scale::Symbol = :natural)
     if scale == :natural
         return uq.draws_natural === nothing ? nothing : copy(uq.draws_natural)
     elseif scale == :transformed

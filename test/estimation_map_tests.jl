@@ -15,8 +15,8 @@ end
         end
 
         @fixedEffects begin
-            a = RealNumber(0.2; prior=Normal(0.0, 1.0))
-            σ = RealNumber(0.3; prior=LogNormal(0.0, 0.5))
+            a = RealNumber(0.2; prior = Normal(0.0, 1.0))
+            σ = RealNumber(0.3; prior = LogNormal(0.0, 0.5))
         end
 
         @DifferentialEquation begin
@@ -38,8 +38,8 @@ end
         y = [1.0, 1.05]
     )
 
-    model_saveat = set_solver_config(model; saveat_mode=:saveat)
-    dm = DataModel(model_saveat, df; primary_id=:ID, time_col=:t)
+    model_saveat = set_solver_config(model; saveat_mode = :saveat)
+    dm = DataModel(model_saveat, df; primary_id = :ID, time_col = :t)
     res = fit_model(dm, NoLimits.MAP())
 
     @test res isa FitResult
@@ -67,7 +67,7 @@ end
         y = [1.0, 1.05]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     @test_throws ErrorException fit_model(dm, NoLimits.MAP())
 end
 
@@ -78,8 +78,8 @@ end
         end
 
         @fixedEffects begin
-            a = RealNumber(0.1; prior=Normal(0.0, 1.0))
-            σ = RealNumber(0.5; lower=0.3, scale=:identity, prior=LogNormal(0.0, 0.5))
+            a = RealNumber(0.1; prior = Normal(0.0, 1.0))
+            σ = RealNumber(0.5; lower = 0.3, scale = :identity, prior = LogNormal(0.0, 0.5))
         end
 
         @formulas begin
@@ -93,10 +93,10 @@ end
         y = [0.1, 0.12, 0.11]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     res = fit_model(dm, NoLimits.MAP())
 
-    θu = NoLimits.get_params(res; scale=:untransformed)
+    θu = NoLimits.get_params(res; scale = :untransformed)
     @test θu.σ >= 0.3
 end
 
@@ -107,8 +107,8 @@ end
         end
 
         @fixedEffects begin
-            a = RealNumber(0.1; prior=Normal(0.0, 1.0))
-            σ = RealNumber(0.5; prior=LogNormal(0.0, 0.5))
+            a = RealNumber(0.1; prior = Normal(0.0, 1.0))
+            σ = RealNumber(0.5; prior = LogNormal(0.0, 0.5))
         end
 
         @formulas begin
@@ -122,10 +122,10 @@ end
         y = [0.1, 0.12, 0.11]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MAP(); constants=(a=0.0,))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.MAP(); constants = (a = 0.0,))
 
-    θu = NoLimits.get_params(res; scale=:untransformed)
+    θu = NoLimits.get_params(res; scale = :untransformed)
     @test θu.a == 0.0
 end
 
@@ -136,8 +136,8 @@ end
         end
 
         @fixedEffects begin
-            a = RealNumber(0.2, prior=Normal(0.0, 1.0))
-            σ = RealNumber(0.3, scale=:log, prior=LogNormal(0.0, 0.5))
+            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
+            σ = RealNumber(0.3, scale = :log, prior = LogNormal(0.0, 0.5))
         end
 
         @formulas begin
@@ -151,15 +151,16 @@ end
         y = [1.0, 1.05]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    @test_throws ErrorException fit_model(dm, NoLimits.MAP(); constants=(a=0.2, σ=0.3))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    @test_throws ErrorException fit_model(
+        dm, NoLimits.MAP(); constants = (a = 0.2, σ = 0.3))
 end
 
 @testset "MAP fixed vector parameters" begin
     model = @Model begin
         @fixedEffects begin
-            β = RealVector([0.2, -0.1], prior=MvNormal(zeros(2), LinearAlgebra.I))
-            σ = RealNumber(0.3, scale=:log, prior=LogNormal(0.0, 0.5))
+            β = RealVector([0.2, -0.1], prior = MvNormal(zeros(2), LinearAlgebra.I))
+            σ = RealNumber(0.3, scale = :log, prior = LogNormal(0.0, 0.5))
         end
 
         @covariates begin
@@ -180,7 +181,7 @@ end
         y = [1.0, 1.05, 1.02, 1.08]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     res = fit_model(dm, NoLimits.MAP())
 
     @test res isa FitResult
@@ -194,8 +195,8 @@ end
         end
 
         @fixedEffects begin
-            a = RealNumber(0.1, prior=Normal(0.0, 1.0))
-            b = RealNumber(0.2, prior=Normal(0.0, 1.0))
+            a = RealNumber(0.1, prior = Normal(0.0, 1.0))
+            b = RealNumber(0.2, prior = Normal(0.0, 1.0))
         end
 
         @formulas begin
@@ -211,11 +212,11 @@ end
         y = [0, 1, 0, 0, 1, 1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     res = fit_model(dm, NoLimits.MAP())
 
     @test res isa FitResult
-    θu = NoLimits.get_params(res; scale=:untransformed)
+    θu = NoLimits.get_params(res; scale = :untransformed)
 end
 
 @testset "MAP handles +Inf objective in AD path" begin
@@ -225,7 +226,7 @@ end
         end
 
         @fixedEffects begin
-            a = RealNumber(0.0, prior=Uniform(0.1, 1.0))
+            a = RealNumber(0.0, prior = Uniform(0.1, 1.0))
         end
 
         @formulas begin
@@ -239,8 +240,8 @@ end
         y = [1.0]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MAP(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.MAP(; optim_kwargs = (maxiters = 2,)))
 
     @test res isa FitResult
     @test !isfinite(NoLimits.get_objective(res))

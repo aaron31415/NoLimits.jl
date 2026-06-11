@@ -39,8 +39,8 @@ end
 end
 
 @inline function _eq_collect_vector_component_pairs!(
-    pairs::Vector{Tuple{String, String}},
-    x,
+        pairs::Vector{Tuple{String, String}},
+        x
 )
     if x isa Expr
         if x.head == :ref && length(x.args) == 2
@@ -146,7 +146,7 @@ function _eq_align_at_equals(line::String)
     return left * " &= " * right
 end
 
-function _eq_latex_block(lines::Vector{Expr}; numbered::Bool=false)
+function _eq_latex_block(lines::Vector{Expr}; numbered::Bool = false)
     tex_lines = String[]
     for (i, ex) in enumerate(lines)
         line = _eq_align_at_equals(_eq_latex_line(ex))
@@ -156,7 +156,8 @@ function _eq_latex_block(lines::Vector{Expr}; numbered::Bool=false)
         push!(tex_lines, line)
     end
     body = join(tex_lines, " \\\\\n")
-    return Latexify.latexraw("\$\\begin{aligned}\n" * body * "\n\\end{aligned}\$"; parse=false)
+    return Latexify.latexraw(
+        "\$\\begin{aligned}\n" * body * "\n\\end{aligned}\$"; parse = false)
 end
 
 function _eq_try_display(block)
@@ -179,7 +180,7 @@ function _eq_try_render(block)
 
     if displayable(MIME("image/svg+xml"))
         try
-            Latexify.render(block, MIME("image/svg"); callshow=true, open=false)
+            Latexify.render(block, MIME("image/svg"); callshow = true, open = false)
             return true
         catch
         end
@@ -224,7 +225,7 @@ function get_equation_lines(m::Model)
     return [_eq_clean_expr(ex) for ex in lines]
 end
 
-function show_equations(io::IO, m::Model; latex::Bool=true, numbered::Bool=false)
+function show_equations(io::IO, m::Model; latex::Bool = true, numbered::Bool = false)
     lines = get_equation_lines(m)
     isempty(lines) && return nothing
 
@@ -240,14 +241,14 @@ function show_equations(io::IO, m::Model; latex::Bool=true, numbered::Bool=false
     return nothing
 end
 
-function show_equations(m::Model; latex::Bool=true, numbered::Bool=false)
+function show_equations(m::Model; latex::Bool = true, numbered::Bool = false)
     lines = get_equation_lines(m)
     isempty(lines) && return nothing
 
     if !latex
-        return sprint(io -> show_equations(io, m; latex=false, numbered=numbered))
+        return sprint(io -> show_equations(io, m; latex = false, numbered = numbered))
     end
 
-    block = _eq_latex_block(lines; numbered=numbered)
+    block = _eq_latex_block(lines; numbered = numbered)
     return block
 end

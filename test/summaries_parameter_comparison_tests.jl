@@ -7,9 +7,9 @@ using Random
 @testset "compare_parameters" begin
     model1 = @Model begin
         @fixedEffects begin
-            a = RealNumber(0.3; calculate_se=true)
-            b = RealNumber(0.1; calculate_se=false)
-            s = RealNumber(0.5; scale=:log, calculate_se=true)
+            a = RealNumber(0.3; calculate_se = true)
+            b = RealNumber(0.1; calculate_se = false)
+            s = RealNumber(0.5; scale = :log, calculate_se = true)
         end
         @covariates begin
             t = Covariate()
@@ -22,9 +22,9 @@ using Random
 
     model2 = @Model begin
         @fixedEffects begin
-            a = RealNumber(0.3; calculate_se=true)
-            s = RealNumber(0.5; scale=:log, calculate_se=true)
-            d = RealNumber(0.2; calculate_se=true)
+            a = RealNumber(0.3; calculate_se = true)
+            s = RealNumber(0.5; scale = :log, calculate_se = true)
+            d = RealNumber(0.2; calculate_se = true)
         end
         @covariates begin
             t = Covariate()
@@ -38,13 +38,13 @@ using Random
     df = DataFrame(
         ID = [1, 1, 2, 2, 3, 3],
         t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y = [0.2, 0.4, 0.1, 0.5, 0.0, 0.3],
+        y = [0.2, 0.4, 0.1, 0.5, 0.0, 0.3]
     )
 
-    dm1 = DataModel(model1, df; primary_id=:ID, time_col=:t)
-    dm2 = DataModel(model2, df; primary_id=:ID, time_col=:t)
-    fit1 = fit_model(dm1, MLE(; optim_kwargs=(maxiters=2,)))
-    fit2 = fit_model(dm2, MLE(; optim_kwargs=(maxiters=2,)))
+    dm1 = DataModel(model1, df; primary_id = :ID, time_col = :t)
+    dm2 = DataModel(model2, df; primary_id = :ID, time_col = :t)
+    fit1 = fit_model(dm1, MLE(; optim_kwargs = (maxiters = 2,)))
+    fit2 = fit_model(dm2, MLE(; optim_kwargs = (maxiters = 2,)))
 
     # Default: union of SE-eligible parameters, in declaration order.
     c = compare_parameters(fit1, fit2)

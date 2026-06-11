@@ -75,9 +75,9 @@ function _fq_fmt_num(x)
     end
     ax = abs(xv)
     if ax >= 1e4 || (ax > 0 && ax < 1e-3)
-        return string(round(xv; sigdigits=4))
+        return string(round(xv; sigdigits = 4))
     end
-    return string(round(xv; digits=4))
+    return string(round(xv; digits = 4))
 end
 
 function _fq_fmt_objective(x)
@@ -110,8 +110,12 @@ function _fq_method_symbol(res::FitResult)
     return _method_symbol(get_method(res))
 end
 
-@inline _fq_inference_from_method(method::FittingMethod) = (method isa MCMC || method isa VI) ? :bayesian : :frequentist
-@inline _fq_inference_from_uq(uq::UQResult) = (uq.backend == :chain || uq.backend == :mcmc_refit) ? :bayesian : :frequentist
+@inline _fq_inference_from_method(method::FittingMethod) = (method isa MCMC ||
+                                                            method isa VI) ? :bayesian :
+                                                           :frequentist
+@inline _fq_inference_from_uq(uq::UQResult) = (uq.backend == :chain ||
+                                               uq.backend == :mcmc_refit) ? :bayesian :
+                                              :frequentist
 
 function _fq_try_loglikelihood(res::FitResult)
     try
@@ -132,7 +136,8 @@ end
 
 function _fq_try_outcome_coverage(res::FitResult)
     dm = get_data_model(res)
-    dm === nothing && return (NamedTuple[], nothing, nothing, ["Data coverage unavailable: FitResult does not store DataModel."])
+    dm === nothing && return (NamedTuple[], nothing, nothing,
+        ["Data coverage unavailable: FitResult does not store DataModel."])
     rows = NamedTuple[]
     n_obs_total = 0
     n_missing_total = 0
@@ -142,7 +147,7 @@ function _fq_try_outcome_coverage(res::FitResult)
         obs = length(v) - miss
         n_obs_total += obs
         n_missing_total += miss
-        push!(rows, (; outcome=col, n_obs=obs, n_missing=miss))
+        push!(rows, (; outcome = col, n_obs = obs, n_missing = miss))
     end
     return (rows, n_obs_total, n_missing_total, String[])
 end
@@ -253,8 +258,8 @@ function _fq_value_from_lookup(v0, name::Symbol, spec::TransformSpec, lookup::Fu
 end
 
 function _fq_fixed_point_estimate_from_lookup(fe::FixedEffects,
-                                              constants::NamedTuple,
-                                              lookup::Function)
+        constants::NamedTuple,
+        lookup::Function)
     θu = deepcopy(get_θ0_untransformed(fe))
     spec_map = _fq_spec_map(fe)
     for name in get_names(fe)
@@ -289,11 +294,12 @@ function _fq_mcmc_fixed_point_estimate(res::FitResult, dm::DataModel)
     return _fq_fixed_point_estimate_from_lookup(fe, constants, lookup)
 end
 
-function _fq_vi_fixed_point_estimate(res::FitResult, dm::DataModel; n_draws::Int=1000)
+function _fq_vi_fixed_point_estimate(res::FitResult, dm::DataModel; n_draws::Int = 1000)
     fe = dm.model.fixed.fixed
     constants = _fit_kw(res, :constants, NamedTuple())
     n_draws >= 1 || error("n_draws must be >= 1.")
-    draw_pack = sample_posterior(res; n_draws=n_draws, rng=Random.Xoshiro(0x4f13), return_names=true)
+    draw_pack = sample_posterior(
+        res; n_draws = n_draws, rng = Random.Xoshiro(0x4f13), return_names = true)
     draws = draw_pack.draws
     names = draw_pack.names
     idx_map = Dict{String, Int}()
@@ -318,30 +324,33 @@ function _fq_fit_component_estimates(res::FitResult, dm::DataModel, scale::Symbo
     if method isa MCMC
         θu = _fq_mcmc_fixed_point_estimate(res, dm)
         if scale == :natural
-            return _coords_on_transformed_layout(fe, θu, get_names(fe); natural=true)
+            return _coords_on_transformed_layout(fe, θu, get_names(fe); natural = true)
         else
             θt = get_transform(fe)(θu)
-            return _coords_on_transformed_layout(fe, θt, get_names(fe); natural=false)
+            return _coords_on_transformed_layout(fe, θt, get_names(fe); natural = false)
         end
     elseif method isa VI
         θu = _fq_vi_fixed_point_estimate(res, dm)
         if scale == :natural
-            return _coords_on_transformed_layout(fe, θu, get_names(fe); natural=true)
+            return _coords_on_transformed_layout(fe, θu, get_names(fe); natural = true)
         else
             θt = get_transform(fe)(θu)
-            return _coords_on_transformed_layout(fe, θt, get_names(fe); natural=false)
+            return _coords_on_transformed_layout(fe, θt, get_names(fe); natural = false)
         end
     else
-        θ = scale == :natural ? get_params(res; scale=:untransformed) : get_params(res; scale=:transformed)
-        return _coords_on_transformed_layout(fe, θ, get_names(fe); natural=(scale == :natural))
+        θ = scale == :natural ? get_params(res; scale = :untransformed) :
+            get_params(res; scale = :transformed)
+        return _coords_on_transformed_layout(
+            fe, θ, get_names(fe); natural = (scale == :natural))
     end
 end
 
 function _fq_fit_parameter_rows(res::FitResult;
-                                scale::Symbol=:natural,
-                                include_non_se::Bool=false)
+        scale::Symbol = :natural,
+        include_non_se::Bool = false)
     dm = get_data_model(res)
-    dm === nothing && return (NamedTuple[], 0, 0, ["Parameter table unavailable: FitResult does not store DataModel."])
+    dm === nothing && return (NamedTuple[], 0, 0,
+        ["Parameter table unavailable: FitResult does not store DataModel."])
     model = dm.model
     fe = model.fixed.fixed
 
@@ -350,7 +359,8 @@ function _fq_fit_parameter_rows(res::FitResult;
     se_mask = get_se_mask(fe)
     roles_by_parent = _fq_role_by_parent(model)
     estimates = _fq_fit_component_estimates(res, dm, scale)
-    length(estimates) == length(flat_names) || error("Internal summary error: estimate layout mismatch.")
+    length(estimates) == length(flat_names) ||
+        error("Internal summary error: estimate layout mismatch.")
 
     rows = NamedTuple[]
     for i in eachindex(flat_names)
@@ -359,12 +369,13 @@ function _fq_fit_parameter_rows(res::FitResult;
         end
         p = parent_names[i]
         role = get(roles_by_parent, p, :General_Outcome)
-        push!(rows, (;
-            parameter=flat_names[i],
-            role=_fq_role_label(role),
-            estimate=estimates[i],
-            calculate_se=se_mask[i],
-        ))
+        push!(rows,
+            (;
+                parameter = flat_names[i],
+                role = _fq_role_label(role),
+                estimate = estimates[i],
+                calculate_se = se_mask[i]
+            ))
     end
     return (rows, length(flat_names), count(identity, se_mask), String[])
 end
@@ -386,18 +397,19 @@ function _fq_re_stats_rows_from_df_nt(re_nt::NamedTuple)
                 end
             end
             st = _descriptive_stats(vals)
-            push!(rows, (;
-                random_effect=string(re),
-                component=(n_comp == 1 ? "-" : string(c)),
-                n=st.n,
-                mean=st.mean,
-                sd=st.sd,
-                min=st.min,
-                q25=st.q25,
-                median=st.median,
-                q75=st.q75,
-                max=st.max,
-            ))
+            push!(rows,
+                (;
+                    random_effect = string(re),
+                    component = (n_comp == 1 ? "-" : string(c)),
+                    n = st.n,
+                    mean = st.mean,
+                    sd = st.sd,
+                    min = st.min,
+                    q25 = st.q25,
+                    median = st.median,
+                    q75 = st.q75,
+                    max = st.max
+                ))
         end
     end
     return rows
@@ -408,7 +420,7 @@ function _fq_parse_re_chain_name(s::String, re_set::Set{Symbol})
         r"^(.+)_vals\[(\d+),\s*(\d+)\]$",
         r"^(.+)_vals\[(\d+)\]\[(\d+)\]$",
         r"^(.+)\[(\d+),\s*(\d+)\]$",
-        r"^(.+)\[(\d+)\]\[(\d+)\]$",
+        r"^(.+)\[(\d+)\]\[(\d+)\]$"
     )
         m = match(rx, s)
         m === nothing && continue
@@ -421,7 +433,7 @@ function _fq_parse_re_chain_name(s::String, re_set::Set{Symbol})
     end
     for rx in (
         r"^(.+)_vals\[(\d+)\]$",
-        r"^(.+)\[(\d+)\]$",
+        r"^(.+)\[(\d+)\]$"
     )
         m = match(rx, s)
         m === nothing && continue
@@ -434,29 +446,31 @@ function _fq_parse_re_chain_name(s::String, re_set::Set{Symbol})
     return nothing
 end
 
-function _fq_re_rows_from_component_medians(by_key::Dict{Tuple{Symbol, Int}, Vector{Float64}})
+function _fq_re_rows_from_component_medians(by_key::Dict{
+        Tuple{Symbol, Int}, Vector{Float64}})
     rows = NamedTuple[]
     re_dims = Dict{Symbol, Set{Int}}()
     for (k, _) in by_key
         re, dim = k
         push!(get!(re_dims, re, Set{Int}()), dim)
     end
-    for (k, vals) in sort(collect(by_key); by=x -> (string(first(x[1])), x[1][2]))
+    for (k, vals) in sort(collect(by_key); by = x -> (string(first(x[1])), x[1][2]))
         re, dim = k
         st = _descriptive_stats(vals)
         has_single_component = length(get(re_dims, re, Set([dim]))) == 1
-        push!(rows, (;
-            random_effect=string(re),
-            component=(has_single_component ? "-" : "dim$(dim)"),
-            n=st.n,
-            mean=st.mean,
-            sd=st.sd,
-            min=st.min,
-            q25=st.q25,
-            median=st.median,
-            q75=st.q75,
-            max=st.max,
-        ))
+        push!(rows,
+            (;
+                random_effect = string(re),
+                component = (has_single_component ? "-" : "dim$(dim)"),
+                n = st.n,
+                mean = st.mean,
+                sd = st.sd,
+                min = st.min,
+                q25 = st.q25,
+                median = st.median,
+                q75 = st.q75,
+                max = st.max
+            ))
     end
     return rows
 end
@@ -483,12 +497,13 @@ function _fq_mcmc_random_effect_rows(res::FitResult, dm::DataModel)
     return _fq_re_rows_from_component_medians(by_key)
 end
 
-function _fq_vi_random_effect_rows(res::FitResult, dm::DataModel; n_draws::Int=1000)
+function _fq_vi_random_effect_rows(res::FitResult, dm::DataModel; n_draws::Int = 1000)
     re_names = get_re_names(dm.model.random.random)
     isempty(re_names) && return NamedTuple[]
     re_set = Set(re_names)
     n_draws >= 1 || error("n_draws must be >= 1.")
-    draw_pack = sample_posterior(res; n_draws=n_draws, rng=Random.Xoshiro(0x6a07), return_names=true)
+    draw_pack = sample_posterior(
+        res; n_draws = n_draws, rng = Random.Xoshiro(0x6a07), return_names = true)
     draws = draw_pack.draws
     names = draw_pack.names
 
@@ -504,9 +519,10 @@ function _fq_vi_random_effect_rows(res::FitResult, dm::DataModel; n_draws::Int=1
     return _fq_re_rows_from_component_medians(by_key)
 end
 
-function _fq_random_effect_block(res::FitResult; constants_re::NamedTuple=NamedTuple())
+function _fq_random_effect_block(res::FitResult; constants_re::NamedTuple = NamedTuple())
     dm = get_data_model(res)
-    dm === nothing && return ("Random effects summary unavailable", NamedTuple[], ["Random-effects summary unavailable: FitResult does not store DataModel."])
+    dm === nothing && return ("Random effects summary unavailable", NamedTuple[],
+        ["Random-effects summary unavailable: FitResult does not store DataModel."])
     if isempty(get_re_names(dm.model.random.random))
         return ("Random effects summary", NamedTuple[], String[])
     end
@@ -515,33 +531,39 @@ function _fq_random_effect_block(res::FitResult; constants_re::NamedTuple=NamedT
     if method isa MCMC
         rows = _fq_mcmc_random_effect_rows(res, dm)
         label = "Posterior random effects summary (chain medians across draws)"
-        return (label, rows, isempty(rows) ? ["No random-effects chain coordinates detected."] : String[])
+        return (label, rows,
+            isempty(rows) ? ["No random-effects chain coordinates detected."] : String[])
     elseif method isa VI
         rows = _fq_vi_random_effect_rows(res, dm)
         label = "Posterior random effects summary (VI posterior medians across draws)"
-        return (label, rows, isempty(rows) ? ["No random-effects VI coordinates detected."] : String[])
+        return (label, rows,
+            isempty(rows) ? ["No random-effects VI coordinates detected."] : String[])
     end
 
     try
-        re_nt = get_random_effects(res; constants_re=constants_re, flatten=true, include_constants=false)
+        re_nt = get_random_effects(
+            res; constants_re = constants_re, flatten = true, include_constants = false)
         rows = _fq_re_stats_rows_from_df_nt(re_nt)
         return ("Empirical Bayes random effects summary (across RE levels)", rows, String[])
     catch err
-        return ("Empirical Bayes random effects summary unavailable", NamedTuple[], ["Random-effects summary unavailable for method $(nameof(typeof(method))): $(sprint(showerror, err))"])
+        return ("Empirical Bayes random effects summary unavailable",
+            NamedTuple[],
+            ["Random-effects summary unavailable for method $(nameof(typeof(method))): $(sprint(showerror, err))"])
     end
 end
 
 function summarize(res::FitResult;
-                   scale::Symbol=:natural,
-                   include_non_se::Bool=false,
-                   constants_re::NamedTuple=NamedTuple())
+        scale::Symbol = :natural,
+        include_non_se::Bool = false,
+        constants_re::NamedTuple = NamedTuple())
     scale = _fq_scale_symbol(scale)
     method = get_method(res)
     inference = _fq_inference_from_method(method)
 
-    param_rows, n_total, n_eligible, notes1 = _fq_fit_parameter_rows(res; scale=scale, include_non_se=include_non_se)
+    param_rows, n_total, n_eligible, notes1 = _fq_fit_parameter_rows(
+        res; scale = scale, include_non_se = include_non_se)
     cov_rows, n_obs_total, n_missing_total, notes2 = _fq_try_outcome_coverage(res)
-    re_label, re_rows, notes3 = _fq_random_effect_block(res; constants_re=constants_re)
+    re_label, re_rows, notes3 = _fq_random_effect_block(res; constants_re = constants_re)
 
     notes = String[]
     append!(notes, notes1)
@@ -566,7 +588,7 @@ function summarize(res::FitResult;
         n_missing_total,
         re_label,
         re_rows,
-        notes,
+        notes
     )
 end
 
@@ -575,18 +597,18 @@ function _fq_uq_scale(scale::Symbol)
     return scale
 end
 
-function _fq_uq_base_vectors(uq::UQResult; scale::Symbol=:natural)
-    est = get_uq_estimates(uq; scale=scale, as_component=false)
-    ints = get_uq_intervals(uq; scale=scale, as_component=false)
-    vcov = get_uq_vcov(uq; scale=scale)
-    draws = get_uq_draws(uq; scale=scale)
+function _fq_uq_base_vectors(uq::UQResult; scale::Symbol = :natural)
+    est = get_uq_estimates(uq; scale = scale, as_component = false)
+    ints = get_uq_intervals(uq; scale = scale, as_component = false)
+    vcov = get_uq_vcov(uq; scale = scale)
+    draws = get_uq_draws(uq; scale = scale)
     se = nothing
     if vcov !== nothing
         se = [sqrt(max(vcov[i, i], 0.0)) for i in 1:size(vcov, 1)]
     elseif draws !== nothing
-        se = vec(std(draws; dims=1, corrected=true))
+        se = vec(std(draws; dims = 1, corrected = true))
     end
-    return (est=est, ints=ints, se=se)
+    return (est = est, ints = ints, se = se)
 end
 
 function _fq_uq_interval_label(uq::UQResult)
@@ -594,10 +616,10 @@ function _fq_uq_interval_label(uq::UQResult)
     return inf == :bayesian ? "CrI" : "CI"
 end
 
-function summarize(uq::UQResult; scale::Symbol=:natural)
+function summarize(uq::UQResult; scale::Symbol = :natural)
     scale = _fq_uq_scale(scale)
     inference = _fq_inference_from_uq(uq)
-    base = _fq_uq_base_vectors(uq; scale=scale)
+    base = _fq_uq_base_vectors(uq; scale = scale)
     level = base.ints === nothing ? nothing : base.ints.level
     interval_label = _fq_uq_interval_label(uq)
 
@@ -607,15 +629,16 @@ function summarize(uq::UQResult; scale::Symbol=:natural)
         se_i = base.se === nothing ? nothing : base.se[i]
         lo = base.ints === nothing ? nothing : base.ints.lower[i]
         hi = base.ints === nothing ? nothing : base.ints.upper[i]
-        push!(rows, (;
-            parameter=names[i],
-            role="Unknown",
-            estimate=base.est[i],
-            std_error=se_i,
-            lower=lo,
-            upper=hi,
-            calculate_se=true,
-        ))
+        push!(rows,
+            (;
+                parameter = names[i],
+                role = "Unknown",
+                estimate = base.est[i],
+                std_error = se_i,
+                lower = lo,
+                upper = hi,
+                calculate_se = true
+            ))
     end
 
     return UQResultSummary(
@@ -636,14 +659,14 @@ function summarize(uq::UQResult; scale::Symbol=:natural)
         nothing,
         "",
         NamedTuple[],
-        String[],
+        String[]
     )
 end
 
 function summarize(res::FitResult, uq::UQResult;
-                   scale::Symbol=:natural,
-                   include_non_se::Bool=false,
-                   constants_re::NamedTuple=NamedTuple())
+        scale::Symbol = :natural,
+        include_non_se::Bool = false,
+        constants_re::NamedTuple = NamedTuple())
     scale = _fq_uq_scale(scale)
     dm = get_data_model(res)
     dm === nothing && error("summarize(fit, uq) requires fit to store DataModel.")
@@ -655,9 +678,10 @@ function summarize(res::FitResult, uq::UQResult;
     se_mask = get_se_mask(fe)
     roles_by_parent = _fq_role_by_parent(model)
     fit_est = _fq_fit_component_estimates(res, dm, scale)
-    length(fit_est) == length(flat_names) || error("Internal summary error: estimate layout mismatch.")
+    length(fit_est) == length(flat_names) ||
+        error("Internal summary error: estimate layout mismatch.")
 
-    base = _fq_uq_base_vectors(uq; scale=scale)
+    base = _fq_uq_base_vectors(uq; scale = scale)
     uq_names = get_uq_parameter_names(uq)
     uq_idx = Dict{Symbol, Int}((uq_names[i] => i) for i in eachindex(uq_names))
     inference = _fq_inference_from_uq(uq)
@@ -676,30 +700,32 @@ function summarize(res::FitResult, uq::UQResult;
             se_i = base.se === nothing ? nothing : base.se[j]
             lo = base.ints === nothing ? nothing : base.ints.lower[j]
             hi = base.ints === nothing ? nothing : base.ints.upper[j]
-            push!(rows, (;
-                parameter=name,
-                role=role,
-                estimate=base.est[j],
-                std_error=se_i,
-                lower=lo,
-                upper=hi,
-                calculate_se=se_mask[i],
-            ))
+            push!(rows,
+                (;
+                    parameter = name,
+                    role = role,
+                    estimate = base.est[j],
+                    std_error = se_i,
+                    lower = lo,
+                    upper = hi,
+                    calculate_se = se_mask[i]
+                ))
         elseif include_non_se
-            push!(rows, (;
-                parameter=name,
-                role=role,
-                estimate=fit_est[i],
-                std_error=nothing,
-                lower=nothing,
-                upper=nothing,
-                calculate_se=se_mask[i],
-            ))
+            push!(rows,
+                (;
+                    parameter = name,
+                    role = role,
+                    estimate = fit_est[i],
+                    std_error = nothing,
+                    lower = nothing,
+                    upper = nothing,
+                    calculate_se = se_mask[i]
+                ))
         end
     end
 
     cov_rows, n_obs_total, n_missing_total, notes_cov = _fq_try_outcome_coverage(res)
-    re_label, re_rows, notes_re = _fq_random_effect_block(res; constants_re=constants_re)
+    re_label, re_rows, notes_re = _fq_random_effect_block(res; constants_re = constants_re)
     notes = String[]
     append!(notes, notes_cov)
     append!(notes, notes_re)
@@ -722,7 +748,7 @@ function summarize(res::FitResult, uq::UQResult;
         n_missing_total,
         re_label,
         re_rows,
-        notes,
+        notes
     )
 end
 
@@ -733,81 +759,91 @@ function _fq_print_parameter_table_fit(io::IO, rows::Vector{NamedTuple})
     println(io, "  ", rpad("parameter", name_w), "  ", lpad("Estimate", 12))
     println(io, "  ", repeat("-", name_w + 14))
     for r in rows
-        println(io, "  ", rpad(string(r.parameter), name_w), "  ", lpad(_fq_fmt_num(r.estimate), 12))
+        println(io, "  ", rpad(string(r.parameter), name_w),
+            "  ", lpad(_fq_fmt_num(r.estimate), 12))
     end
 end
 
-function _fq_print_parameter_table_uq(io::IO, rows::Vector{NamedTuple}, interval_label::String, show_se::Bool)
+function _fq_print_parameter_table_uq(
+        io::IO, rows::Vector{NamedTuple}, interval_label::String, show_se::Bool)
     println(io, "Parameter uncertainty summary")
     isempty(rows) && (println(io, "  (none)"); return)
     name_w = max(length("parameter"), maximum(length(string(r.parameter)) for r in rows))
     if show_se
         println(io, "  ", rpad("parameter", name_w), "  ",
-                lpad("Estimate", 12), "  ", lpad("Std. Error", 12), "  ",
-                lpad("$(interval_label) Lower", 12), "  ", lpad("$(interval_label) Upper", 12))
+            lpad("Estimate", 12), "  ", lpad("Std. Error", 12), "  ",
+            lpad("$(interval_label) Lower", 12), "  ", lpad("$(interval_label) Upper", 12))
         println(io, "  ", repeat("-", name_w + 42))
         for r in rows
             println(io, "  ", rpad(string(r.parameter), name_w), "  ",
-                    lpad(_fq_fmt_num(r.estimate), 12), "  ", lpad(_fq_fmt_num(r.std_error), 12), "  ",
-                    lpad(_fq_fmt_num(r.lower), 12), "  ", lpad(_fq_fmt_num(r.upper), 12))
+                lpad(_fq_fmt_num(r.estimate), 12), "  ", lpad(_fq_fmt_num(r.std_error), 12), "  ",
+                lpad(_fq_fmt_num(r.lower), 12), "  ", lpad(_fq_fmt_num(r.upper), 12))
         end
     else
         println(io, "  ", rpad("parameter", name_w), "  ",
-                lpad("Estimate", 12), "  ", lpad("$(interval_label) Lower", 12), "  ", lpad("$(interval_label) Upper", 12))
+            lpad("Estimate", 12), "  ", lpad("$(interval_label) Lower", 12),
+            "  ", lpad("$(interval_label) Upper", 12))
         println(io, "  ", repeat("-", name_w + 28))
         for r in rows
             println(io, "  ", rpad(string(r.parameter), name_w), "  ",
-                    lpad(_fq_fmt_num(r.estimate), 12), "  ",
-                    lpad(_fq_fmt_num(r.lower), 12), "  ", lpad(_fq_fmt_num(r.upper), 12))
+                lpad(_fq_fmt_num(r.estimate), 12), "  ",
+                lpad(_fq_fmt_num(r.lower), 12), "  ", lpad(_fq_fmt_num(r.upper), 12))
         end
     end
 end
 
-function _fq_print_coverage_table(io::IO, rows::Vector{NamedTuple}, n_obs_total, n_missing_total)
+function _fq_print_coverage_table(
+        io::IO, rows::Vector{NamedTuple}, n_obs_total, n_missing_total)
     println(io, "Outcome data coverage")
     isempty(rows) && (println(io, "  (none)"); return)
     name_w = max(length("outcome"), maximum(length(string(r.outcome)) for r in rows))
-    println(io, "  ", rpad("outcome", name_w), "  ", lpad("n_obs", 10), "  ", lpad("n_missing", 10))
+    println(io, "  ", rpad("outcome", name_w), "  ",
+        lpad("n_obs", 10), "  ", lpad("n_missing", 10))
     println(io, "  ", repeat("-", name_w + 24))
     for r in rows
-        println(io, "  ", rpad(string(r.outcome), name_w), "  ", lpad(string(r.n_obs), 10), "  ", lpad(string(r.n_missing), 10))
+        println(io, "  ", rpad(string(r.outcome), name_w), "  ",
+            lpad(string(r.n_obs), 10), "  ", lpad(string(r.n_missing), 10))
     end
-    println(io, "  ", rpad("TOTAL", name_w), "  ", lpad(string(n_obs_total), 10), "  ", lpad(string(n_missing_total), 10))
+    println(io, "  ", rpad("TOTAL", name_w), "  ", lpad(string(n_obs_total), 10),
+        "  ", lpad(string(n_missing_total), 10))
 end
 
 function _fq_print_re_table(io::IO, label::String, rows::Vector{NamedTuple})
     println(io, label)
     isempty(rows) && (println(io, "  (none)"); return)
-    re_w = max(length("random effect"), maximum(length(string(r.random_effect)) for r in rows))
+    re_w = max(
+        length("random effect"), maximum(length(string(r.random_effect)) for r in rows))
     show_component = any(r -> string(r.component) != "-", rows)
     if show_component
         cmp_w = max(length("component"), maximum(length(string(r.component)) for r in rows))
-        println(io, "  ", rpad("random effect", re_w), "  ", rpad("component", cmp_w), "  ",
-                lpad("n", 6), "  ", lpad("mean", 12), "  ", lpad("sd", 12), "  ",
-                lpad("q25", 12), "  ", lpad("median", 12), "  ", lpad("q75", 12))
+        println(
+            io, "  ", rpad("random effect", re_w), "  ", rpad("component", cmp_w), "  ",
+            lpad("n", 6), "  ", lpad("mean", 12), "  ", lpad("sd", 12), "  ",
+            lpad("q25", 12), "  ", lpad("median", 12), "  ", lpad("q75", 12))
         println(io, "  ", repeat("-", re_w + cmp_w + 76))
         for r in rows
-            println(io, "  ", rpad(string(r.random_effect), re_w), "  ", rpad(string(r.component), cmp_w), "  ",
-                    lpad(string(r.n), 6), "  ",
-                    lpad(_fq_fmt_num(r.mean), 12), "  ",
-                    lpad(_fq_fmt_num(r.sd), 12), "  ",
-                    lpad(_fq_fmt_num(r.q25), 12), "  ",
-                    lpad(_fq_fmt_num(r.median), 12), "  ",
-                    lpad(_fq_fmt_num(r.q75), 12))
+            println(io, "  ", rpad(string(r.random_effect), re_w),
+                "  ", rpad(string(r.component), cmp_w), "  ",
+                lpad(string(r.n), 6), "  ",
+                lpad(_fq_fmt_num(r.mean), 12), "  ",
+                lpad(_fq_fmt_num(r.sd), 12), "  ",
+                lpad(_fq_fmt_num(r.q25), 12), "  ",
+                lpad(_fq_fmt_num(r.median), 12), "  ",
+                lpad(_fq_fmt_num(r.q75), 12))
         end
     else
         println(io, "  ", rpad("random effect", re_w), "  ",
-                lpad("n", 6), "  ", lpad("mean", 12), "  ", lpad("sd", 12), "  ",
-                lpad("q25", 12), "  ", lpad("median", 12), "  ", lpad("q75", 12))
+            lpad("n", 6), "  ", lpad("mean", 12), "  ", lpad("sd", 12), "  ",
+            lpad("q25", 12), "  ", lpad("median", 12), "  ", lpad("q75", 12))
         println(io, "  ", repeat("-", re_w + 62))
         for r in rows
             println(io, "  ", rpad(string(r.random_effect), re_w), "  ",
-                    lpad(string(r.n), 6), "  ",
-                    lpad(_fq_fmt_num(r.mean), 12), "  ",
-                    lpad(_fq_fmt_num(r.sd), 12), "  ",
-                    lpad(_fq_fmt_num(r.q25), 12), "  ",
-                    lpad(_fq_fmt_num(r.median), 12), "  ",
-                    lpad(_fq_fmt_num(r.q75), 12))
+                lpad(string(r.n), 6), "  ",
+                lpad(_fq_fmt_num(r.mean), 12), "  ",
+                lpad(_fq_fmt_num(r.sd), 12), "  ",
+                lpad(_fq_fmt_num(r.q25), 12), "  ",
+                lpad(_fq_fmt_num(r.median), 12), "  ",
+                lpad(_fq_fmt_num(r.q75), 12))
         end
     end
 end
@@ -818,14 +854,16 @@ Base.show(io::IO, s::UQResultSummary) = show(io, MIME"text/plain"(), s)
 function Base.show(io::IO, ::MIME"text/plain", s::FitResultSummary)
     println(io, "FitResultSummary")
     println(io, repeat("═", 96))
-    _fq_print_key_values(io, "Overview", [
-        "method" => s.method,
-        "inference" => s.inference,
-        "scale" => s.scale,
-        "objective" => _fq_fmt_objective(s.objective),
-        "iterations" => s.iterations,
-        "parameters shown (reported / total)" => "$(s.n_parameters_reported) / $(s.n_parameters_total)",
-    ])
+    _fq_print_key_values(io,
+        "Overview",
+        [
+            "method" => s.method,
+            "inference" => s.inference,
+            "scale" => s.scale,
+            "objective" => _fq_fmt_objective(s.objective),
+            "iterations" => s.iterations,
+            "parameters shown (reported / total)" => "$(s.n_parameters_reported) / $(s.n_parameters_total)"
+        ])
     println(io)
     _fq_print_parameter_table_fit(io, s.parameter_rows)
     println(io)
@@ -836,7 +874,8 @@ function Base.show(io::IO, ::MIME"text/plain", s::FitResultSummary)
     end
     if !isempty(s.notes)
         println(io)
-        _fq_print_key_values(io, "Notes", [string("note ", i) => s.notes[i] for i in eachindex(s.notes)])
+        _fq_print_key_values(
+            io, "Notes", [string("note ", i) => s.notes[i] for i in eachindex(s.notes)])
     end
 end
 
@@ -845,18 +884,21 @@ function Base.show(io::IO, ::MIME"text/plain", s::UQResultSummary)
     println(io, repeat("═", 96))
     show_se = s.inference != :bayesian
     level_str = s.level === nothing ? "-" : _fq_fmt_num(s.level)
-    _fq_print_key_values(io, "Overview", [
-        "backend" => s.backend,
-        "source_method" => s.source_method,
-        "inference" => s.inference,
-        "scale" => s.scale,
-        "objective" => _fq_fmt_objective(s.objective),
-        "interval level" => level_str,
-        "parameters shown (reported / total)" => "$(s.n_parameters_reported) / $(s.n_parameters_total)",
-    ])
+    _fq_print_key_values(io,
+        "Overview",
+        [
+            "backend" => s.backend,
+            "source_method" => s.source_method,
+            "inference" => s.inference,
+            "scale" => s.scale,
+            "objective" => _fq_fmt_objective(s.objective),
+            "interval level" => level_str,
+            "parameters shown (reported / total)" => "$(s.n_parameters_reported) / $(s.n_parameters_total)"
+        ])
     println(io)
     _fq_print_parameter_table_uq(io, s.parameter_rows, s.interval_label, show_se)
-    show_cov = !isempty(s.coverage_rows) || s.n_obs_total !== nothing || s.n_missing_total !== nothing
+    show_cov = !isempty(s.coverage_rows) || s.n_obs_total !== nothing ||
+               s.n_missing_total !== nothing
     if show_cov
         println(io)
         _fq_print_coverage_table(io, s.coverage_rows, s.n_obs_total, s.n_missing_total)
@@ -867,6 +909,7 @@ function Base.show(io::IO, ::MIME"text/plain", s::UQResultSummary)
     end
     if !isempty(s.notes)
         println(io)
-        _fq_print_key_values(io, "Notes", [string("note ", i) => s.notes[i] for i in eachindex(s.notes)])
+        _fq_print_key_values(
+            io, "Notes", [string("note ", i) => s.notes[i] for i in eachindex(s.notes)])
     end
 end

@@ -189,7 +189,9 @@ macro initialDE(block)
     delete!(var_syms, :helpers)
     delete!(var_syms, :preDE)
 
-    call_syms = Set([s for s in call_syms if !(isdefined(Base, s) || isdefined(@__MODULE__, s))])
+    call_syms = Set([s
+                     for s in call_syms
+                     if !(isdefined(Base, s) || isdefined(@__MODULE__, s))])
     var_syms = Set([s for s in var_syms if Base.isidentifier(s)])
     skip_vars = Set([:Inf, :NaN, :nothing, :missing, :true, :false])
     var_syms = Set([s for s in var_syms if !(s in skip_vars)])
@@ -226,72 +228,74 @@ It returns the initial state vector ordered to match `state_names`.
   ODE solving with small state dimensions.
 """
 function get_initialde_builder(i::InitialDE,
-                               state_names::Vector{Symbol};
-                               static::Bool=false)
+        state_names::Vector{Symbol};
+        static::Bool = false)
     init_names = i.ir.names
     name_set = Set(init_names)
     state_set = Set(state_names)
     missing = [s for s in state_names if !(s in name_set)]
     extra = [s for s in init_names if !(s in state_set)]
-    isempty(missing) || error("@initialDE is missing initial values for states: $(missing).")
+    isempty(missing) ||
+        error("@initialDE is missing initial values for states: $(missing).")
     isempty(extra) || error("@initialDE includes unknown state(s): $(extra).")
 
-    expr_by_name = Dict{Symbol, Expr}((init_names[idx] => i.ir.exprs[idx]) for idx in eachindex(init_names))
+    expr_by_name = Dict{Symbol, Expr}((init_names[idx] => i.ir.exprs[idx])
+    for idx in eachindex(init_names))
     ordered_exprs = [expr_by_name[s] for s in state_names]
 
     call_syms = Set(i.ir.call_syms)
     var_syms = Set(i.ir.var_syms)
     prop_syms = Set(i.ir.prop_syms)
 
-    fun_syms = Set([s for s in call_syms if !(isdefined(Base, s) || isdefined(@__MODULE__, s))])
+    fun_syms = Set([s
+                    for s in call_syms
+                    if !(isdefined(Base, s) || isdefined(@__MODULE__, s))])
     prop_syms_expr = Expr(:call, :Set, Expr(:vect, QuoteNode.(collect(prop_syms))...))
 
-    binds_vars = [
-        quote
-            if $(QuoteNode(sym)) in $prop_syms_expr
-                if hasproperty(constant_covariates, $(QuoteNode(sym)))
-                    $(sym) = getproperty(constant_covariates, $(QuoteNode(sym)))
-                else
-                    error("Unknown symbol $(string($(QuoteNode(sym)))) in initialDE.")
-                end
-            else
-                if hasproperty(preDE, $(QuoteNode(sym)))
-                    $(sym) = getproperty(preDE, $(QuoteNode(sym)))
-                elseif hasproperty(random_effects, $(QuoteNode(sym)))
-                    $(sym) = getproperty(random_effects, $(QuoteNode(sym)))
-                elseif hasproperty(fixed_effects, $(QuoteNode(sym)))
-                    $(sym) = getproperty(fixed_effects, $(QuoteNode(sym)))
-                elseif hasproperty(constant_covariates, $(QuoteNode(sym)))
-                    $(sym) = getproperty(constant_covariates, $(QuoteNode(sym)))
-                else
-                    error("Unknown symbol $(string($(QuoteNode(sym)))) in initialDE.")
-                end
-            end
-        end for sym in var_syms
-    ]
+    binds_vars = [quote
+                      if $(QuoteNode(sym)) in $prop_syms_expr
+                          if hasproperty(constant_covariates, $(QuoteNode(sym)))
+                              $(sym) = getproperty(constant_covariates, $(QuoteNode(sym)))
+                          else
+                              error("Unknown symbol $(string($(QuoteNode(sym)))) in initialDE.")
+                          end
+                      else
+                          if hasproperty(preDE, $(QuoteNode(sym)))
+                              $(sym) = getproperty(preDE, $(QuoteNode(sym)))
+                          elseif hasproperty(random_effects, $(QuoteNode(sym)))
+                              $(sym) = getproperty(random_effects, $(QuoteNode(sym)))
+                          elseif hasproperty(fixed_effects, $(QuoteNode(sym)))
+                              $(sym) = getproperty(fixed_effects, $(QuoteNode(sym)))
+                          elseif hasproperty(constant_covariates, $(QuoteNode(sym)))
+                              $(sym) = getproperty(constant_covariates, $(QuoteNode(sym)))
+                          else
+                              error("Unknown symbol $(string($(QuoteNode(sym)))) in initialDE.")
+                          end
+                      end
+                  end
+                  for sym in var_syms]
 
-    binds_funs = [
-        quote
-            if hasproperty(model_funs, $(QuoteNode(sym)))
-                $(sym) = getproperty(model_funs, $(QuoteNode(sym)))
-            elseif hasproperty(helpers, $(QuoteNode(sym)))
-                $(sym) = getproperty(helpers, $(QuoteNode(sym)))
-            else
-                error("Unknown function $(string($(QuoteNode(sym)))) in initialDE.")
-            end
-        end for sym in fun_syms
-    ]
+    binds_funs = [quote
+                      if hasproperty(model_funs, $(QuoteNode(sym)))
+                          $(sym) = getproperty(model_funs, $(QuoteNode(sym)))
+                      elseif hasproperty(helpers, $(QuoteNode(sym)))
+                          $(sym) = getproperty(helpers, $(QuoteNode(sym)))
+                      else
+                          error("Unknown function $(string($(QuoteNode(sym)))) in initialDE.")
+                      end
+                  end
+                  for sym in fun_syms]
 
     vec_expr = static ?
-        Expr(:call, GlobalRef(StaticArrays, :SVector), ordered_exprs...) :
-        Expr(:vect, ordered_exprs...)
+               Expr(:call, GlobalRef(StaticArrays, :SVector), ordered_exprs...) :
+               Expr(:vect, ordered_exprs...)
 
     func_expr = :(function (fixed_effects::ComponentArray,
-                            random_effects::ComponentArray,
-                            constant_covariates::NamedTuple,
-                            model_funs::NamedTuple,
-                            helpers::NamedTuple,
-                            preDE::NamedTuple)
+            random_effects::ComponentArray,
+            constant_covariates::NamedTuple,
+            model_funs::NamedTuple,
+            helpers::NamedTuple,
+            preDE::NamedTuple)
         $(binds_vars...)
         $(binds_funs...)
         return $vec_expr

@@ -4,13 +4,13 @@ using ComponentArrays
 using SciMLStructures
 
 struct DEContext
-    fixed_effects
-    random_effects
-    constant_covariates
-    varying_covariates
-    helpers
-    model_funs
-    preDE
+    fixed_effects::Any
+    random_effects::Any
+    constant_covariates::Any
+    varying_covariates::Any
+    helpers::Any
+    model_funs::Any
+    preDE::Any
 end
 
 struct FakeSol end
@@ -25,13 +25,13 @@ struct FakeSol end
     compile = get_de_compiler(de)
     f! = get_de_f!(de)
     f = get_de_f(de)
-    p = DEContext(ComponentArray(a=2.0, b=3.0, c=1.0),
-                  ComponentArray(),
-                  NamedTuple(),
-                  NamedTuple(),
-                  NamedTuple(),
-                  NamedTuple(),
-                  NamedTuple())
+    p = DEContext(ComponentArray(a = 2.0, b = 3.0, c = 1.0),
+        ComponentArray(),
+        NamedTuple(),
+        NamedTuple(),
+        NamedTuple(),
+        NamedTuple(),
+        NamedTuple())
     pc = compile(p)
     u = [1.0, 2.0]
     du = similar(u)
@@ -46,13 +46,13 @@ end
     end
     compile = get_de_compiler(de)
     f! = get_de_f!(de)
-    p = DEContext(ComponentArray(a=2.5),
-                  ComponentArray(),
-                  NamedTuple(),
-                  NamedTuple(),
-                  NamedTuple(),
-                  NamedTuple(),
-                  NamedTuple())
+    p = DEContext(ComponentArray(a = 2.5),
+        ComponentArray(),
+        NamedTuple(),
+        NamedTuple(),
+        NamedTuple(),
+        NamedTuple(),
+        NamedTuple())
     pc = compile(p)
     u = [0.0]
     du = similar(u)
@@ -78,17 +78,17 @@ end
     compile = get_de_compiler(de)
     f! = get_de_f!(de)
     p = DEContext(ComponentArray(),
-                  ComponentArray(),
-                  NamedTuple(),
-                  (w1 = t -> 2t,),
-                  NamedTuple(),
-                  NamedTuple(),
-                  (pre = 1.0,))
+        ComponentArray(),
+        NamedTuple(),
+        (w1 = t -> 2t,),
+        NamedTuple(),
+        NamedTuple(),
+        (pre = 1.0,))
     pc = compile(p)
     u = [0.0]
     du = similar(u)
     f!(du, u, pc, 0.5)
-    @test isapprox(du[1], sin(0.5) + 2 * 0.5 + 1.0; rtol=1e-6, atol=1e-8)
+    @test isapprox(du[1], sin(0.5) + 2 * 0.5 + 1.0; rtol = 1e-6, atol = 1e-8)
 end
 
 @testset "DifferentialEquation accessors" begin
@@ -97,13 +97,13 @@ end
         D(x1) ~ a * x1
         D(y1) ~ s(t) + 1
     end
-    p = DEContext(ComponentArray(a=2.0),
-                  ComponentArray(),
-                  NamedTuple(),
-                  NamedTuple(),
-                  NamedTuple(),
-                  NamedTuple(),
-                  NamedTuple())
+    p = DEContext(ComponentArray(a = 2.0),
+        ComponentArray(),
+        NamedTuple(),
+        NamedTuple(),
+        NamedTuple(),
+        NamedTuple(),
+        NamedTuple())
     pc = get_de_compiler(de)(p)
     accessors = get_de_accessors_builder(de)(FakeSol(), pc)
     @test haskey(accessors, :x1)
@@ -127,13 +127,13 @@ end
         D(x1) ~ a + w1
     end
     compile = get_de_compiler(de)
-    p = DEContext(ComponentArray(a=1.0),
-                  ComponentArray(),
-                  NamedTuple(),
-                  NamedTuple(),
-                  NamedTuple(),
-                  NamedTuple(),
-                  NamedTuple())
+    p = DEContext(ComponentArray(a = 1.0),
+        ComponentArray(),
+        NamedTuple(),
+        NamedTuple(),
+        NamedTuple(),
+        NamedTuple(),
+        NamedTuple())
     @test_throws ErrorException compile(p)
 end
 
@@ -145,14 +145,14 @@ end
         a = RealNumber(1.0)
     end
     θ = get_θ0_transformed(fe)
-    η = ComponentArray(η1=0.5)
-    p = build_de_params(de, θ; random_effects=η, tunable=:both)
+    η = ComponentArray(η1 = 0.5)
+    p = build_de_params(de, θ; random_effects = η, tunable = :both)
     vals, _, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), p)
     @test length(vals) == length(θ) + length(η)
-    pθ = build_de_params(de, θ; random_effects=η, tunable=:θ)
+    pθ = build_de_params(de, θ; random_effects = η, tunable = :θ)
     valsθ, _, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), pθ)
     @test length(valsθ) == length(θ)
-    pη = build_de_params(de, θ; random_effects=η, tunable=:η)
+    pη = build_de_params(de, θ; random_effects = η, tunable = :η)
     valsη, _, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), pη)
     @test length(valsη) == length(η)
 end
@@ -176,14 +176,15 @@ end
     helper_functions = @helpers begin
         sat(u) = u / (1 + abs(u))
     end
-    pre = get_prede_builder(prede)(fe0, ComponentArray(), NamedTuple(), NamedTuple(), helper_functions)
+    pre = get_prede_builder(prede)(
+        fe0, ComponentArray(), NamedTuple(), NamedTuple(), helper_functions)
     p = DEContext(fe0,
-                  ComponentArray(),
-                  NamedTuple(),
-                  NamedTuple(),
-                  helper_functions,
-                  NamedTuple(),
-                  pre)
+        ComponentArray(),
+        NamedTuple(),
+        NamedTuple(),
+        helper_functions,
+        NamedTuple(),
+        pre)
     pc = get_de_compiler(de)(p)
     du = similar([0.5])
     get_de_f!(de)(du, [0.5], pc, 0.0)

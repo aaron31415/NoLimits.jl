@@ -51,7 +51,7 @@ end
         x1 = 1.0
         x2 = 2.0
     end
-    builder = get_initialde_builder(init, [:x1, :x2]; static=true)
+    builder = get_initialde_builder(init, [:x1, :x2]; static = true)
 
     θ = ComponentArray(NamedTuple())
     η = ComponentArray(NamedTuple())
@@ -76,10 +76,10 @@ end
     ps0, st = Lux.setup(rng, chain)
     T = eltype(ps0.weight)
     ζ = (weight = fill(T(0.5), size(ps0.weight)...),
-         bias = fill(T(0.1), size(ps0.bias)...))
+        bias = fill(T(0.1), size(ps0.bias)...))
 
     tree = SoftTree(2, 2, 1)
-    Γ = init_params(tree; init_weight=0.0, init_bias=0.0, init_leaf=1.0)
+    Γ = init_params(tree; init_weight = 0.0, init_bias = 0.0, init_leaf = 1.0)
     NN1(x, ζ) = first(Lux.apply(chain, x, ζ, st))
     ST(x, Γ) = tree(x, Γ)
 
@@ -94,7 +94,7 @@ end
     v = builder(θ, η, const_covariates, model_funs, helpers, preDE)
     nn_val = NN1([const_covariates.c1, const_covariates.c2], ζ)[1]
     st_val = ST([const_covariates.c1, const_covariates.c2], Γ)[1]
-    @test isapprox(v[1], η.η_total + nn_val + st_val; rtol=1e-6, atol=1e-8)
+    @test isapprox(v[1], η.η_total + nn_val + st_val; rtol = 1e-6, atol = 1e-8)
     @test v[2] == 1.0
 end
 

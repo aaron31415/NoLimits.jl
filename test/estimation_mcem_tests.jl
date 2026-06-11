@@ -26,11 +26,11 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -44,9 +44,11 @@ end
         y = [0.1, 0.2, 0.0, -0.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MCEM(; sampler=MH(), turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-                             maxiters=2))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm,
+        NoLimits.MCEM(;
+            sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+            maxiters = 2))
     @test res isa FitResult
     @test NoLimits.get_converged(res) isa Bool
 end
@@ -61,11 +63,11 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -79,16 +81,18 @@ end
         y = [0.1, 0.2, 0.0, -0.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    method = NoLimits.MCEM(; sampler=MH(),
-                                   turing_kwargs=(n_samples=2, n_adapt=2, progress=false, verbose=false),
-                                   maxiters=2,
-                                   progress=false)
-    res_serial = fit_model(dm, method; serialization=EnsembleSerial(), rng=MersenneTwister(123))
-    res_threads = fit_model(dm, method; serialization=EnsembleThreads(), rng=MersenneTwister(123))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    method = NoLimits.MCEM(; sampler = MH(),
+        turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false, verbose = false),
+        maxiters = 2,
+        progress = false)
+    res_serial = fit_model(
+        dm, method; serialization = EnsembleSerial(), rng = MersenneTwister(123))
+    res_threads = fit_model(
+        dm, method; serialization = EnsembleThreads(), rng = MersenneTwister(123))
     @test res_serial.summary.objective == res_threads.summary.objective
-    @test collect(NoLimits.get_params(res_serial, scale=:untransformed)) ==
-          collect(NoLimits.get_params(res_threads, scale=:untransformed))
+    @test collect(NoLimits.get_params(res_serial, scale = :untransformed)) ==
+          collect(NoLimits.get_params(res_threads, scale = :untransformed))
 end
 
 @testset "MCEM basic with NUTS" begin
@@ -99,11 +103,11 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -117,9 +121,11 @@ end
         y = [0.1, 0.2, 0.0, -0.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MCEM(; sampler=NUTS(5, 0.3), turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-                             maxiters=2))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm,
+        NoLimits.MCEM(; sampler = NUTS(5, 0.3),
+            turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+            maxiters = 2))
     @test res isa FitResult
 end
 
@@ -131,11 +137,11 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -149,17 +155,18 @@ end
         y = [0.1, 0.2, 0.0, -0.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MCEM(;
-        sampler=MH(),
-        turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-        maxiters=2,
-        consecutive_params=1,
-        atol_theta=Inf,
-        rtol_theta=Inf,
-        atol_Q=0.0,
-        rtol_Q=0.0
-    ))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm,
+        NoLimits.MCEM(;
+            sampler = MH(),
+            turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+            maxiters = 2,
+            consecutive_params = 1,
+            atol_theta = Inf,
+            rtol_theta = Inf,
+            atol_Q = 0.0,
+            rtol_Q = 0.0
+        ))
     # If stopping used only parameter tolerance, this would stop after 1 iteration.
     @test res.result.iterations == 2
 end
@@ -172,12 +179,12 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.1)
-            σ = RealNumber(0.4, scale=:log)
+            σ = RealNumber(0.4, scale = :log)
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(0.0, 1.0); column=:ID)
-            η_site = RandomEffect(Normal(0.0, 1.0); column=:SITE)
+            η_id = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            η_site = RandomEffect(Normal(0.0, 1.0); column = :SITE)
         end
 
         @formulas begin
@@ -192,9 +199,11 @@ end
         y = [0.1, 0.2, 0.0, -0.1, 0.05, 0.0, -0.05, 0.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MCEM(; sampler=MH(), turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-                             maxiters=2))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm,
+        NoLimits.MCEM(;
+            sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+            maxiters = 2))
     @test res isa FitResult
     re = NoLimits.get_random_effects(dm, res)
     @test !isempty(re)
@@ -208,11 +217,11 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -226,10 +235,12 @@ end
         y = [0.1, 0.2, 0.0, -0.1, 0.05, 0.0]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MCEM(; sampler=MH(), turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-                             maxiters=2);
-                    constants_re=(; η=(; A=0.0,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm,
+        NoLimits.MCEM(;
+            sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+            maxiters = 2);
+        constants_re = (; η = (; A = 0.0,)))
     @test res isa FitResult
 end
 
@@ -241,11 +252,11 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -259,10 +270,12 @@ end
         y = [0.1, 0.2, 0.0, -0.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MCEM(; sampler=MH(), turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-                             maxiters=2);
-                    constants=(a=0.2,))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm,
+        NoLimits.MCEM(;
+            sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+            maxiters = 2);
+        constants = (a = 0.2,))
     @test res isa FitResult
 end
 
@@ -271,17 +284,17 @@ end
         @fixedEffects begin
             μ0 = RealNumber(0.0)
             β = RealNumber(0.5)
-            σ = RealNumber(0.3, scale=:log)
-            τ = RealNumber(0.4, scale=:log)
+            σ = RealNumber(0.3, scale = :log)
+            τ = RealNumber(0.4, scale = :log)
         end
 
         @covariates begin
             t = Covariate()
-            x = ConstantCovariate(constant_on=:ID)
+            x = ConstantCovariate(constant_on = :ID)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(μ0 + β * x, τ); column=:ID)
+            η = RandomEffect(Normal(μ0 + β * x, τ); column = :ID)
         end
 
         @formulas begin
@@ -296,9 +309,11 @@ end
         y = [0.1, 0.2, 0.0, -0.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MCEM(; sampler=MH(), turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-                             maxiters=2))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm,
+        NoLimits.MCEM(;
+            sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+            maxiters = 2))
     @test res isa FitResult
 end
 
@@ -310,11 +325,11 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.1)
-            σ = RealNumber(0.4, scale=:log)
+            σ = RealNumber(0.4, scale = :log)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -328,10 +343,12 @@ end
         y = [0.1, 0.2, 0.0, -0.1, 0.05, 0.0, -0.05, 0.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MCEM(; sampler=MH(), turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-                             maxiters=2);
-                    serialization=EnsembleThreads())
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm,
+        NoLimits.MCEM(;
+            sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+            maxiters = 2);
+        serialization = EnsembleThreads())
     @test res isa FitResult
 end
 
@@ -343,11 +360,11 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.1)
-            σ = RealNumber(0.4, scale=:log)
+            σ = RealNumber(0.4, scale = :log)
         end
 
         @randomEffects begin
-            η = RandomEffect(MvNormal([0.0, 0.0], I(2)); column=:ID)
+            η = RandomEffect(MvNormal([0.0, 0.0], I(2)); column = :ID)
         end
 
         @formulas begin
@@ -361,9 +378,11 @@ end
         y = [0.1, 0.2, 0.0, -0.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MCEM(; sampler=MH(), turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-                             maxiters=2))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm,
+        NoLimits.MCEM(;
+            sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+            maxiters = 2))
     @test res isa FitResult
 end
 
@@ -375,11 +394,11 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.1)
-            σ = RealNumber(0.4, scale=:log)
+            σ = RealNumber(0.4, scale = :log)
         end
 
         @randomEffects begin
-            η = RandomEffect(MvNormal([0.0, 0.0], I(2)); column=:ID)
+            η = RandomEffect(MvNormal([0.0, 0.0], I(2)); column = :ID)
         end
 
         @formulas begin
@@ -393,9 +412,11 @@ end
         y = [0.1, 0.2, 0.0, -0.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MCEM(; sampler=NUTS(5, 0.3), turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-                             maxiters=2))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm,
+        NoLimits.MCEM(; sampler = NUTS(5, 0.3),
+            turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+            maxiters = 2))
     @test res isa FitResult
 end
 
@@ -407,11 +428,11 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -425,12 +446,12 @@ end
         y = [0.1, 0.2, 0.0, -0.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    method = NoLimits.MCEM(optimizer=OptimizationOptimisers.Adam(0.05),
-                  optim_kwargs=(; maxiters=2),
-                  sampler=MH(),
-                  turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-                  maxiters=2)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    method = NoLimits.MCEM(optimizer = OptimizationOptimisers.Adam(0.05),
+        optim_kwargs = (; maxiters = 2),
+        sampler = MH(),
+        turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+        maxiters = 2)
     res = fit_model(dm, method)
     @test res isa FitResult
 end
@@ -443,11 +464,11 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -461,14 +482,15 @@ end
         y = [0.1, 0.2, 0.0, -0.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    lb, ub = default_bounds_from_start(dm; margin=1.0)
-    method = NoLimits.MCEM(optimizer=OptimizationBBO.BBO_adaptive_de_rand_1_bin_radiuslimited(),
-                  optim_kwargs=(; iterations=3),
-                  sampler=MH(),
-                  turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-                  maxiters=2,
-                  lb=lb, ub=ub)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    lb, ub = default_bounds_from_start(dm; margin = 1.0)
+    method = NoLimits.MCEM(
+        optimizer = OptimizationBBO.BBO_adaptive_de_rand_1_bin_radiuslimited(),
+        optim_kwargs = (; iterations = 3),
+        sampler = MH(),
+        turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+        maxiters = 2,
+        lb = lb, ub = ub)
     res = fit_model(dm, method)
     @test res isa FitResult
 end
@@ -482,11 +504,11 @@ end
         @fixedEffects begin
             a = RealNumber(0.1)
             k = RealNumber(0.2)
-            σ = RealNumber(0.3, scale=:log)
+            σ = RealNumber(0.3, scale = :log)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @initialDE begin
@@ -508,9 +530,11 @@ end
         y = [1.0, 0.8, 1.05, 0.85]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MCEM(; sampler=MH(), turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-                             maxiters=2))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm,
+        NoLimits.MCEM(;
+            sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+            maxiters = 2))
     @test res isa FitResult
 end
 
@@ -522,11 +546,11 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.3)
-            σ = RealNumber(0.4, scale=:log)
+            σ = RealNumber(0.4, scale = :log)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @DifferentialEquation begin
@@ -548,9 +572,9 @@ end
         y = [0.9, 0.7]
     )
 
-    model_saveat = set_solver_config(model; saveat_mode=:saveat)
-    dm = DataModel(model_saveat, df; primary_id=:ID, time_col=:t)
-    ll_cache = build_ll_cache(dm; ode_kwargs=(abstol=1e-8, reltol=1e-7))
+    model_saveat = set_solver_config(model; saveat_mode = :saveat)
+    dm = DataModel(model_saveat, df; primary_id = :ID, time_col = :t)
+    ll_cache = build_ll_cache(dm; ode_kwargs = (abstol = 1e-8, reltol = 1e-7))
     threaded = NoLimits._mcem_thread_caches(dm, ll_cache, 2)
     @test length(threaded) == 2
     @test all(c -> c.ode_args == ll_cache.ode_args, threaded)
@@ -581,7 +605,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 0.7); column=:ID)
+            η = RandomEffect(Normal(0.0, 0.7); column = :ID)
         end
 
         @formulas begin
@@ -597,21 +621,22 @@ end
         y = [1, 1, 2, 2, 3, 4]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MCEM(; sampler=MH(),
-                                              turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-                                              maxiters=2))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm,
+        NoLimits.MCEM(; sampler = MH(),
+            turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+            maxiters = 2))
     @test res isa FitResult
     @test NoLimits.get_converged(res) isa Bool
 end
 
 @testset "MCEM final EBE rescue options are configurable" begin
     method = NoLimits.MCEM(;
-        ebe_rescue_on_high_grad=false,
-        ebe_rescue_multistart_n=2,
-        ebe_rescue_multistart_k=2,
-        ebe_rescue_max_rounds=9,
-        ebe_rescue_grad_tol=1e-5
+        ebe_rescue_on_high_grad = false,
+        ebe_rescue_multistart_n = 2,
+        ebe_rescue_multistart_k = 2,
+        ebe_rescue_max_rounds = 9,
+        ebe_rescue_grad_tol = 1e-5
     )
     @test method.ebe_rescue.enabled == false
     @test method.ebe_rescue.multistart_n == 2
@@ -627,28 +652,29 @@ end
         end
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.4, scale=:log)
+            σ = RealNumber(0.4, scale = :log)
         end
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
         @formulas begin
             y ~ Normal(a + η, σ)
         end
     end
-    df = DataFrame(ID=[:A, :A, :B, :B], t=[0.0, 1.0, 0.0, 1.0], y=[0.1, 0.2, 0.0, -0.1])
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    df = DataFrame(
+        ID = [:A, :A, :B, :B], t = [0.0, 1.0, 0.0, 1.0], y = [0.1, 0.2, 0.0, -0.1])
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     method = NoLimits.MCEM(;
-        sampler=MH(),
-        turing_kwargs=(n_samples=2, n_adapt=2, progress=false),
-        maxiters=2,
-        ebe_rescue_on_high_grad=true,
-        ebe_rescue_multistart_n=2,
-        ebe_rescue_multistart_k=2,
-        ebe_rescue_max_rounds=2,
-        ebe_rescue_grad_tol=1e-7
+        sampler = MH(),
+        turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+        maxiters = 2,
+        ebe_rescue_on_high_grad = true,
+        ebe_rescue_multistart_n = 2,
+        ebe_rescue_multistart_k = 2,
+        ebe_rescue_max_rounds = 2,
+        ebe_rescue_grad_tol = 1e-7
     )
-    res = fit_model(dm, method; store_eb_modes=false)
+    res = fit_model(dm, method; store_eb_modes = false)
     re = NoLimits.get_random_effects(dm, res)
     @test haskey(re, :η)
     @test nrow(re.η) == length(unique(df.ID))
@@ -656,28 +682,40 @@ end
 
 @testset "MCEM constants_re: fixed-RE individuals contribute observations to Q" begin
     model = @Model begin
-        @covariates begin; t = Covariate(); end
-        @fixedEffects begin; a = RealNumber(0.2); σ = RealNumber(0.5, scale=:log); end
-        @randomEffects begin; η = RandomEffect(Normal(0.0, 1.0); column=:ID); end
-        @formulas begin; y ~ Normal(a + η, σ); end
+        @covariates begin
+            t = Covariate()
+        end
+        @fixedEffects begin
+            a = RealNumber(0.2)
+            σ = RealNumber(0.5, scale = :log)
+        end
+        @randomEffects begin
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
+        end
+        @formulas begin
+            y ~ Normal(a + η, σ)
+        end
     end
-    df = DataFrame(ID=[:A,:A,:B,:B], t=[0.0,1.0,0.0,1.0], y=[0.1,0.2,0.0,-0.1])
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    df = DataFrame(
+        ID = [:A, :A, :B, :B], t = [0.0, 1.0, 0.0, 1.0], y = [0.1, 0.2, 0.0, -0.1])
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     method = NoLimits.MCEM(;
-        sampler=MH(), turing_kwargs=(n_samples=3, n_adapt=2, progress=false), maxiters=3,
+        sampler = MH(), turing_kwargs = (n_samples = 3, n_adapt = 2, progress = false), maxiters = 3
     )
     # Pin :A's RE to 0.0 — individual :B must still contribute its observations.
-    res = fit_model(dm, method; constants_re=(; η=(; A=0.0,)), rng=Xoshiro(7))
+    res = fit_model(dm, method; constants_re = (; η = (; A = 0.0,)), rng = Xoshiro(7))
     @test res isa NoLimits.FitResult
     @test isfinite(NoLimits.get_objective(res))
 
     # Verify logf for constant-RE batch is finite (observations included).
-    θu = NoLimits.get_params(res; scale=:untransformed)
-    _, batch_infos, const_cache = NoLimits._build_laplace_batch_infos(dm, (; η=(; A=0.0,)))
+    θu = NoLimits.get_params(res; scale = :untransformed)
+    _, batch_infos, const_cache = NoLimits._build_laplace_batch_infos(
+        dm, (; η = (; A = 0.0,)))
     ll_cache = NoLimits.build_ll_cache(dm)
     for (bi, info) in enumerate(batch_infos)
         if info.n_b == 0
-            logf = NoLimits._laplace_logf_batch(dm, info, θu, Float64[], const_cache, ll_cache)
+            logf = NoLimits._laplace_logf_batch(
+                dm, info, θu, Float64[], const_cache, ll_cache)
             @test isfinite(logf)
         end
     end
@@ -685,17 +723,28 @@ end
 
 @testset "MCEM constants_re: all RE constant — fit runs and objective is finite" begin
     model = @Model begin
-        @covariates begin; t = Covariate(); end
-        @fixedEffects begin; a = RealNumber(0.2); σ = RealNumber(0.5, scale=:log); end
-        @randomEffects begin; η = RandomEffect(Normal(0.0, 1.0); column=:ID); end
-        @formulas begin; y ~ Normal(a + η, σ); end
+        @covariates begin
+            t = Covariate()
+        end
+        @fixedEffects begin
+            a = RealNumber(0.2)
+            σ = RealNumber(0.5, scale = :log)
+        end
+        @randomEffects begin
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
+        end
+        @formulas begin
+            y ~ Normal(a + η, σ)
+        end
     end
-    df = DataFrame(ID=[:A,:A,:B,:B], t=[0.0,1.0,0.0,1.0], y=[0.1,0.2,0.0,-0.1])
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    df = DataFrame(
+        ID = [:A, :A, :B, :B], t = [0.0, 1.0, 0.0, 1.0], y = [0.1, 0.2, 0.0, -0.1])
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     method = NoLimits.MCEM(;
-        sampler=MH(), turing_kwargs=(n_samples=3, n_adapt=2, progress=false), maxiters=3,
+        sampler = MH(), turing_kwargs = (n_samples = 3, n_adapt = 2, progress = false), maxiters = 3
     )
-    res = fit_model(dm, method; constants_re=(; η=(; A=0.0, B=0.0,)), rng=Xoshiro(8))
+    res = fit_model(
+        dm, method; constants_re = (; η = (; A = 0.0, B = 0.0)), rng = Xoshiro(8))
     @test res isa NoLimits.FitResult
     @test isfinite(NoLimits.get_objective(res))
 end

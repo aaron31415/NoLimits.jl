@@ -8,9 +8,9 @@ using Turing: MH
 @testset "Fit/UQ summaries (frequentist, fixed effects only)" begin
     model = @Model begin
         @fixedEffects begin
-            a = RealNumber(0.3; calculate_se=true)
-            b = RealNumber(0.1; calculate_se=false)
-            σ = RealNumber(0.5; scale=:log, calculate_se=true)
+            a = RealNumber(0.3; calculate_se = true)
+            b = RealNumber(0.1; calculate_se = false)
+            σ = RealNumber(0.5; scale = :log, calculate_se = true)
         end
 
         @covariates begin
@@ -26,11 +26,11 @@ using Turing: MH
     df = DataFrame(
         ID = [1, 1, 2, 2, 3, 3],
         t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y = [0.2, 0.4, 0.1, 0.5, 0.0, 0.3],
+        y = [0.2, 0.4, 0.1, 0.5, 0.0, 0.3]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, MLE(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, MLE(; optim_kwargs = (maxiters = 2,)))
 
     s_fit = summarize(res)
     @test s_fit isa FitResultSummary
@@ -42,16 +42,17 @@ using Turing: MH
     @test s_fit.n_obs_total == 6
     @test s_fit.n_missing_total == 0
     @test length(s_fit.coverage_rows) == 1
-    @test occursin("Empirical Bayes", s_fit.random_effect_label) || occursin("Random effects summary", s_fit.random_effect_label)
+    @test occursin("Empirical Bayes", s_fit.random_effect_label) ||
+          occursin("Random effects summary", s_fit.random_effect_label)
     txt_fit = sprint(show, MIME"text/plain"(), s_fit)
     @test occursin("FitResultSummary", txt_fit)
     @test occursin("Outcome data coverage", txt_fit)
 
-    s_fit_all = summarize(res; include_non_se=true)
+    s_fit_all = summarize(res; include_non_se = true)
     @test s_fit_all.n_parameters_reported == 3
     @test any(r -> r.parameter == :b, s_fit_all.parameter_rows)
 
-    uq = compute_uq(res; method=:wald, n_draws=30)
+    uq = compute_uq(res; method = :wald, n_draws = 30)
     s_uq = summarize(uq)
     @test s_uq isa UQResultSummary
     @test s_uq.inference == :frequentist
@@ -64,7 +65,7 @@ using Turing: MH
     @test !occursin("Random effects summary", txt_uq)
     @test !occursin("Notes", txt_uq)
 
-    s_comb = summarize(res, uq; include_non_se=true)
+    s_comb = summarize(res, uq; include_non_se = true)
     @test s_comb isa UQResultSummary
     @test s_comb.interval_label == "CI"
     @test s_comb.n_parameters_total == 3
@@ -81,9 +82,9 @@ end
 @testset "Fit/UQ summaries (frequentist Laplace with random effects)" begin
     model = @Model begin
         @fixedEffects begin
-            a = RealNumber(0.2; calculate_se=true)
-            ω = RealNumber(0.5; scale=:log, calculate_se=true)
-            σ = RealNumber(0.4; scale=:log, calculate_se=false)
+            a = RealNumber(0.2; calculate_se = true)
+            ω = RealNumber(0.5; scale = :log, calculate_se = true)
+            σ = RealNumber(0.4; scale = :log, calculate_se = false)
         end
 
         @covariates begin
@@ -91,7 +92,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, ω); column=:ID)
+            η = RandomEffect(Normal(0.0, ω); column = :ID)
         end
 
         @formulas begin
@@ -103,11 +104,11 @@ end
     df = DataFrame(
         ID = [1, 1, 2, 2, 3, 3],
         t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y = [1.2, 1.4, 0.9, 1.0, 1.6, 1.5],
+        y = [1.2, 1.4, 0.9, 1.0, 1.6, 1.5]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.Laplace(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
 
     s_fit = summarize(res)
     @test s_fit isa FitResultSummary
@@ -122,8 +123,8 @@ end
     @test occursin("Empirical Bayes random effects summary", txt_lap_fit)
     @test !occursin("component", txt_lap_fit)
 
-    uq = compute_uq(res; method=:wald, n_draws=30)
-    s_comb = summarize(res, uq; include_non_se=true)
+    uq = compute_uq(res; method = :wald, n_draws = 30)
+    s_comb = summarize(res, uq; include_non_se = true)
     @test s_comb isa UQResultSummary
     @test s_comb.inference == :frequentist
     @test s_comb.interval_label == "CI"
@@ -141,8 +142,9 @@ end
 @testset "Fit/UQ summaries (bayesian MCMC with random effects)" begin
     model = @Model begin
         @fixedEffects begin
-            a = RealNumber(0.2; prior=Normal(0.0, 1.0), calculate_se=true)
-            σ = RealNumber(0.4; scale=:log, prior=LogNormal(0.0, 0.5), calculate_se=true)
+            a = RealNumber(0.2; prior = Normal(0.0, 1.0), calculate_se = true)
+            σ = RealNumber(
+                0.4; scale = :log, prior = LogNormal(0.0, 0.5), calculate_se = true)
         end
 
         @covariates begin
@@ -150,7 +152,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -161,16 +163,16 @@ end
     df = DataFrame(
         ID = [1, 1, 2, 2],
         t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.3, -0.1, 0.0],
+        y = [0.1, 0.3, -0.1, 0.0]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     res = fit_model(
         dm,
         MCMC(;
-            sampler=MH(),
-            turing_kwargs=(n_samples=2, n_adapt=2, progress=false, verbose=false),
-            progress=false,
+            sampler = MH(),
+            turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false, verbose = false),
+            progress = false
         )
     )
 
@@ -184,7 +186,7 @@ end
     @test occursin("objective", txt_fit)
     @test !occursin("NaN", txt_fit)
 
-    uq = compute_uq(res; method=:chain, mcmc_draws=20)
+    uq = compute_uq(res; method = :chain, mcmc_draws = 20)
     s_comb = summarize(res, uq)
     @test s_comb isa UQResultSummary
     @test s_comb.inference == :bayesian
@@ -198,8 +200,9 @@ end
 @testset "Fit/UQ summaries (bayesian MCMC with random effects)" begin
     model = @Model begin
         @fixedEffects begin
-            a = RealNumber(0.2; prior=Normal(0.0, 1.0), calculate_se=true)
-            σ = RealNumber(0.4; scale=:log, prior=LogNormal(0.0, 0.5), calculate_se=true)
+            a = RealNumber(0.2; prior = Normal(0.0, 1.0), calculate_se = true)
+            σ = RealNumber(
+                0.4; scale = :log, prior = LogNormal(0.0, 0.5), calculate_se = true)
         end
 
         @covariates begin
@@ -207,7 +210,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -218,11 +221,13 @@ end
     df = DataFrame(
         ID = [1, 1, 2, 2],
         t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.3, -0.1, 0.0],
+        y = [0.1, 0.3, -0.1, 0.0]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, MCMC(; turing_kwargs=(n_samples=30, n_adapt=10, progress=false)); rng=Random.Xoshiro(710))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(
+        dm, MCMC(; turing_kwargs = (n_samples = 30, n_adapt = 10, progress = false));
+        rng = Random.Xoshiro(710))
 
     s_fit = summarize(res)
     @test s_fit isa FitResultSummary
@@ -235,7 +240,8 @@ end
     @test occursin("objective", txt_fit)
     @test !occursin("NaN", txt_fit)
 
-    uq = compute_uq(res; method=:chain, mcmc_draws=20, mcmc_warmup=5, rng=Random.Xoshiro(711))
+    uq = compute_uq(
+        res; method = :chain, mcmc_draws = 20, mcmc_warmup = 5, rng = Random.Xoshiro(711))
     s_comb = summarize(res, uq)
     @test s_comb isa UQResultSummary
     @test s_comb.inference == :bayesian

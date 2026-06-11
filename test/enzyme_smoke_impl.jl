@@ -15,16 +15,17 @@ Enzyme.API.strictAliasing!(false)
     # parameter rebuild, BLAS-free eval, transforms, and the laplace batch path.
     model = @Model begin
         @fixedEffects begin
-            σ = RealNumber(0.4, scale=:log)
-            ω = RealNumber(0.5, scale=:log)
-            Γ = SoftTreeParameters(2, 2; function_name=:ST1, seed=0, calculate_se=false)
+            σ = RealNumber(0.4, scale = :log)
+            ω = RealNumber(0.5, scale = :log)
+            Γ = SoftTreeParameters(
+                2, 2; function_name = :ST1, seed = 0, calculate_se = false)
         end
         @covariates begin
             t = Covariate()
             x = ConstantCovariateVector([:Age])
         end
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, ω); column=:ID)
+            η = RandomEffect(Normal(0.0, ω); column = :ID)
         end
         @formulas begin
             μ = ST1([x.Age, η], Γ)[1]
@@ -33,12 +34,12 @@ Enzyme.API.strictAliasing!(false)
     end
     rng = Xoshiro(1)
     df = DataFrame(
-        ID=repeat(1:4, inner=3),
-        t=repeat(collect(0.0:1.0:2.0), outer=4),
-        Age=repeat([0.3, -0.2, 0.1, 0.5], inner=3),
-        y=randn(rng, 12) .* 0.3 .+ 0.5,
+        ID = repeat(1:4, inner = 3),
+        t = repeat(collect(0.0:1.0:2.0), outer = 4),
+        Age = repeat([0.3, -0.2, 0.1, 0.5], inner = 3),
+        y = randn(rng, 12) .* 0.3 .+ 0.5
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     _, batch_infos, const_cache = NoLimits._build_laplace_batch_infos(dm, NamedTuple())
     ll_cache = NoLimits.build_ll_cache(dm)
     info = batch_infos[1]
@@ -51,9 +52,11 @@ Enzyme.API.strictAliasing!(false)
     g_fd = ForwardDiff.gradient(f, b)
     @test all(isfinite, g_fd)
 
-    g_fwd = collect(Enzyme.gradient(set_runtime_activity(Enzyme.Forward), Const(f), copy(b))[1])
-    @test isapprox(g_fwd, g_fd; rtol=1e-6, atol=1e-10)
+    g_fwd = collect(Enzyme.gradient(
+        set_runtime_activity(Enzyme.Forward), Const(f), copy(b))[1])
+    @test isapprox(g_fwd, g_fd; rtol = 1e-6, atol = 1e-10)
 
-    g_rev = collect(Enzyme.gradient(set_runtime_activity(Enzyme.Reverse), Const(f), copy(b))[1])
-    @test isapprox(g_rev, g_fd; rtol=1e-6, atol=1e-10)
+    g_rev = collect(Enzyme.gradient(
+        set_runtime_activity(Enzyme.Reverse), Const(f), copy(b))[1])
+    @test isapprox(g_rev, g_fd; rtol = 1e-6, atol = 1e-10)
 end

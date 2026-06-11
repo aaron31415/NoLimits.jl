@@ -182,8 +182,9 @@ struct Model{F, R, C, D, H, O, S}
 end
 
 # Backwards-compatible constructor: models built without stored source carry `nothing`.
-Model(fixed, random, covariates, de, helpers, formulas) =
+function Model(fixed, random, covariates, de, helpers, formulas)
     Model(fixed, random, covariates, de, helpers, formulas, nothing)
+end
 
 """
     get_source(m::Model) -> Union{NamedTuple, Nothing}
@@ -193,7 +194,7 @@ form `@Model base begin ... end`, or `nothing` when the model carries no stored 
 """
 get_source(m::Model) = m.source
 
-function _nl_short_join_symbols(v::AbstractVector{Symbol}; max_items::Int=3)
+function _nl_short_join_symbols(v::AbstractVector{Symbol}; max_items::Int = 3)
     n = length(v)
     n == 0 && return "[]"
     if n <= max_items
@@ -251,18 +252,22 @@ function _model_validate_blocks(block::Expr)
         "@preDifferentialEquation",
         "@DifferentialEquation",
         "@initialDE",
-        "@formulas",
+        "@formulas"
     ]))
     counts = Dict{Symbol, Int}()
     for stmt in block.args
         stmt isa LineNumberNode && continue
-        stmt isa Expr || error("Invalid statement in @Model; only macro blocks are allowed.")
-        stmt.head == :macrocall || error("Invalid statement in @Model; only macro blocks are allowed.")
+        stmt isa Expr ||
+            error("Invalid statement in @Model; only macro blocks are allowed.")
+        stmt.head == :macrocall ||
+            error("Invalid statement in @Model; only macro blocks are allowed.")
         name = _model_macro_name(stmt)
         name === nothing && error("Invalid macro call in @Model.")
-        name in allowed || error("Unknown block $(name) in @Model. Allowed blocks: $(collect(allowed)).")
+        name in allowed ||
+            error("Unknown block $(name) in @Model. Allowed blocks: $(collect(allowed)).")
         counts[name] = get(counts, name, 0) + 1
-        counts[name] > 1 && error("Duplicate $(name) block in @Model. Each block can appear at most once.")
+        counts[name] > 1 &&
+            error("Duplicate $(name) block in @Model. Each block can appear at most once.")
     end
     return nothing
 end
@@ -309,10 +314,12 @@ arguments and replaces the existing configuration.
 """
 function set_solver_config(m::Model, cfg::ODESolverConfig)
     de_bundle = DEBundle(m.de.de, m.de.initial, m.de.prede, cfg, m.de.initial_builder)
-    return Model(m.fixed, m.random, m.covariates, de_bundle, m.helpers, m.formulas, m.source)
+    return Model(
+        m.fixed, m.random, m.covariates, de_bundle, m.helpers, m.formulas, m.source)
 end
 
-function set_solver_config(m::Model; alg=nothing, kwargs=NamedTuple(), args=(), saveat_mode::Symbol=:dense)
+function set_solver_config(m::Model; alg = nothing, kwargs = NamedTuple(),
+        args = (), saveat_mode::Symbol = :dense)
     return set_solver_config(m, ODESolverConfig(alg, kwargs, args, saveat_mode))
 end
 
@@ -345,9 +352,9 @@ block was defined, returns `NamedTuple()`.
 - `const_covariates_i::NamedTuple`: constant-covariate values for one individual.
 """
 function calculate_prede(m::Model,
-                         θ::ComponentArray,
-                         η::ComponentArray,
-                         const_covariates_i::NamedTuple)
+        θ::ComponentArray,
+        η::ComponentArray,
+        const_covariates_i::NamedTuple)
     builder = _get_prede_builder_or_default(m)
     model_funs = get_model_funs(m)
     helpers = get_helper_funs(m)
@@ -372,18 +379,20 @@ Requires both `@DifferentialEquation` and `@initialDE` blocks to be present.
 - `static::Bool = false`: if `true`, returns a `StaticArrays.SVector`.
 """
 function calculate_initial_state(m::Model,
-                                 θ::ComponentArray,
-                                 η::ComponentArray,
-                                 const_covariates_i::NamedTuple;
-                                 static::Bool=false)
-    m.de.de === nothing && error("calculate_initial_state requires a @DifferentialEquation block.")
-    m.de.initial_builder === nothing && error("calculate_initial_state requires a @initialDE block.")
+        θ::ComponentArray,
+        η::ComponentArray,
+        const_covariates_i::NamedTuple;
+        static::Bool = false)
+    m.de.de === nothing &&
+        error("calculate_initial_state requires a @DifferentialEquation block.")
+    m.de.initial_builder === nothing &&
+        error("calculate_initial_state requires a @initialDE block.")
     pre = calculate_prede(m, θ, η, const_covariates_i)
     model_funs = get_model_funs(m)
     helpers = get_helper_funs(m)
     builder = static ?
-        get_initialde_builder(m.de.initial, get_de_states(m.de.de); static=true) :
-        m.de.initial_builder
+              get_initialde_builder(m.de.initial, get_de_states(m.de.de); static = true) :
+              m.de.initial_builder
     return builder(θ, η, const_covariates_i, model_funs, helpers, pre)
 end
 
@@ -392,13 +401,16 @@ end
 # initial state, the DE compile context, and every formula row, instead of
 # re-deriving it inside each call.
 function _initial_state_with_pre(m::Model,
-                                 θ::ComponentArray,
-                                 η::ComponentArray,
-                                 const_covariates_i::NamedTuple,
-                                 pre)
-    m.de.de === nothing && error("calculate_initial_state requires a @DifferentialEquation block.")
-    m.de.initial_builder === nothing && error("calculate_initial_state requires a @initialDE block.")
-    return m.de.initial_builder(θ, η, const_covariates_i, get_model_funs(m), get_helper_funs(m), pre)
+        θ::ComponentArray,
+        η::ComponentArray,
+        const_covariates_i::NamedTuple,
+        pre)
+    m.de.de === nothing &&
+        error("calculate_initial_state requires a @DifferentialEquation block.")
+    m.de.initial_builder === nothing &&
+        error("calculate_initial_state requires a @initialDE block.")
+    return m.de.initial_builder(
+        θ, η, const_covariates_i, get_model_funs(m), get_helper_funs(m), pre)
 end
 
 """
@@ -418,17 +430,18 @@ and return a `NamedTuple` mapping every defined name to its value.
   [`get_de_accessors_builder`](@ref). Required when formulas reference DE states or signals.
 """
 function calculate_formulas_all(m::Model,
-                                θ::ComponentArray,
-                                η::ComponentArray,
-                                const_covariates_i::NamedTuple,
-                                varying_covariates::NamedTuple,
-                                sol_accessors::NamedTuple=NamedTuple())
+        θ::ComponentArray,
+        η::ComponentArray,
+        const_covariates_i::NamedTuple,
+        varying_covariates::NamedTuple,
+        sol_accessors::NamedTuple = NamedTuple())
     _require_accessors(m) && isempty(keys(sol_accessors)) &&
         error("Formulas require DE accessors ($(m.formulas.required_states), $(m.formulas.required_signals)). Pass sol_accessors from get_de_accessors_builder.")
     model_funs = get_model_funs(m)
     helpers = get_helper_funs(m)
     pre = calculate_prede(m, θ, η, const_covariates_i)
-    ctx = (; fixed_effects = θ, random_effects = η, prede = pre, helpers = helpers, model_funs = model_funs)
+    ctx = (; fixed_effects = θ, random_effects = η, prede = pre,
+        helpers = helpers, model_funs = model_funs)
     return m.formulas.all(ctx, sol_accessors, const_covariates_i, varying_covariates)
 end
 
@@ -442,17 +455,18 @@ Evaluate only the observation nodes (`y ~ dist`) of `@formulas` and return a
 Arguments are the same as [`calculate_formulas_all`](@ref).
 """
 function calculate_formulas_obs(m::Model,
-                                θ::ComponentArray,
-                                η::ComponentArray,
-                                const_covariates_i::NamedTuple,
-                                varying_covariates::NamedTuple,
-                                sol_accessors::NamedTuple=NamedTuple())
+        θ::ComponentArray,
+        η::ComponentArray,
+        const_covariates_i::NamedTuple,
+        varying_covariates::NamedTuple,
+        sol_accessors::NamedTuple = NamedTuple())
     _require_accessors(m) && isempty(keys(sol_accessors)) &&
         error("Formulas require DE accessors ($(m.formulas.required_states), $(m.formulas.required_signals)). Pass sol_accessors from get_de_accessors_builder.")
     model_funs = get_model_funs(m)
     helpers = get_helper_funs(m)
     pre = calculate_prede(m, θ, η, const_covariates_i)
-    ctx = (; fixed_effects = θ, random_effects = η, prede = pre, helpers = helpers, model_funs = model_funs)
+    ctx = (; fixed_effects = θ, random_effects = η, prede = pre,
+        helpers = helpers, model_funs = model_funs)
     return m.formulas.obs(ctx, sol_accessors, const_covariates_i, varying_covariates)
 end
 
@@ -552,7 +566,8 @@ macro Model(block)
         local $(initial_var) = $(esc(initial_block))
         local $(formulas_var) = $(esc(formulas_expr))
 
-        local $(fixed_bundle_var) = FixedBundle($(fixed_var), get_transform($(fixed_var)), get_inverse_transform($(fixed_var)))
+        local $(fixed_bundle_var) = FixedBundle(
+            $(fixed_var), get_transform($(fixed_var)), get_inverse_transform($(fixed_var)))
         local $(random_bundle_var) = RandomBundle($(random_var))
         local $(cov_bundle_var) = CovariatesBundle($(covariates_var))
         local $(helpers_bundle_var) = HelpersBundle($(helpers_var))
@@ -562,20 +577,26 @@ macro Model(block)
         end
 
         local $(solver_config_var) = ODESolverConfig()
-        local $(initial_builder_var) = $(de_var) === nothing ? nothing : get_initialde_builder($(initial_var), get_de_states($(de_var)))
-        local $(de_bundle_var) = DEBundle($(de_var), $(initial_var), $(prede_var), $(solver_config_var), $(initial_builder_var))
+        local $(initial_builder_var) = $(de_var) === nothing ? nothing :
+                                       get_initialde_builder(
+            $(initial_var), get_de_states($(de_var)))
+        local $(de_bundle_var) = DEBundle($(de_var), $(initial_var), $(prede_var),
+            $(solver_config_var), $(initial_builder_var))
         _validate_de_covariate_usage($(de_var), $(covariates_var))
 
         local $(fixed_names_var) = get_names($(fixed_var))
         local $(collect_fixed_names_var) = get_collect_names($(fixed_var))
         local $(random_names_var) = get_re_names($(random_var))
-        local $(prede_names_var) = $(prede_var) === nothing ? Symbol[] : get_prede_names($(prede_var))
+        local $(prede_names_var) = $(prede_var) === nothing ? Symbol[] :
+                                   get_prede_names($(prede_var))
         local $(const_cov_names_var) = $(covariates_var).constants
         local $(varying_cov_names_var) = $(covariates_var).varying
         local $(helper_names_var) = Symbol[collect(keys($(helpers_var)))...]
         local $(model_fun_names_var) = Symbol[collect(keys(get_model_funs($(fixed_var))))...]
-        local $(state_names_var) = $(de_var) === nothing ? Symbol[] : get_de_states($(de_var))
-        local $(signal_names_var) = $(de_var) === nothing ? Symbol[] : get_de_signals($(de_var))
+        local $(state_names_var) = $(de_var) === nothing ? Symbol[] :
+                                   get_de_states($(de_var))
+        local $(signal_names_var) = $(de_var) === nothing ? Symbol[] :
+                                    get_de_signals($(de_var))
 
         local ($(form_all_var), $(form_obs_var), $(req_states_var), $(req_signals_var)) = get_formulas_builders(
             $(formulas_var);
@@ -591,7 +612,9 @@ macro Model(block)
             signal_names = $(signal_names_var)
         )
 
-        local $(formulas_bundle_var) = FormulasBundle($(formulas_var), $(form_all_var), $(form_obs_var), $(req_states_var), $(req_signals_var))
+        local $(formulas_bundle_var) = FormulasBundle(
+            $(formulas_var), $(form_all_var), $(form_obs_var),
+            $(req_states_var), $(req_signals_var))
         local $(source_var) = (
             helpers = $(QuoteNode(helpers_expr)),
             fixed = $(QuoteNode(fixed_expr)),
@@ -600,9 +623,11 @@ macro Model(block)
             prede = $(QuoteNode(prede_expr)),
             de = $(QuoteNode(de_expr)),
             initial = $(QuoteNode(initial_expr)),
-            formulas = $(QuoteNode(formulas_expr)),
+            formulas = $(QuoteNode(formulas_expr))
         )
-        Model($(fixed_bundle_var), $(random_bundle_var), $(cov_bundle_var), $(de_bundle_var), $(helpers_bundle_var), $(formulas_bundle_var), $(source_var))
+        Model(
+            $(fixed_bundle_var), $(random_bundle_var), $(cov_bundle_var), $(de_bundle_var),
+            $(helpers_bundle_var), $(formulas_bundle_var), $(source_var))
     end
 end
 
@@ -611,7 +636,8 @@ end
 # ---------------------------------------------------------------------------
 
 # Ordered sub-block keys (must match the order @Model expects) and their macro heads.
-const _MODEL_BLOCK_ORDER = (:helpers, :fixed, :covariates, :random, :prede, :de, :initial, :formulas)
+const _MODEL_BLOCK_ORDER = (
+    :helpers, :fixed, :covariates, :random, :prede, :de, :initial, :formulas)
 const _MODEL_BLOCK_HEADS = (
     helpers = :helpers,
     fixed = :fixedEffects,
@@ -620,7 +646,7 @@ const _MODEL_BLOCK_HEADS = (
     prede = :preDifferentialEquation,
     de = :DifferentialEquation,
     initial = :initialDE,
-    formulas = :formulas,
+    formulas = :formulas
 )
 
 # Body (inner begin...end block) of a `@head begin ... end` macrocall expression.
@@ -658,12 +684,15 @@ end
 
 # A line `name = nothing` removes `name` from the merged block. The literal `nothing`
 # on a right-hand side parses to the Symbol `:nothing` (not the value `nothing`).
-_is_removal(ln) = ln isa Expr && ln.head == :(=) && length(ln.args) == 2 &&
-    (ln.args[2] === :nothing || ln.args[2] === nothing)
+function _is_removal(ln)
+    ln isa Expr && ln.head == :(=) && length(ln.args) == 2 &&
+        (ln.args[2] === :nothing || ln.args[2] === nothing)
+end
 
 # Rebuild a `@head begin body end` macrocall from a body block.
-_wrap_block(head::Symbol, body::Expr) =
+function _wrap_block(head::Symbol, body::Expr)
     Expr(:macrocall, Symbol("@", head), LineNumberNode(0, Symbol("@", head)), body)
+end
 
 # Drop removal sentinels from a freshly-introduced block (no base to merge against).
 function _strip_removals(macrocall::Expr, head::Symbol)
@@ -791,7 +820,7 @@ macro Model(base, block)
         prede = _model_find_block(block, :preDifferentialEquation),
         de = _model_find_block(block, :DifferentialEquation),
         initial = _model_find_block(block, :initialDE),
-        formulas = _model_find_block(block, :formulas),
+        formulas = _model_find_block(block, :formulas)
     )
     return :(_extend_model($(esc(base)), $(QuoteNode(new_src)), $(QuoteNode(__module__))))
 end

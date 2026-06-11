@@ -11,10 +11,14 @@ function _simple_model_no_re()
     @Model begin
         @fixedEffects begin
             a = RealNumber(1.0)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
-        @covariates begin t = Covariate() end
-        @formulas begin y ~ Normal(a, σ) end
+        @covariates begin
+            t = Covariate()
+        end
+        @formulas begin
+            y ~ Normal(a, σ)
+        end
     end
 end
 
@@ -22,41 +26,54 @@ function _simple_model_with_re()
     @Model begin
         @fixedEffects begin
             a = RealNumber(1.0)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
-        @covariates begin t = Covariate() end
+        @covariates begin
+            t = Covariate()
+        end
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
-        @formulas begin y ~ Normal(a + η, σ) end
+        @formulas begin
+            y ~ Normal(a + η, σ)
+        end
     end
 end
 
 function _simple_model_with_priors()
     @Model begin
         @fixedEffects begin
-            a = RealNumber(0.5; prior=Normal(0.0, 1.0))
-            σ = RealNumber(0.5; prior=LogNormal(0.0, 0.5))
+            a = RealNumber(0.5; prior = Normal(0.0, 1.0))
+            σ = RealNumber(0.5; prior = LogNormal(0.0, 0.5))
         end
-        @covariates begin t = Covariate() end
-        @formulas begin y ~ Normal(a, σ) end
+        @covariates begin
+            t = Covariate()
+        end
+        @formulas begin
+            y ~ Normal(a, σ)
+        end
     end
 end
 
-_df_no_re() = DataFrame(ID=[1,1,2,2], t=[0.0,1.0,0.0,1.0], y=[1.0,1.1,0.9,1.0])
-_df_with_re() = DataFrame(ID=[1,1,2,2,3,3], t=[0.0,1.0,0.0,1.0,0.0,1.0], y=[1.0,1.1,0.9,1.0,1.2,1.1])
+function _df_no_re()
+    DataFrame(ID = [1, 1, 2, 2], t = [0.0, 1.0, 0.0, 1.0], y = [1.0, 1.1, 0.9, 1.0])
+end
+function _df_with_re()
+    DataFrame(ID = [1, 1, 2, 2, 3, 3], t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        y = [1.0, 1.1, 0.9, 1.0, 1.2, 1.1])
+end
 
 # ── MLE ───────────────────────────────────────────────────────────────────────
 
 @testset "Serialization MLE" begin
     model = _simple_model_no_re()
-    df    = _df_no_re()
-    dm    = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res   = fit_model(dm, NoLimits.MLE())
+    df = _df_no_re()
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.MLE())
 
     path = tempname() * ".jld2"
     save_fit(path, res)
-    res2 = load_fit(path; dm=dm)
+    res2 = load_fit(path; dm = dm)
 
     @test get_objective(res) ≈ get_objective(res2)
     @test NoLimits.get_params(res).untransformed ≈ NoLimits.get_params(res2).untransformed
@@ -73,13 +90,13 @@ end
 
 @testset "Serialization MLE include_data" begin
     model = _simple_model_no_re()
-    df    = _df_no_re()
-    dm    = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res   = fit_model(dm, NoLimits.MLE())
+    df = _df_no_re()
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.MLE())
 
     path = tempname() * ".jld2"
-    save_fit(path, res; include_data=true)
-    res2 = load_fit(path; model=model)   # no dm — reconstructed from saved df
+    save_fit(path, res; include_data = true)
+    res2 = load_fit(path; model = model)   # no dm — reconstructed from saved df
 
     @test get_objective(res) ≈ get_objective(res2)
     @test NoLimits.get_params(res).untransformed ≈ NoLimits.get_params(res2).untransformed
@@ -90,9 +107,9 @@ end
 
 @testset "Serialization MLE no dm" begin
     model = _simple_model_no_re()
-    df    = _df_no_re()
-    dm    = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res   = fit_model(dm, NoLimits.MLE())
+    df = _df_no_re()
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.MLE())
 
     path = tempname() * ".jld2"
     save_fit(path, res)               # include_data=false
@@ -107,13 +124,13 @@ end
 
 @testset "Serialization MAP" begin
     model = _simple_model_with_priors()
-    df    = _df_no_re()
-    dm    = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res   = fit_model(dm, NoLimits.MAP())
+    df = _df_no_re()
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.MAP())
 
     path = tempname() * ".jld2"
     save_fit(path, res)
-    res2 = load_fit(path; dm=dm)
+    res2 = load_fit(path; dm = dm)
 
     @test get_objective(res) ≈ get_objective(res2)
     @test NoLimits.get_params(res).untransformed ≈ NoLimits.get_params(res2).untransformed
@@ -125,13 +142,13 @@ end
 
 @testset "Serialization Laplace" begin
     model = _simple_model_with_re()
-    df    = _df_with_re()
-    dm    = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res   = fit_model(dm, NoLimits.Laplace())
+    df = _df_with_re()
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.Laplace())
 
     path = tempname() * ".jld2"
-    save_fit(path, res; include_data=true)
-    res2 = load_fit(path; model=model)
+    save_fit(path, res; include_data = true)
+    res2 = load_fit(path; model = model)
 
     @test get_objective(res) ≈ get_objective(res2)
     @test NoLimits.get_params(res).untransformed ≈ NoLimits.get_params(res2).untransformed
@@ -150,14 +167,15 @@ end
 
 @testset "Serialization MCMC" begin
     model = _simple_model_with_priors()
-    df    = _df_no_re()
-    dm    = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res   = fit_model(dm, NoLimits.MCMC(;
-                turing_kwargs=(n_samples=2, n_adapt=2, progress=false)))
+    df = _df_no_re()
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(
+        dm, NoLimits.MCMC(;
+            turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false)))
 
     path = tempname() * ".jld2"
     save_fit(path, res)
-    res2 = load_fit(path; dm=dm)
+    res2 = load_fit(path; dm = dm)
 
     @test get_chain(res).value == get_chain(res2).value
     @test get_n_samples(res) == get_n_samples(res2)
@@ -169,19 +187,20 @@ end
 
 @testset "Serialization VI" begin
     model = _simple_model_with_priors()
-    df    = _df_no_re()
-    dm    = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res   = fit_model(dm, NoLimits.VI(;
-                turing_kwargs=(max_iter=100, family=:meanfield, progress=false)))
+    df = _df_no_re()
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm,
+        NoLimits.VI(;
+            turing_kwargs = (max_iter = 100, family = :meanfield, progress = false)))
 
     path = tempname() * ".jld2"
     save_fit(path, res)
-    res2 = load_fit(path; dm=dm)
+    res2 = load_fit(path; dm = dm)
 
     @test get_objective(res) ≈ get_objective(res2)
     @test get_vi_state(res2) === nothing
-    s1 = sample_posterior(res;  n_draws=20)
-    s2 = sample_posterior(res2; n_draws=20)
+    s1 = sample_posterior(res; n_draws = 20)
+    s2 = sample_posterior(res2; n_draws = 20)
     @test size(s1) == size(s2)
     @test get_vi_trace(res2) isa AbstractVector
 end
@@ -191,21 +210,26 @@ end
 @testset "Serialization Multistart" begin
     model = @Model begin
         @fixedEffects begin
-            a = RealNumber(0.2; prior=Normal(0.0, 2.0))
-            σ = RealNumber(0.5, scale=:log)
+            a = RealNumber(0.2; prior = Normal(0.0, 2.0))
+            σ = RealNumber(0.5, scale = :log)
         end
-        @covariates begin t = Covariate() end
-        @formulas begin y ~ Normal(a, σ) end
+        @covariates begin
+            t = Covariate()
+        end
+        @formulas begin
+            y ~ Normal(a, σ)
+        end
     end
-    df  = DataFrame(ID=[:A,:A,:B,:B], t=[0.0,1.0,0.0,1.0], y=[1.0,1.1,0.9,1.0])
-    dm  = DataModel(model, df; primary_id=:ID, time_col=:t)
-    ms  = NoLimits.Multistart(dists=(; a=Normal(1.0, 0.2)),
-                              n_draws_requested=4, n_draws_used=3)
-    res = fit_model(ms, dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
+    df = DataFrame(
+        ID = [:A, :A, :B, :B], t = [0.0, 1.0, 0.0, 1.0], y = [1.0, 1.1, 0.9, 1.0])
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    ms = NoLimits.Multistart(dists = (; a = Normal(1.0, 0.2)),
+        n_draws_requested = 4, n_draws_used = 3)
+    res = fit_model(ms, dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
 
     path = tempname() * ".jld2"
     save_fit(path, res)
-    res2 = load_fit(path; dm=dm)
+    res2 = load_fit(path; dm = dm)
 
     @test length(get_multistart_results(res)) == length(get_multistart_results(res2))
     @test get_multistart_best_index(res) == get_multistart_best_index(res2)
@@ -220,7 +244,7 @@ end
     import JLD2
     path = tempname() * ".jld2"
     # Write a fake saved object with wrong version
-    JLD2.jldsave(path; saved=(; format_version=999))
+    JLD2.jldsave(path; saved = (; format_version = 999))
     @test_throws ErrorException load_fit(path)
 end
 
@@ -232,15 +256,15 @@ end
 
 @testset "Cross-session MLE: params + LL + residuals" begin
     model = _simple_model_no_re()
-    df    = _df_no_re()
-    dm    = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res   = fit_model(dm, NoLimits.MLE())
+    df = _df_no_re()
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.MLE())
 
     path = tempname() * ".jld2"
-    save_fit(path, res; include_data=true)
+    save_fit(path, res; include_data = true)
 
-    expected_obj  = get_objective(res)
-    expected_ll   = get_loglikelihood(dm, res)
+    expected_obj = get_objective(res)
+    expected_ll = get_loglikelihood(dm, res)
     expected_nres = nrow(get_residuals(res))
 
     script = """
@@ -266,29 +290,29 @@ end
     write(script_path, script)
 
     project_dir = pkgdir(NoLimits)
-    out   = readchomp(`$(Base.julia_cmd()) --project=$(project_dir) $(script_path)`)
-    lines = split(strip(out), '\n'; keepempty=false)
+    out = readchomp(`$(Base.julia_cmd()) --project=$(project_dir) $(script_path)`)
+    lines = split(strip(out), '\n'; keepempty = false)
 
     @test length(lines) >= 5
-    @test parse(Float64, strip(lines[end-4])) ≈ expected_obj  atol=1e-10
-    @test strip(lines[end-3]) == "mle"
-    @test parse(Float64, strip(lines[end-2])) ≈ expected_ll   atol=1e-8
-    @test parse(Int,     strip(lines[end-1])) == expected_nres
+    @test parse(Float64, strip(lines[end - 4]))≈expected_obj atol=1e-10
+    @test strip(lines[end - 3]) == "mle"
+    @test parse(Float64, strip(lines[end - 2]))≈expected_ll atol=1e-8
+    @test parse(Int, strip(lines[end - 1])) == expected_nres
     @test occursin("Plot", strip(lines[end]))  # plot_fits returns a Plots.Plot
 end
 
 @testset "Cross-session Laplace: params + RE + LL" begin
     model = _simple_model_with_re()
-    df    = _df_with_re()
-    dm    = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res   = fit_model(dm, NoLimits.Laplace())
+    df = _df_with_re()
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.Laplace())
 
     path = tempname() * ".jld2"
-    save_fit(path, res; include_data=true)
+    save_fit(path, res; include_data = true)
 
-    expected_obj   = get_objective(res)
-    expected_ll    = get_loglikelihood(dm, res)
-    expected_re    = get_random_effects(dm, res)
+    expected_obj = get_objective(res)
+    expected_ll = get_loglikelihood(dm, res)
+    expected_re = get_random_effects(dm, res)
     expected_n_ids = nrow(expected_re.η)
 
     script = """
@@ -318,13 +342,13 @@ end
     write(script_path, script)
 
     project_dir = pkgdir(NoLimits)
-    out   = readchomp(`$(Base.julia_cmd()) --project=$(project_dir) $(script_path)`)
-    lines = split(strip(out), '\n'; keepempty=false)
+    out = readchomp(`$(Base.julia_cmd()) --project=$(project_dir) $(script_path)`)
+    lines = split(strip(out), '\n'; keepempty = false)
 
     @test length(lines) >= 5
-    @test parse(Float64, strip(lines[end-4])) ≈ expected_obj   atol=1e-10
-    @test strip(lines[end-3]) == "laplace"
-    @test parse(Float64, strip(lines[end-2])) ≈ expected_ll    atol=1e-8
-    @test parse(Int,     strip(lines[end-1])) == expected_n_ids
+    @test parse(Float64, strip(lines[end - 4]))≈expected_obj atol=1e-10
+    @test strip(lines[end - 3]) == "laplace"
+    @test parse(Float64, strip(lines[end - 2]))≈expected_ll atol=1e-8
+    @test parse(Int, strip(lines[end - 1])) == expected_n_ids
     @test occursin("Plot", strip(lines[end]))  # plot_fits returns a Plots.Plot
 end

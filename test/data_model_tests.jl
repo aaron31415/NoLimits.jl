@@ -23,7 +23,7 @@ using DataInterpolations
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -31,8 +31,10 @@ using DataInterpolations
         end
     end
 
-    @test !NoLimits._has_continuous_time_hmm_outcomes(model_non_ode, df_basic; primary_id=:ID, time_col=:t)
-    @test NoLimits._supports_row_varying_re_groups(model_non_ode, df_basic; primary_id=:ID, time_col=:t)
+    @test !NoLimits._has_continuous_time_hmm_outcomes(
+        model_non_ode, df_basic; primary_id = :ID, time_col = :t)
+    @test NoLimits._supports_row_varying_re_groups(
+        model_non_ode, df_basic; primary_id = :ID, time_col = :t)
 
     model_ode = @Model begin
         @fixedEffects begin
@@ -45,7 +47,7 @@ using DataInterpolations
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @DifferentialEquation begin
@@ -61,12 +63,13 @@ using DataInterpolations
         end
     end
 
-    @test !NoLimits._supports_row_varying_re_groups(model_ode, df_basic; primary_id=:ID, time_col=:t)
+    @test !NoLimits._supports_row_varying_re_groups(
+        model_ode, df_basic; primary_id = :ID, time_col = :t)
 
     model_ct_hmm = @Model begin
         @fixedEffects begin
-            λ12_r = RealNumber(0.1, scale=:log)
-            λ21_r = RealNumber(0.1, scale=:log)
+            λ12_r = RealNumber(0.1, scale = :log)
+            λ21_r = RealNumber(0.1, scale = :log)
             p1_r = RealNumber(0.0)
             p2_r = RealNumber(0.0)
         end
@@ -83,14 +86,16 @@ using DataInterpolations
             p2 = 1 / (1 + exp(-p2_r))
             Q = [-λ12 λ12; λ21 -λ21]
             y ~ ContinuousTimeDiscreteStatesHMM(Q,
-                                                (Bernoulli(p1), Bernoulli(p2)),
-                                                Categorical([0.6, 0.4]),
-                                                dt)
+                (Bernoulli(p1), Bernoulli(p2)),
+                Categorical([0.6, 0.4]),
+                dt)
         end
     end
 
-    @test NoLimits._has_continuous_time_hmm_outcomes(model_ct_hmm, df_basic; primary_id=:ID, time_col=:t)
-    @test NoLimits._supports_row_varying_re_groups(model_ct_hmm, df_basic; primary_id=:ID, time_col=:t)
+    @test NoLimits._has_continuous_time_hmm_outcomes(
+        model_ct_hmm, df_basic; primary_id = :ID, time_col = :t)
+    @test NoLimits._supports_row_varying_re_groups(
+        model_ct_hmm, df_basic; primary_id = :ID, time_col = :t)
 
     model_ct_hmm_helper = @Model begin
         @helpers begin
@@ -103,8 +108,8 @@ using DataInterpolations
         end
 
         @fixedEffects begin
-            λ12_r = RealNumber(0.1, scale=:log)
-            λ21_r = RealNumber(0.1, scale=:log)
+            λ12_r = RealNumber(0.1, scale = :log)
+            λ21_r = RealNumber(0.1, scale = :log)
             p1_r = RealNumber(0.0)
             p2_r = RealNumber(0.0)
         end
@@ -124,8 +129,10 @@ using DataInterpolations
         end
     end
 
-    @test NoLimits._has_continuous_time_hmm_outcomes(model_ct_hmm_helper, df_basic; primary_id=:ID, time_col=:t)
-    @test NoLimits._supports_row_varying_re_groups(model_ct_hmm_helper, df_basic; primary_id=:ID, time_col=:t)
+    @test NoLimits._has_continuous_time_hmm_outcomes(
+        model_ct_hmm_helper, df_basic; primary_id = :ID, time_col = :t)
+    @test NoLimits._supports_row_varying_re_groups(
+        model_ct_hmm_helper, df_basic; primary_id = :ID, time_col = :t)
 
     model_dt_hmm = @Model begin
         @fixedEffects begin
@@ -144,15 +151,17 @@ using DataInterpolations
             p22 = 1 / (1 + exp(-p22_r))
             p1 = 1 / (1 + exp(-p1_r))
             p2 = 1 / (1 + exp(-p2_r))
-            P = [p11 (1 - p11); (1 - p22) p22]
+            P = [p11 (1-p11); (1-p22) p22]
             y ~ DiscreteTimeDiscreteStatesHMM(P,
-                                              (Bernoulli(p1), Bernoulli(p2)),
-                                              Categorical([0.6, 0.4]))
+                (Bernoulli(p1), Bernoulli(p2)),
+                Categorical([0.6, 0.4]))
         end
     end
 
-    @test !NoLimits._has_continuous_time_hmm_outcomes(model_dt_hmm, df_basic; primary_id=:ID, time_col=:t)
-    @test NoLimits._supports_row_varying_re_groups(model_dt_hmm, df_basic; primary_id=:ID, time_col=:t)
+    @test !NoLimits._has_continuous_time_hmm_outcomes(
+        model_dt_hmm, df_basic; primary_id = :ID, time_col = :t)
+    @test NoLimits._supports_row_varying_re_groups(
+        model_dt_hmm, df_basic; primary_id = :ID, time_col = :t)
 end
 
 @testset "DataModel without events" begin
@@ -164,13 +173,13 @@ end
 
         @covariates begin
             t = Covariate()
-            x = ConstantCovariateVector([:Age]; constant_on=:ID)
+            x = ConstantCovariateVector([:Age]; constant_on = :ID)
             z = Covariate()
         end
 
         @randomEffects begin
-            η_subj = RandomEffect(Normal(0.0, 1.0); column=:ID)
-            η_year = RandomEffect(Normal(0.0, 1.0); column=:YEAR)
+            η_subj = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            η_year = RandomEffect(Normal(0.0, 1.0); column = :YEAR)
         end
 
         @formulas begin
@@ -189,8 +198,8 @@ end
     )
 
     dm_varying = DataModel(model, df;
-                           primary_id=:ID,
-                           time_col=:t)
+        primary_id = :ID,
+        time_col = :t)
     @test length(get_individuals(dm_varying)) == 3
     @test length(get_batches(dm_varying)) == 1
 
@@ -204,8 +213,8 @@ end
     )
 
     dm = DataModel(model, df_ok;
-                   primary_id=:ID,
-                   time_col=:t)
+        primary_id = :ID,
+        time_col = :t)
 
     @test length(get_individuals(dm)) == 3
     @test all(ind -> ind.callbacks === nothing, get_individuals(dm))
@@ -233,7 +242,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -254,12 +263,12 @@ end
     )
 
     dm = DataModel(model, df;
-                   primary_id=:ID,
-                   time_col=:t,
-                   evid_col=:EVID,
-                   amt_col=:AMT,
-                   rate_col=:RATE,
-                   cmt_col=:CMT)
+        primary_id = :ID,
+        time_col = :t,
+        evid_col = :EVID,
+        amt_col = :AMT,
+        rate_col = :RATE,
+        cmt_col = :CMT)
 
     @test length(get_individuals(dm)) == 2
     ind1 = get_individual(dm, 1)
@@ -274,12 +283,12 @@ end
             σ = RealNumber(0.5)
         end
 
-         @covariates begin
+        @covariates begin
             t = Covariate()
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -295,9 +304,9 @@ end
     )
 
     dm = DataModel(model, df;
-                   primary_id=:ID,
-                   time_col=:t,
-                   serialization=EnsembleThreads())
+        primary_id = :ID,
+        time_col = :t,
+        serialization = EnsembleThreads())
 
     @test dm.config.serialization isa EnsembleThreads
 end
@@ -315,7 +324,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -324,13 +333,13 @@ end
         end
     end
 
-
     df_missing_time = DataFrame(
         ID = [1, 1],
         Age = [30.0, 30.0],
         y = [1.0, 1.1]
     )
-    @test_throws ErrorException DataModel(model, df_missing_time; primary_id=:ID, time_col=:t)
+    @test_throws ErrorException DataModel(
+        model, df_missing_time; primary_id = :ID, time_col = :t)
 
     df_missing_evid_cols = DataFrame(
         ID = [1, 1],
@@ -340,11 +349,9 @@ end
         y = [missing, 1.1]
     )
     @test_throws ErrorException DataModel(model, df_missing_evid_cols;
-        primary_id=:ID,
-        time_col=:t,
-        evid_col=:EVID)
-
-
+        primary_id = :ID,
+        time_col = :t,
+        evid_col = :EVID)
 end
 
 @testset "DataModel time_col covariate validation" begin
@@ -365,7 +372,8 @@ end
         y = [1.0, 1.1]
     )
 
-    @test_throws ErrorException DataModel(model_missing, df; primary_id=:ID, time_col=:t)
+    @test_throws ErrorException DataModel(
+        model_missing, df; primary_id = :ID, time_col = :t)
 
     model_bad = @Model begin
         @covariates begin
@@ -382,7 +390,7 @@ end
         end
     end
 
-    @test_throws ErrorException DataModel(model_bad, df; primary_id=:ID, time_col=:t)
+    @test_throws ErrorException DataModel(model_bad, df; primary_id = :ID, time_col = :t)
 
     model_ok = @Model begin
         @covariates begin
@@ -399,7 +407,7 @@ end
         end
     end
 
-    dm = DataModel(model_ok, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model_ok, df; primary_id = :ID, time_col = :t)
     @test dm isa DataModel
 end
 
@@ -415,7 +423,7 @@ end
         end
 
         @randomEffects begin
-            η_year = RandomEffect(Normal(0.0, abs(x.Age)); column=:YEAR)
+            η_year = RandomEffect(Normal(0.0, abs(x.Age)); column = :YEAR)
         end
 
         @formulas begin
@@ -431,7 +439,7 @@ end
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    @test_throws ErrorException DataModel(model, df; primary_id=:OBS, time_col=:t)
+    @test_throws ErrorException DataModel(model, df; primary_id = :OBS, time_col = :t)
 end
 
 @testset "DataModel errors on invalid constant_on columns" begin
@@ -442,11 +450,11 @@ end
 
         @covariates begin
             t = Covariate()
-            c = ConstantCovariate(; constant_on=:BADCOL)
+            c = ConstantCovariate(; constant_on = :BADCOL)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(c, 1.0); column=:ID)
+            η = RandomEffect(Normal(c, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -463,15 +471,15 @@ end
 
         @covariates begin
             t = Covariate()
-            c1 = ConstantCovariate(; constant_on=:ID)
-            c2 = ConstantCovariate(; constant_on=:SITE)
-            c3 = ConstantCovariate(; constant_on=:YEAR)
+            c1 = ConstantCovariate(; constant_on = :ID)
+            c2 = ConstantCovariate(; constant_on = :SITE)
+            c3 = ConstantCovariate(; constant_on = :YEAR)
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(c1, 1.0); column=:ID)
-            η_site = RandomEffect(Normal(c2, 1.0); column=:SITE)
-            η_year = RandomEffect(Normal(c3, 1.0); column=:YEAR)
+            η_id = RandomEffect(Normal(c1, 1.0); column = :ID)
+            η_site = RandomEffect(Normal(c2, 1.0); column = :SITE)
+            η_year = RandomEffect(Normal(c3, 1.0); column = :YEAR)
         end
 
         @formulas begin
@@ -490,7 +498,7 @@ end
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     info = get_re_group_info(dm)
     @test length(info.values.η_id) == 2
     @test length(info.values.η_site) == 2
@@ -505,15 +513,15 @@ end
 
         @covariates begin
             t = Covariate()
-            c1 = ConstantCovariate(; constant_on=:ID)
-            c2 = ConstantCovariate(; constant_on=:SITE)
-            c3 = ConstantCovariate(; constant_on=:YEAR)
+            c1 = ConstantCovariate(; constant_on = :ID)
+            c2 = ConstantCovariate(; constant_on = :SITE)
+            c3 = ConstantCovariate(; constant_on = :YEAR)
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(c1, 1.0); column=:ID)
-            η_site = RandomEffect(Normal(c2, 1.0); column=:SITE)
-            η_year = RandomEffect(Normal(c3, 1.0); column=:YEAR)
+            η_id = RandomEffect(Normal(c1, 1.0); column = :ID)
+            η_site = RandomEffect(Normal(c2, 1.0); column = :SITE)
+            η_year = RandomEffect(Normal(c3, 1.0); column = :YEAR)
         end
 
         @formulas begin
@@ -532,7 +540,7 @@ end
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    @test_throws ErrorException DataModel(model, df_bad; primary_id=:ID, time_col=:t)
+    @test_throws ErrorException DataModel(model, df_bad; primary_id = :ID, time_col = :t)
 end
 
 @testset "DataModel allows year varying within individuals for non-ODE models" begin
@@ -546,8 +554,8 @@ end
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(0.0, 1.0); column=:ID)
-            η_year = RandomEffect(Normal(0.0, 1.0); column=:YEAR)
+            η_id = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            η_year = RandomEffect(Normal(0.0, 1.0); column = :YEAR)
         end
 
         @formulas begin
@@ -563,7 +571,7 @@ end
         y = [1.0, 1.1, 1.2, 0.9, 1.0]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     @test dm isa DataModel
     info = get_re_group_info(dm)
     @test info.values.η_year == [2020, 2021, 2022]
@@ -577,7 +585,7 @@ end
     @test info.index_by_individual.η_year.unique_pos_all[2] == [1, 2]
     @test get_re_indices(dm, 1).η_year == [1, 2, 2]
     @test get_re_indices(dm, 2).η_year == [1, 3]
-    @test get_re_indices(dm, 1; obs_only=false).η_year == [1, 2, 2]
+    @test get_re_indices(dm, 1; obs_only = false).η_year == [1, 2, 2]
 end
 
 @testset "DataModel rejects year varying within individuals for ODE models" begin
@@ -592,8 +600,8 @@ end
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(0.0, 1.0); column=:ID)
-            η_year = RandomEffect(Normal(0.0, 1.0); column=:YEAR)
+            η_id = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            η_year = RandomEffect(Normal(0.0, 1.0); column = :YEAR)
         end
 
         @DifferentialEquation begin
@@ -616,14 +624,14 @@ end
         y = [1.0, 1.1, 1.2, 0.9, 1.0]
     )
 
-    @test_throws ErrorException DataModel(model, df; primary_id=:ID, time_col=:t)
+    @test_throws ErrorException DataModel(model, df; primary_id = :ID, time_col = :t)
 end
 
 @testset "DataModel allows year varying within individuals for continuous-time HMM models" begin
     model = @Model begin
         @fixedEffects begin
-            λ12_r = RealNumber(0.1, scale=:log)
-            λ21_r = RealNumber(0.1, scale=:log)
+            λ12_r = RealNumber(0.1, scale = :log)
+            λ21_r = RealNumber(0.1, scale = :log)
             p1_r = RealNumber(0.0)
             p2_r = RealNumber(0.0)
         end
@@ -634,7 +642,7 @@ end
         end
 
         @randomEffects begin
-            η_year = RandomEffect(Normal(0.0, 1.0); column=:YEAR)
+            η_year = RandomEffect(Normal(0.0, 1.0); column = :YEAR)
         end
 
         @formulas begin
@@ -644,9 +652,9 @@ end
             p2 = 1 / (1 + exp(-p2_r))
             Q = [-λ12 λ12; λ21 -λ21]
             y ~ ContinuousTimeDiscreteStatesHMM(Q,
-                                                (Bernoulli(p1), Bernoulli(p2)),
-                                                Categorical([0.6, 0.4]),
-                                                dt)
+                (Bernoulli(p1), Bernoulli(p2)),
+                Categorical([0.6, 0.4]),
+                dt)
         end
     end
 
@@ -658,7 +666,7 @@ end
         y = [0, 1, 1, 1, 0]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     @test dm isa DataModel
 end
 
@@ -676,7 +684,7 @@ end
         end
 
         @randomEffects begin
-            η_year = RandomEffect(Normal(0.0, 1.0); column=:YEAR)
+            η_year = RandomEffect(Normal(0.0, 1.0); column = :YEAR)
         end
 
         @formulas begin
@@ -684,10 +692,10 @@ end
             p22 = 1 / (1 + exp(-p22_r))
             p1 = 1 / (1 + exp(-p1_r))
             p2 = 1 / (1 + exp(-p2_r))
-            P = [p11 (1 - p11); (1 - p22) p22]
+            P = [p11 (1-p11); (1-p22) p22]
             y ~ DiscreteTimeDiscreteStatesHMM(P,
-                                              (Bernoulli(p1), Bernoulli(p2)),
-                                              Categorical([0.6, 0.4]))
+                (Bernoulli(p1), Bernoulli(p2)),
+                Categorical([0.6, 0.4]))
         end
     end
 
@@ -698,7 +706,7 @@ end
         y = [0, 1, 1, 1, 0]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     @test dm isa DataModel
 end
 
@@ -710,12 +718,12 @@ end
 
         @covariates begin
             t = Covariate()
-            c_year = ConstantCovariate(; constant_on=:YEAR)
+            c_year = ConstantCovariate(; constant_on = :YEAR)
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(0.0, 1.0); column=:ID)
-            η_year = RandomEffect(Normal(c_year, 1.0); column=:YEAR)
+            η_id = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            η_year = RandomEffect(Normal(c_year, 1.0); column = :YEAR)
         end
 
         @formulas begin
@@ -732,7 +740,7 @@ end
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    @test_throws ErrorException DataModel(model, df_bad; primary_id=:ID, time_col=:t)
+    @test_throws ErrorException DataModel(model, df_bad; primary_id = :ID, time_col = :t)
 end
 
 @testset "DataModel errors when constant covariate varies within primary_id" begin
@@ -743,11 +751,11 @@ end
 
         @covariates begin
             t = Covariate()
-            c_year = ConstantCovariate(; constant_on=:YEAR)
+            c_year = ConstantCovariate(; constant_on = :YEAR)
         end
 
         @randomEffects begin
-            η_year = RandomEffect(Normal(c_year, 1.0); column=:YEAR)
+            η_year = RandomEffect(Normal(c_year, 1.0); column = :YEAR)
         end
 
         @formulas begin
@@ -764,7 +772,7 @@ end
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    @test_throws ErrorException DataModel(model, df_bad; primary_id=:ID, time_col=:t)
+    @test_throws ErrorException DataModel(model, df_bad; primary_id = :ID, time_col = :t)
 end
 
 @testset "DataModel errors when individual spans years and YEAR covariate is inconsistent" begin
@@ -775,12 +783,12 @@ end
 
         @covariates begin
             t = Covariate()
-            c_year = ConstantCovariate(; constant_on=:YEAR)
+            c_year = ConstantCovariate(; constant_on = :YEAR)
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(0.0, 1.0); column=:ID)
-            η_year = RandomEffect(Normal(c_year, 1.0); column=:YEAR)
+            η_id = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            η_year = RandomEffect(Normal(c_year, 1.0); column = :YEAR)
         end
 
         @formulas begin
@@ -797,7 +805,7 @@ end
         y = [1.0, 1.1, 1.2, 0.9]
     )
 
-    @test_throws ErrorException DataModel(model, df_bad; primary_id=:ID, time_col=:t)
+    @test_throws ErrorException DataModel(model, df_bad; primary_id = :ID, time_col = :t)
 end
 
 @testset "DataModel errors when constant covariate varies within primary_id" begin
@@ -808,11 +816,11 @@ end
 
         @covariates begin
             t = Covariate()
-            c_id = ConstantCovariate(; constant_on=:ID)
+            c_id = ConstantCovariate(; constant_on = :ID)
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(c_id, 1.0); column=:ID)
+            η_id = RandomEffect(Normal(c_id, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -827,7 +835,7 @@ end
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    @test_throws ErrorException DataModel(model, df_bad; primary_id=:ID, time_col=:t)
+    @test_throws ErrorException DataModel(model, df_bad; primary_id = :ID, time_col = :t)
 end
 
 @testset "DataModel rejects time-varying REs in preDE" begin
@@ -838,8 +846,8 @@ end
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(0.0, 1.0); column=:ID)
-            η_year = RandomEffect(Normal(0.0, 1.0); column=:YEAR)
+            η_id = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            η_year = RandomEffect(Normal(0.0, 1.0); column = :YEAR)
         end
 
         @preDifferentialEquation begin
@@ -858,7 +866,7 @@ end
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    @test_throws ErrorException DataModel(model, df; primary_id=:ID, time_col=:t)
+    @test_throws ErrorException DataModel(model, df; primary_id = :ID, time_col = :t)
 end
 
 @testset "DataModel preDE with multiple RE groups (valid)" begin
@@ -870,13 +878,13 @@ end
 
         @covariates begin
             t = Covariate()
-            c_id = ConstantCovariate(; constant_on=:ID)
-            c_year = ConstantCovariate(; constant_on=:YEAR)
+            c_id = ConstantCovariate(; constant_on = :ID)
+            c_year = ConstantCovariate(; constant_on = :YEAR)
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(c_id, 1.0); column=:ID)
-            η_year = RandomEffect(Normal(c_year, 1.0); column=:YEAR)
+            η_id = RandomEffect(Normal(c_id, 1.0); column = :ID)
+            η_year = RandomEffect(Normal(c_year, 1.0); column = :YEAR)
         end
 
         @preDifferentialEquation begin
@@ -897,7 +905,7 @@ end
         y = [1.0, 1.1, 0.9, 1.0, 1.05]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     ind1 = get_individual(dm, 1)
     re_idxs = get_re_indices(dm, ind1)
     @test length(unique(re_idxs.η_year)) == 1
@@ -915,7 +923,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(x.Age + x.Weight, 1.0); column=:SITE)
+            η = RandomEffect(Normal(x.Age + x.Weight, 1.0); column = :SITE)
         end
 
         @formulas begin
@@ -932,7 +940,7 @@ end
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    @test_throws ErrorException DataModel(model, df_bad; primary_id=:ID, time_col=:t)
+    @test_throws ErrorException DataModel(model, df_bad; primary_id = :ID, time_col = :t)
 end
 
 @testset "DataModel RE validation ignores varying covariates" begin
@@ -947,7 +955,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(z, 1.0); column=:SITE)
+            η = RandomEffect(Normal(z, 1.0); column = :SITE)
         end
 
         @formulas begin
@@ -963,7 +971,7 @@ end
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    @test_throws ErrorException DataModel(model, df; primary_id=:ID, time_col=:t)
+    @test_throws ErrorException DataModel(model, df; primary_id = :ID, time_col = :t)
 end
 
 @testset "DataModel RE validation only checks used covariates" begin
@@ -979,7 +987,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(c1, 1.0); column=:SITE)
+            η = RandomEffect(Normal(c1, 1.0); column = :SITE)
         end
 
         @formulas begin
@@ -996,7 +1004,7 @@ end
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    @test_throws ErrorException DataModel(model, df; primary_id=:ID, time_col=:t)
+    @test_throws ErrorException DataModel(model, df; primary_id = :ID, time_col = :t)
 end
 
 @testset "DataModel RE validation only checks used covariates (valid)" begin
@@ -1012,7 +1020,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(c1, 1.0); column=:SITE)
+            η = RandomEffect(Normal(c1, 1.0); column = :SITE)
         end
 
         @formulas begin
@@ -1029,7 +1037,7 @@ end
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    dm = DataModel(model, df_ok; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df_ok; primary_id = :ID, time_col = :t)
     @test length(get_individuals(dm)) == 2
 end
 
@@ -1045,7 +1053,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
         @formulas begin
             lin = a + η
@@ -1058,7 +1066,7 @@ end
         t = [0.0, 1.0],
         y = [1.0, 1.1]
     )
-    dm = DataModel(model_single, df; time_col=:t)
+    dm = DataModel(model_single, df; time_col = :t)
     @test get_primary_id(dm) == :ID
 
     model_multi = @Model begin
@@ -1072,8 +1080,8 @@ end
         end
 
         @randomEffects begin
-            η1 = RandomEffect(Normal(0.0, 1.0); column=:ID)
-            η2 = RandomEffect(Normal(0.0, 1.0); column=:YEAR)
+            η1 = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            η2 = RandomEffect(Normal(0.0, 1.0); column = :YEAR)
         end
         @formulas begin
             lin = a + η1 + η2
@@ -1087,7 +1095,7 @@ end
         t = [0.0, 1.0],
         y = [1.0, 1.1]
     )
-    @test_throws ErrorException DataModel(model_multi, df2; time_col=:t)
+    @test_throws ErrorException DataModel(model_multi, df2; time_col = :t)
 end
 
 @testset "DataModel includes t for ODE models" begin
@@ -1102,7 +1110,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @DifferentialEquation begin
@@ -1124,7 +1132,7 @@ end
         y = [1.0, 1.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     ind1 = get_individual(dm, 1)
     @test ind1.series.vary.t == [0.0, 1.0]
 end
@@ -1141,7 +1149,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @DifferentialEquation begin
@@ -1153,7 +1161,7 @@ end
         end
 
         @formulas begin
-            y ~ Normal(x1(t) + x1(t+0.25), σ)
+            y ~ Normal(x1(t) + x1(t + 0.25), σ)
         end
     end
 
@@ -1167,13 +1175,13 @@ end
         y = [missing, 1.1, 1.2]
     )
 
-    model_saveat = set_solver_config(model; saveat_mode=:saveat)
-    dm = DataModel(model_saveat, df; primary_id=:ID, time_col=:t, evid_col=:EVID)
+    model_saveat = set_solver_config(model; saveat_mode = :saveat)
+    dm = DataModel(model_saveat, df; primary_id = :ID, time_col = :t, evid_col = :EVID)
     ind1 = get_individual(dm, 1)
     @test ind1.saveat == [0.0, 0.5, 0.75, 1.0, 1.25]
 
-    model_dense = set_solver_config(model; saveat_mode=:dense)
-    dm_dense = DataModel(model_dense, df; primary_id=:ID, time_col=:t, evid_col=:EVID)
+    model_dense = set_solver_config(model; saveat_mode = :dense)
+    dm_dense = DataModel(model_dense, df; primary_id = :ID, time_col = :t, evid_col = :EVID)
     ind1_dense = get_individual(dm_dense, 1)
     @test ind1_dense.saveat === nothing
 end
@@ -1190,7 +1198,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @DifferentialEquation begin
@@ -1202,7 +1210,7 @@ end
         end
 
         @formulas begin
-            y ~ Normal(x1(t) + x1(t + 0.25) + x1(t + (1/4)), σ)
+            y ~ Normal(x1(t) + x1(t + 0.25) + x1(t + (1 / 4)), σ)
         end
     end
 
@@ -1212,14 +1220,14 @@ end
         y = [1.0, 1.1]
     )
 
-    model_saveat = set_solver_config(model; saveat_mode=:saveat)
-    dm = DataModel(model_saveat, df; primary_id=:ID, time_col=:t)
+    model_saveat = set_solver_config(model; saveat_mode = :saveat)
+    dm = DataModel(model_saveat, df; primary_id = :ID, time_col = :t)
     ind1 = get_individual(dm, 1)
     @test ind1.saveat == [0.0, 0.25, 1.0, 1.25]
     @test ind1.tspan == (0.0, 1.25)
 
-    model_dense = set_solver_config(model; saveat_mode=:dense)
-    dm_dense = DataModel(model_dense, df; primary_id=:ID, time_col=:t)
+    model_dense = set_solver_config(model; saveat_mode = :dense)
+    dm_dense = DataModel(model_dense, df; primary_id = :ID, time_col = :t)
     ind1_dense = get_individual(dm_dense, 1)
     @test ind1_dense.tspan == (0.0, 1.25)
 end
@@ -1236,7 +1244,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @DifferentialEquation begin
@@ -1258,8 +1266,8 @@ end
         y = [1.0, 1.1]
     )
 
-    model_saveat = set_solver_config(model; saveat_mode=:saveat)
-    @test_throws ErrorException DataModel(model_saveat, df; primary_id=:ID, time_col=:t)
+    model_saveat = set_solver_config(model; saveat_mode = :saveat)
+    @test_throws ErrorException DataModel(model_saveat, df; primary_id = :ID, time_col = :t)
 end
 
 @testset "DataModel pairing creates multiple batches" begin
@@ -1274,8 +1282,8 @@ end
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(0.0, 1.0); column=:ID)
-            η_site = RandomEffect(Normal(0.0, 1.0); column=:SITE)
+            η_id = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            η_site = RandomEffect(Normal(0.0, 1.0); column = :SITE)
         end
 
         @formulas begin
@@ -1291,7 +1299,7 @@ end
         y = [1.0, 1.1, 0.9, 1.0, 1.2, 1.1, 1.0, 0.95]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     batches = get_batches(dm)
     @test length(batches) == 2
     @test all(length.(batches) .== 2)
@@ -1306,11 +1314,11 @@ end
 
         @covariates begin
             t = Covariate()
-            w1 = DynamicCovariate(; interpolation=LinearInterpolation)
+            w1 = DynamicCovariate(; interpolation = LinearInterpolation)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -1326,7 +1334,7 @@ end
         y = [1.0, 1.1, 1.2]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     ind1 = get_individual(dm, 1)
     @test ind1.series.dyn.w1(0.25) ≈ 1.1
 end
@@ -1343,7 +1351,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -1358,7 +1366,7 @@ end
         y = [1.0, 1.1]
     )
 
-    @test_throws ErrorException DataModel(model, df; primary_id=:SUBJ, time_col=:t)
+    @test_throws ErrorException DataModel(model, df; primary_id = :SUBJ, time_col = :t)
 end
 
 @testset "DataModel informs for numeric random-effect ids" begin
@@ -1373,7 +1381,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -1390,7 +1398,7 @@ end
     empty!(NoLimits._warned_numeric_re_group_cols)
     dm = nothing
     @test_logs (:info, r"numeric random-effect grouping levels") begin
-        dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     end
     @test dm isa DataModel
 end
@@ -1407,7 +1415,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:OBS)
+            η = RandomEffect(Normal(0.0, 1.0); column = :OBS)
         end
 
         @formulas begin
@@ -1423,8 +1431,9 @@ end
     )
 
     dm = nothing
-    @test_logs (:info, r"numeric random-effect grouping levels") (:warn, r"weakly identified") begin
-        dm = DataModel(model, df; primary_id=:OBS, time_col=:t)
+    @test_logs (:info, r"numeric random-effect grouping levels") (
+        :warn, r"weakly identified") begin
+        dm = DataModel(model, df; primary_id = :OBS, time_col = :t)
     end
     @test dm isa DataModel
 end
@@ -1441,7 +1450,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:SITE)
+            η = RandomEffect(Normal(0.0, 1.0); column = :SITE)
         end
 
         @formulas begin
@@ -1456,7 +1465,7 @@ end
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     @test length(get_individuals(dm)) == 2
 end
 
@@ -1471,7 +1480,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -1486,7 +1495,7 @@ end
         y = [1.0, 1.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     ind1 = get_individual(dm, 1)
     @test ind1.series.obs.y == [1.0, 1.1]
 end
@@ -1513,7 +1522,7 @@ end
         y = [0.1, 0.2, 0.0, -0.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     @test length(get_individuals(dm)) == 2
     @test get_individual(dm, 1).series.obs.y == [0.1, 0.2]
     @test get_individual(dm, "2").series.obs.y == [0.0, -0.1]
@@ -1542,7 +1551,8 @@ end
         z = [0.1, missing],
         y = [0.1, 0.2]
     )
-    @test_throws ErrorException DataModel(model_used, df_used_missing; primary_id=:ID, time_col=:t)
+    @test_throws ErrorException DataModel(
+        model_used, df_used_missing; primary_id = :ID, time_col = :t)
 
     model_unused = @Model begin
         @fixedEffects begin
@@ -1567,7 +1577,7 @@ end
         y = [0.1, 0.2]
     )
 
-    dm = DataModel(model_unused, df_unused_missing; primary_id=:ID, time_col=:t)
+    dm = DataModel(model_unused, df_unused_missing; primary_id = :ID, time_col = :t)
     @test dm isa DataModel
 end
 
@@ -1597,7 +1607,7 @@ end
         z = Union{Missing, Float64}[2.1, 2.0, missing]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     ind = get_individual(dm, 1)
     @test isequal(ind.series.obs.y, Union{Missing, Float64}[1.0, missing, 1.2])
     @test isequal(ind.series.obs.z, Union{Missing, Float64}[2.1, 2.0, missing])

@@ -35,12 +35,15 @@ struct MAP{O, K, A, L, U} <: FittingMethod
     ignore_model_bounds::Bool
 end
 
-MAP(; optimizer=OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking()),
-    optim_kwargs=NamedTuple(),
-    adtype=Optimization.AutoForwardDiff(),
-    lb=nothing,
-    ub=nothing,
-    ignore_model_bounds=false) = MAP(optimizer, optim_kwargs, adtype, lb, ub, ignore_model_bounds)
+function MAP(;
+        optimizer = OptimizationOptimJL.LBFGS(linesearch = LineSearches.BackTracking()),
+        optim_kwargs = NamedTuple(),
+        adtype = Optimization.AutoForwardDiff(),
+        lb = nothing,
+        ub = nothing,
+        ignore_model_bounds = false)
+    MAP(optimizer, optim_kwargs, adtype, lb, ub, ignore_model_bounds)
+end
 
 """
     MAPResult{S, O, I, R, N} <: MethodResult
@@ -57,7 +60,7 @@ struct MAPResult{S, O, I, R, N} <: MethodResult
 end
 
 struct _MAPTerm{F}
-        fe::F
+    fe::F
 end
 
 @inline function (m::_MAPTerm)(θu)
@@ -66,37 +69,39 @@ end
 end
 
 function _fit_model(dm::DataModel, method::MAP, args...;
-                    constants::NamedTuple=NamedTuple(),
-                    penalty::NamedTuple=NamedTuple(),
-                    ode_args::Tuple=(),
-                    ode_kwargs::NamedTuple=NamedTuple(),
-                    serialization::SciMLBase.EnsembleAlgorithm=EnsembleThreads(),
-                    rng::AbstractRNG=Xoshiro(0),
-                    theta_0_untransformed::Union{Nothing, ComponentArray}=nothing,
-                    store_data_model::Bool=true)
+        constants::NamedTuple = NamedTuple(),
+        penalty::NamedTuple = NamedTuple(),
+        ode_args::Tuple = (),
+        ode_kwargs::NamedTuple = NamedTuple(),
+        serialization::SciMLBase.EnsembleAlgorithm = EnsembleThreads(),
+        rng::AbstractRNG = Xoshiro(0),
+        theta_0_untransformed::Union{Nothing, ComponentArray} = nothing,
+        store_data_model::Bool = true)
     fe = dm.model.fixed.fixed
     priors = get_priors(fe)
-    has_prior = !isempty(keys(priors)) && any(!(getfield(priors, k) isa Priorless) for k in keys(priors))
-    has_prior || error("MAP requires priors on fixed effects. Define priors in @fixedEffects (e.g., RealNumber(...; prior=Normal(...))) or use MLE instead.")
+    has_prior = !isempty(keys(priors)) &&
+                any(!(getfield(priors, k) isa Priorless) for k in keys(priors))
+    has_prior ||
+        error("MAP requires priors on fixed effects. Define priors in @fixedEffects (e.g., RealNumber(...; prior=Normal(...))) or use MLE instead.")
 
     add_term = _MAPTerm(fe)
-    fit_kwargs = (constants=constants,
-                  penalty=penalty,
-                  ode_args=ode_args,
-                  ode_kwargs=ode_kwargs,
-                  serialization=serialization,
-                  rng=rng,
-                  theta_0_untransformed=theta_0_untransformed,
-                  store_data_model=store_data_model)
+    fit_kwargs = (constants = constants,
+        penalty = penalty,
+        ode_args = ode_args,
+        ode_kwargs = ode_kwargs,
+        serialization = serialization,
+        rng = rng,
+        theta_0_untransformed = theta_0_untransformed,
+        store_data_model = store_data_model)
     return _fit_no_re(dm, method;
-                      constants=constants,
-                      penalty=penalty,
-                      ode_args=ode_args,
-                      ode_kwargs=ode_kwargs,
-                      serialization=serialization,
-                      add_term=add_term,
-                      theta_0_untransformed=theta_0_untransformed,
-                      store_data_model=store_data_model,
-                      fit_args=args,
-                      fit_kwargs=fit_kwargs)
+        constants = constants,
+        penalty = penalty,
+        ode_args = ode_args,
+        ode_kwargs = ode_kwargs,
+        serialization = serialization,
+        add_term = add_term,
+        theta_0_untransformed = theta_0_untransformed,
+        store_data_model = store_data_model,
+        fit_args = args,
+        fit_kwargs = fit_kwargs)
 end

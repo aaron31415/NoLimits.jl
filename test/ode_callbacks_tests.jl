@@ -29,24 +29,24 @@ using OrdinaryDiffEq
 
     function _ll(df; use_events::Bool)
         dm = DataModel(model, df;
-                       primary_id=:ID,
-                       time_col=:t,
-                       evid_col=use_events ? :EVID : nothing,
-                       amt_col=:AMT,
-                       rate_col=:RATE,
-                       cmt_col=:CMT)
+            primary_id = :ID,
+            time_col = :t,
+            evid_col = use_events ? :EVID : nothing,
+            amt_col = :AMT,
+            rate_col = :RATE,
+            cmt_col = :CMT)
         θ = get_θ0_untransformed(model.fixed.fixed)
         return NoLimits.loglikelihood(dm, θ, ComponentArray())
     end
 
     function _solve_with_callbacks(df)
         dm = DataModel(model, df;
-                       primary_id=:ID,
-                       time_col=:t,
-                       evid_col=:EVID,
-                       amt_col=:AMT,
-                       rate_col=:RATE,
-                       cmt_col=:CMT)
+            primary_id = :ID,
+            time_col = :t,
+            evid_col = :EVID,
+            amt_col = :AMT,
+            rate_col = :RATE,
+            cmt_col = :CMT)
         θ = get_θ0_untransformed(model.fixed.fixed)
         ind = get_individuals(dm)[1]
         η = ComponentArray()
@@ -82,8 +82,8 @@ using OrdinaryDiffEq
         end
         prob = ODEProblem(f!, u0, ind.tspan, compiled)
         sol = cb === nothing ?
-              solve(prob, Tsit5(); dense=true) :
-              solve(prob, Tsit5(); dense=true, callback=cb)
+              solve(prob, Tsit5(); dense = true) :
+              solve(prob, Tsit5(); dense = true, callback = cb)
         return sol
     end
 
@@ -102,8 +102,8 @@ using OrdinaryDiffEq
             t = [0.0, 2.0],
             y = [0.0, 3.0]
         )
-        ll_evt = _ll(df_evt; use_events=true)
-        ll_no = _ll(df_no; use_events=false)
+        ll_evt = _ll(df_evt; use_events = true)
+        ll_no = _ll(df_no; use_events = false)
         @test ll_evt > ll_no
 
         sol = _solve_with_callbacks(df_evt)
@@ -127,8 +127,8 @@ using OrdinaryDiffEq
             t = [0.0, 2.0],
             y = [0.0, 1.0]
         )
-        ll_evt = _ll(df_evt; use_events=true)
-        ll_no = _ll(df_no; use_events=false)
+        ll_evt = _ll(df_evt; use_events = true)
+        ll_no = _ll(df_no; use_events = false)
         @test ll_evt > ll_no
 
         sol = _solve_with_callbacks(df_evt)
@@ -139,10 +139,10 @@ using OrdinaryDiffEq
         # infusion_rates must be reset between solves on the same DataModel —
         # regression test: t=t0 infusion was only initialised once at construction,
         # so the second solve saw infusion_rates=[0] and subsequent solves saw negative rates
-        dm_evt = DataModel(model, df_evt; primary_id=:ID, time_col=:t,
-                           evid_col=:EVID, amt_col=:AMT, rate_col=:RATE, cmt_col=:CMT)
+        dm_evt = DataModel(model, df_evt; primary_id = :ID, time_col = :t,
+            evid_col = :EVID, amt_col = :AMT, rate_col = :RATE, cmt_col = :CMT)
         θ = get_θ0_untransformed(model.fixed.fixed)
-        ll_first  = NoLimits.loglikelihood(dm_evt, θ, ComponentArray())
+        ll_first = NoLimits.loglikelihood(dm_evt, θ, ComponentArray())
         ll_second = NoLimits.loglikelihood(dm_evt, θ, ComponentArray())
         @test isfinite(ll_first)
         @test ll_first == ll_second
@@ -163,8 +163,8 @@ using OrdinaryDiffEq
             t = [0.0, 2.0],
             y = [0.0, 2.5]
         )
-        ll_evt = _ll(df_evt; use_events=true)
-        ll_no = _ll(df_no; use_events=false)
+        ll_evt = _ll(df_evt; use_events = true)
+        ll_no = _ll(df_no; use_events = false)
         @test ll_evt > ll_no
 
         sol = _solve_with_callbacks(df_evt)
@@ -208,12 +208,12 @@ end
     )
 
     dm = DataModel(model, df;
-                   primary_id=:ID,
-                   time_col=:t,
-                   evid_col=:EVID,
-                   amt_col=:AMT,
-                   rate_col=:RATE,
-                   cmt_col=:CMT)
+        primary_id = :ID,
+        time_col = :t,
+        evid_col = :EVID,
+        amt_col = :AMT,
+        rate_col = :RATE,
+        cmt_col = :CMT)
 
     ind1 = get_individual(dm, 1)
     @test ind1.callbacks !== nothing
@@ -254,12 +254,12 @@ end
             y = [missing, missing]
         )
         dm = DataModel(model, df;
-                       primary_id=:ID,
-                       time_col=:t,
-                       evid_col=:EVID,
-                       amt_col=:AMT,
-                       rate_col=:RATE,
-                       cmt_col=:CMT)
+            primary_id = :ID,
+            time_col = :t,
+            evid_col = :EVID,
+            amt_col = :AMT,
+            rate_col = :RATE,
+            cmt_col = :CMT)
         ind = get_individuals(dm)[1]
         @test ind.callbacks !== nothing
     end
@@ -275,12 +275,12 @@ end
             y = [missing, missing]
         )
         @test_throws ErrorException DataModel(model, df;
-                                              primary_id=:ID,
-                                              time_col=:t,
-                                              evid_col=:EVID,
-                                              amt_col=:AMT,
-                                              rate_col=:RATE,
-                                              cmt_col=:CMT)
+            primary_id = :ID,
+            time_col = :t,
+            evid_col = :EVID,
+            amt_col = :AMT,
+            rate_col = :RATE,
+            cmt_col = :CMT)
     end
 
     @testset "CMT closest-match suggestion" begin
@@ -295,12 +295,12 @@ end
         )
         err = try
             DataModel(model, df;
-                      primary_id=:ID,
-                      time_col=:t,
-                      evid_col=:EVID,
-                      amt_col=:AMT,
-                      rate_col=:RATE,
-                      cmt_col=:CMT)
+                primary_id = :ID,
+                time_col = :t,
+                evid_col = :EVID,
+                amt_col = :AMT,
+                rate_col = :RATE,
+                cmt_col = :CMT)
             nothing
         catch e
             e
@@ -347,12 +347,12 @@ end
     )
 
     dm = DataModel(model, df;
-                   primary_id=:ID,
-                   time_col=:t,
-                   evid_col=:EVID,
-                   amt_col=:AMT,
-                   rate_col=:RATE,
-                   cmt_col=:CMT)
+        primary_id = :ID,
+        time_col = :t,
+        evid_col = :EVID,
+        amt_col = :AMT,
+        rate_col = :RATE,
+        cmt_col = :CMT)
 
     θ1 = get_θ0_untransformed(model.fixed.fixed)
     θ2 = copy(θ1)
@@ -397,22 +397,22 @@ end
     # has step ≈1.5 days — without the fix, t=1 (stop time) falls between
     # grid points and V appears to peak much later than it actually does.
     df = DataFrame(
-        ID   = [1, 1],
-        t    = [0.0, 300.0],
+        ID = [1, 1],
+        t = [0.0, 300.0],
         EVID = [1, 0],
-        AMT  = [1.0, 0.0],
+        AMT = [1.0, 0.0],
         RATE = [1.0, 0.0],
-        CMT  = [1, 1],
-        y    = [missing, 0.0]
+        CMT = [1, 1],
+        y = [missing, 0.0]
     )
 
     dm = DataModel(model, df;
-                   primary_id=:ID,
-                   time_col=:t,
-                   evid_col=:EVID,
-                   amt_col=:AMT,
-                   rate_col=:RATE,
-                   cmt_col=:CMT)
+        primary_id = :ID,
+        time_col = :t,
+        evid_col = :EVID,
+        amt_col = :AMT,
+        rate_col = :RATE,
+        cmt_col = :CMT)
 
     ind = get_individuals(dm)[1]
 

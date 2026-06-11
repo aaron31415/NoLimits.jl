@@ -22,7 +22,7 @@ Fields:
 Usage: approximate ∫ f(z) N(z; 0, I) dz ≈ signed_sum_r w_r f(z_r)
 where w_r = signs[r] * exp(logweights[r]).
 """
-struct GHQuadratureNodes{T<:AbstractFloat}
+struct GHQuadratureNodes{T <: AbstractFloat}
     dim::Int
     level::Int
     nodes::Matrix{T}
@@ -51,13 +51,13 @@ function _gh_rule(n::Int)
     end
 
     # Jacobi tridiagonal matrix for physicist's GH
-    β = [sqrt(i / 2.0) for i in 1:(n-1)]
+    β = [sqrt(i / 2.0) for i in 1:(n - 1)]
     J = SymTridiagonal(zeros(n), β)
 
     # Eigendecomposition — eigenvectors columns of vecs, eigenvalues = physicist nodes
     F = eigen(J)
     x_phys = F.values
-    vecs   = F.vectors
+    vecs = F.vectors
 
     # Physicist weights: w_k^phys = sqrt(π) * vecs[1,k]^2
     w_phys = sqrt(π) .* vecs[1, :] .^ 2
@@ -66,7 +66,7 @@ function _gh_rule(n::Int)
     #   nodes_prob = sqrt(2) * x_phys
     #   w_prob = w_phys / sqrt(π)   (so they sum to 1)
     nodes_prob = sqrt(2.0) .* x_phys
-    w_prob     = w_phys ./ sqrt(π)
+    w_prob = w_phys ./ sqrt(π)
 
     # Sort by node value (ascending)
     ord = sortperm(nodes_prob)
@@ -79,13 +79,13 @@ end
 
 # Enumerate all multi-indices α ∈ Z_{≥1}^dim with |α|₁ ≤ q_max (in-place).
 function _enumerate_multiindices!(result::Vector{Vector{Int}}, dim::Int, q_max::Int,
-                                   current::Vector{Int}, current_sum::Int)
+        current::Vector{Int}, current_sum::Int)
     if length(current) == dim
         push!(result, copy(current))
         return
     end
     remaining = dim - length(current)
-    max_here  = q_max - current_sum - (remaining - 1)   # leave at least 1 for each remaining
+    max_here = q_max - current_sum - (remaining - 1)   # leave at least 1 for each remaining
     for αi in 1:max_here
         push!(current, αi)
         _enumerate_multiindices!(result, dim, q_max, current, current_sum + αi)
@@ -94,7 +94,7 @@ function _enumerate_multiindices!(result::Vector{Vector{Int}}, dim::Int, q_max::
 end
 
 function _smolyak_multiindices(dim::Int, level::Int)
-    q_max  = dim + level - 1
+    q_max = dim + level - 1
     result = Vector{Vector{Int}}()
     _enumerate_multiindices!(result, dim, q_max, Int[], 0)
     return result
@@ -118,54 +118,54 @@ merged by summing their signed weights. Near-zero combined weights (|w| < eps)
 are discarded.
 """
 function build_sparse_grid(dim::Int, level::Int)
-    @assert dim  >= 1 "dim must be ≥ 1"
-    @assert level >= 1 "level must be ≥ 1"
+    @assert dim>=1 "dim must be ≥ 1"
+    @assert level>=1 "level must be ≥ 1"
 
-    q_max  = dim + level - 1
+    q_max = dim + level - 1
 
     # Precompute 1D GH rules for orders 1..level
     rules_nodes = Vector{Vector{Float64}}(undef, level)
-    rules_lw    = Vector{Vector{Float64}}(undef, level)
+    rules_lw = Vector{Vector{Float64}}(undef, level)
     for k in 1:level
         rules_nodes[k], rules_lw[k] = _gh_rule(k)
     end
 
     # Storage for assembled points
-    all_nodes   = Vector{Vector{Float64}}()
-    all_lw      = Vector{Float64}()
-    all_signs   = Vector{Int8}()
+    all_nodes = Vector{Vector{Float64}}()
+    all_lw = Vector{Float64}()
+    all_signs = Vector{Int8}()
 
     for α in _smolyak_multiindices(dim, level)
-        q     = sum(α)
-        exp_  = (q_max - q)
+        q = sum(α)
+        exp_ = (q_max - q)
         coeff = (iseven(exp_) ? 1 : -1) * binomial(dim - 1, q_max - q)
         coeff == 0 && continue
 
-        coeff_sign  = coeff > 0 ? Int8(1) : Int8(-1)
-        log_abs_c   = log(abs(coeff))
+        coeff_sign = coeff > 0 ? Int8(1) : Int8(-1)
+        log_abs_c = log(abs(coeff))
 
         # Number of points in this tensor product
         n_pts = prod(length(rules_nodes[αi]) for αi in α)
 
         # Iterate over tensor-product indices via mixed-radix counting
         ns = [length(rules_nodes[αi]) for αi in α]
-        for flat_idx in 0:(n_pts-1)
+        for flat_idx in 0:(n_pts - 1)
             # Decompose flat_idx into per-dimension indices
             node_val = Vector{Float64}(undef, dim)
-            lw_sum   = log_abs_c
+            lw_sum = log_abs_c
             net_sign = coeff_sign
-            rem      = flat_idx
+            rem = flat_idx
             for d in 1:dim
-                ki    = rem % ns[d] + 1
-                rem   = rem ÷ ns[d]
-                nd    = rules_nodes[α[d]][ki]
-                lw_d  = rules_lw[α[d]][ki]
+                ki = rem % ns[d] + 1
+                rem = rem ÷ ns[d]
+                nd = rules_nodes[α[d]][ki]
+                lw_d = rules_lw[α[d]][ki]
                 node_val[d] = nd
-                lw_sum     += lw_d
+                lw_sum += lw_d
                 # weights are always positive (GH weights > 0), sign unaffected
             end
             push!(all_nodes, node_val)
-            push!(all_lw,    lw_sum)
+            push!(all_lw, lw_sum)
             push!(all_signs, net_sign)
         end
     end
@@ -181,14 +181,14 @@ function build_sparse_grid(dim::Int, level::Int)
     perm = sortperm(1:R, by = r -> nodes_mat[:, r])
 
     dedup_nodes = Vector{Vector{Float64}}()
-    dedup_lw    = Vector{Float64}()
+    dedup_lw = Vector{Float64}()
     dedup_signs = Vector{Int8}()
 
     r = 1
     while r <= R
         # Find the end of the run of identical nodes.
         run_end = r
-        while run_end + 1 <= R && nodes_mat[:, perm[run_end+1]] == nodes_mat[:, perm[r]]
+        while run_end + 1 <= R && nodes_mat[:, perm[run_end + 1]] == nodes_mat[:, perm[r]]
             run_end += 1
         end
 
@@ -202,7 +202,7 @@ function build_sparse_grid(dim::Int, level::Int)
         # Keep only if the combined weight is non-negligible.
         if abs(combined_w) > eps(Float64)
             push!(dedup_nodes, copy(nodes_mat[:, perm[r]]))
-            push!(dedup_lw,    log(abs(combined_w)))
+            push!(dedup_lw, log(abs(combined_w)))
             push!(dedup_signs, combined_w > 0.0 ? Int8(1) : Int8(-1))
         end
 
@@ -222,7 +222,7 @@ end
 # Global cache
 # ---------------------------------------------------------------------------
 
-const _SPARSEGRID_CACHE = Dict{Tuple{Int,Int}, GHQuadratureNodes{Float64}}()
+const _SPARSEGRID_CACHE = Dict{Tuple{Int, Int}, GHQuadratureNodes{Float64}}()
 
 """
     get_sparse_grid(dim::Int, level::Int) -> GHQuadratureNodes{Float64}
@@ -272,7 +272,7 @@ function _gl_rule(n::Int)
     if n == 1
         return [0.0], [log(2.0)]
     end
-    β = [k / sqrt(4.0 * k^2 - 1.0) for k in 1:n-1]
+    β = [k / sqrt(4.0 * k^2 - 1.0) for k in 1:(n - 1)]
     J = SymTridiagonal(zeros(n), β)
     F = eigen(J)
     x = F.values                          # GL nodes on (-1, 1)
@@ -297,7 +297,7 @@ Clenshaw-Curtis nodes at level n are a superset of those at all even sub-levels,
 making CC useful for adaptive / nested quadrature (Phase 4).
 """
 function _cc_rule(n::Int)
-    @assert n >= 1 "_cc_rule: n must be ≥ 1"
+    @assert n>=1 "_cc_rule: n must be ≥ 1"
 
     if n == 1
         return [-1.0, 1.0], [log(1.0), log(1.0)]  # two endpoints, w=1 each
@@ -320,7 +320,7 @@ function _cc_rule(n::Int)
             b_l = (2l == N) ? 1.0 : 2.0
             s += b_l * cos(2π * l * j / N) / (4l^2 - 1)
         end
-        w[j+1] = (c[j+1] / N) * (1.0 - s)
+        w[j + 1] = (c[j + 1] / N) * (1.0 - s)
     end
 
     ord = sortperm(nodes_desc)
@@ -360,22 +360,22 @@ end
 function _tensor_product_two(sg1::GHQuadratureNodes{T}, sg2::GHQuadratureNodes{T}) where {T}
     R1 = size(sg1.nodes, 2)
     R2 = size(sg2.nodes, 2)
-    R  = R1 * R2
+    R = R1 * R2
     d1 = sg1.dim
     d2 = sg2.dim
-    d  = d1 + d2
+    d = d1 + d2
 
-    nodes_out      = Matrix{T}(undef, d, R)
+    nodes_out = Matrix{T}(undef, d, R)
     logweights_out = Vector{T}(undef, R)
-    signs_out      = Vector{Int8}(undef, R)
+    signs_out = Vector{Int8}(undef, R)
 
     r = 0
     @inbounds for r2 in 1:R2, r1 in 1:R1
         r += 1
-        nodes_out[1:d1, r]       = sg1.nodes[:, r1]
-        nodes_out[d1+1:d, r]     = sg2.nodes[:, r2]
-        logweights_out[r]        = sg1.logweights[r1] + sg2.logweights[r2]
-        signs_out[r]             = sg1.signs[r1] * sg2.signs[r2]
+        nodes_out[1:d1, r] = sg1.nodes[:, r1]
+        nodes_out[(d1 + 1):d, r] = sg2.nodes[:, r2]
+        logweights_out[r] = sg1.logweights[r1] + sg2.logweights[r2]
+        signs_out[r] = sg1.signs[r1] * sg2.signs[r2]
     end
 
     # level=0 is the sentinel for "product grid" (no single Smolyak level)
@@ -387,7 +387,8 @@ end
 # ---------------------------------------------------------------------------
 
 # Key: (dims, levels) — dims[k] = RE-group dimension, levels[k] = GH level for that group
-const _ANISOTROPIC_CACHE = Dict{Tuple{Vector{Int}, Vector{Int}}, GHQuadratureNodes{Float64}}()
+const _ANISOTROPIC_CACHE = Dict{
+    Tuple{Vector{Int}, Vector{Int}}, GHQuadratureNodes{Float64}}()
 
 """
     get_anisotropic_grid(dims::Vector{Int}, levels::Vector{Int}) -> GHQuadratureNodes{Float64}

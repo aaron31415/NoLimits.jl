@@ -72,34 +72,36 @@ struct GHQuadrature{LV, O, K, A, IO, MS, L, U} <: FittingMethod
     ignore_model_bounds::Bool
 end
 
-GHQuadrature(;
-    level = 3,  # Int or NamedTuple for anisotropic levels
-    optimizer = OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking()),
-    optim_kwargs = NamedTuple(),
-    adtype = Optimization.AutoForwardDiff(),
-    inner_options = nothing,
-    inner_optimizer = OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking(maxstep=1.0)),
-    inner_kwargs = NamedTuple(),
-    inner_adtype = Optimization.AutoForwardDiff(),
-    inner_grad_tol = :auto,
-    multistart_options = nothing,
-    multistart_n = 50,
-    multistart_k = 10,
-    multistart_grad_tol = inner_grad_tol,
-    multistart_max_rounds = 1,
-    multistart_sampling = :lhs,
-    lb = nothing,
-    ub = nothing,
-    ignore_model_bounds = false,
-) = begin
+function GHQuadrature(;
+        level = 3,  # Int or NamedTuple for anisotropic levels
+        optimizer = OptimizationOptimJL.LBFGS(linesearch = LineSearches.BackTracking()),
+        optim_kwargs = NamedTuple(),
+        adtype = Optimization.AutoForwardDiff(),
+        inner_options = nothing,
+        inner_optimizer = OptimizationOptimJL.LBFGS(linesearch = LineSearches.BackTracking(maxstep = 1.0)),
+        inner_kwargs = NamedTuple(),
+        inner_adtype = Optimization.AutoForwardDiff(),
+        inner_grad_tol = :auto,
+        multistart_options = nothing,
+        multistart_n = 50,
+        multistart_k = 10,
+        multistart_grad_tol = inner_grad_tol,
+        multistart_max_rounds = 1,
+        multistart_sampling = :lhs,
+        lb = nothing,
+        ub = nothing,
+        ignore_model_bounds = false
+)
     inner = inner_options === nothing ?
-        LaplaceInnerOptions(inner_optimizer, inner_kwargs, inner_adtype, inner_grad_tol) :
-        inner_options
+            LaplaceInnerOptions(
+        inner_optimizer, inner_kwargs, inner_adtype, inner_grad_tol) :
+            inner_options
     ms = multistart_options === nothing ?
-        LaplaceMultistartOptions(multistart_n, multistart_k, multistart_grad_tol,
-                                 multistart_max_rounds, multistart_sampling) :
-        multistart_options
-    GHQuadrature(level, optimizer, optim_kwargs, adtype, inner, ms, lb, ub, ignore_model_bounds)
+         LaplaceMultistartOptions(multistart_n, multistart_k, multistart_grad_tol,
+        multistart_max_rounds, multistart_sampling) :
+         multistart_options
+    GHQuadrature(
+        level, optimizer, optim_kwargs, adtype, inner, ms, lb, ub, ignore_model_bounds)
 end
 
 # ---------------------------------------------------------------------------
@@ -140,11 +142,11 @@ For batches with `n_b == 0` (all RE are constant), returns the sum of
 individual conditional log-likelihoods directly.
 """
 function _ghq_batch_ll(dm::DataModel,
-                               info::_LaplaceBatchInfo,
-                               θu_re::ComponentArray,
-                               const_cache::LaplaceConstantsCache,
-                               ll_cache::_LLCache,
-                               level)   # Int or NamedTuple
+        info::_LaplaceBatchInfo,
+        θu_re::ComponentArray,
+        const_cache::LaplaceConstantsCache,
+        ll_cache::_LLCache,
+        level)   # Int or NamedTuple
     T = eltype(θu_re)
     if info.n_b == 0
         # All RE are constant — no integration needed.
@@ -193,17 +195,18 @@ present in `level` default to level 1.
 Returns the concatenated tensor-product grid over all RE groups that have
 free levels (non-zero dimension) in this batch.
 """
-function _build_anisotropic_batch_grid(dm::DataModel, info::_LaplaceBatchInfo, level::NamedTuple)
+function _build_anisotropic_batch_grid(
+        dm::DataModel, info::_LaplaceBatchInfo, level::NamedTuple)
     re_names = dm.re_group_info.laplace_cache.re_names
-    dims   = Int[]
+    dims = Int[]
     levels = Int[]
     for (ri, re_name) in enumerate(re_names)
         re_info = info.re_info[ri]
         # Total free RE dimension for this RE group in this batch
-        total_dim = sum(length(r) for r in re_info.ranges; init=0)
+        total_dim = sum(length(r) for r in re_info.ranges; init = 0)
         total_dim == 0 && continue
         l = haskey(level, re_name) ? getproperty(level, re_name) : 1
-        push!(dims,   total_dim)
+        push!(dims, total_dim)
         push!(levels, l)
     end
     isempty(dims) && error("_build_anisotropic_batch_grid: no free RE dimensions found")
@@ -247,29 +250,29 @@ end
 # ---------------------------------------------------------------------------
 
 function _fit_model_scalar(dm::DataModel, method::GHQuadrature, args...;
-                    constants::NamedTuple        = NamedTuple(),
-                    constants_re::NamedTuple     = NamedTuple(),
-                    penalty::NamedTuple          = NamedTuple(),
-                    ode_args::Tuple              = (),
-                    ode_kwargs::NamedTuple       = NamedTuple(),
-                    serialization::SciMLBase.EnsembleAlgorithm = EnsembleThreads(),
-                    rng::AbstractRNG             = Random.default_rng(),
-                    theta_0_untransformed::Union{Nothing, ComponentArray} = nothing,
-                    store_data_model::Bool       = true)
-
-    fit_kwargs = (constants            = constants,
-                  constants_re         = constants_re,
-                  penalty              = penalty,
-                  ode_args             = ode_args,
-                  ode_kwargs           = ode_kwargs,
-                  serialization        = serialization,
-                  rng                  = rng,
-                  theta_0_untransformed = theta_0_untransformed,
-                  store_data_model     = store_data_model)
+        constants::NamedTuple = NamedTuple(),
+        constants_re::NamedTuple = NamedTuple(),
+        penalty::NamedTuple = NamedTuple(),
+        ode_args::Tuple = (),
+        ode_kwargs::NamedTuple = NamedTuple(),
+        serialization::SciMLBase.EnsembleAlgorithm = EnsembleThreads(),
+        rng::AbstractRNG = Random.default_rng(),
+        theta_0_untransformed::Union{Nothing, ComponentArray} = nothing,
+        store_data_model::Bool = true)
+    fit_kwargs = (constants = constants,
+        constants_re = constants_re,
+        penalty = penalty,
+        ode_args = ode_args,
+        ode_kwargs = ode_kwargs,
+        serialization = serialization,
+        rng = rng,
+        theta_0_untransformed = theta_0_untransformed,
+        store_data_model = store_data_model)
 
     # ── Validate ────────────────────────────────────────────────────────────
     re_names = get_re_names(dm.model.random.random)
-    isempty(re_names) && error("GHQuadrature requires random effects. Use MLE/MAP for fixed-effects-only models.")
+    isempty(re_names) &&
+        error("GHQuadrature requires random effects. Use MLE/MAP for fixed-effects-only models.")
 
     _ghq_validate_re_distributions(dm)
 
@@ -295,24 +298,25 @@ function _fit_model_scalar(dm::DataModel, method::GHQuadrature, args...;
         θ0_u = theta_0_untransformed
     end
 
-    transform     = get_transform(fe)
+    transform = get_transform(fe)
     inv_transform = get_inverse_transform(fe)
-    θ0_t          = transform(θ0_u)
-    θ_const_u     = deepcopy(θ0_u)
+    θ0_t = transform(θ0_u)
+    θ_const_u = deepcopy(θ0_u)
     _apply_constants!(θ_const_u, constants)
-    θ_const_t     = transform(θ_const_u)
+    θ_const_t = transform(θ_const_u)
 
-    inner_opts      = _resolve_inner_options(method.inner, dm)
+    inner_opts = _resolve_inner_options(method.inner, dm)
     multistart_opts = _resolve_multistart_options(method.multistart, inner_opts)
 
     # ── Infrastructure ───────────────────────────────────────────────────────
     pairing, batch_infos, const_cache = _build_laplace_batch_infos(dm, constants_re)
 
     ll_cache = if serialization isa SciMLBase.EnsembleThreads
-        build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs,
-                       nthreads=Threads.maxthreadid(), force_saveat=true)
+        build_ll_cache(dm; ode_args = ode_args, ode_kwargs = ode_kwargs,
+            nthreads = Threads.maxthreadid(), force_saveat = true)
     else
-        build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs, force_saveat=true)
+        build_ll_cache(
+            dm; ode_args = ode_args, ode_kwargs = ode_kwargs, force_saveat = true)
     end
 
     # Pre-populate sparse-grid cache for all unique free-RE dimensions.
@@ -326,18 +330,18 @@ function _fit_model_scalar(dm::DataModel, method::GHQuadrature, args...;
     n_batches = length(batch_infos)
     Tθ = eltype(θ0_t)
     bstar_cache = _LaplaceBStarCache([Vector{Tθ}() for _ in 1:n_batches], falses(n_batches))
-    grad_cache  = _LaplaceGradCache([Vector{Tθ}() for _ in 1:n_batches],
-                                    fill(Tθ(NaN), n_batches),
-                                    [Vector{Tθ}() for _ in 1:n_batches],
-                                    falses(n_batches))
-    ad_cache    = _init_laplace_ad_cache(n_batches)
-    hess_cache  = _init_laplace_hess_cache(Tθ, n_batches)
-    ebe_cache   = _LaplaceCache(nothing, bstar_cache, grad_cache, ad_cache, hess_cache)
+    grad_cache = _LaplaceGradCache([Vector{Tθ}() for _ in 1:n_batches],
+        fill(Tθ(NaN), n_batches),
+        [Vector{Tθ}() for _ in 1:n_batches],
+        falses(n_batches))
+    ad_cache = _init_laplace_ad_cache(n_batches)
+    hess_cache = _init_laplace_hess_cache(Tθ, n_batches)
+    ebe_cache = _LaplaceCache(nothing, bstar_cache, grad_cache, ad_cache, hess_cache)
 
     # ── Objective ────────────────────────────────────────────────────────────
     θ0_free_t = θ0_t[free_names]
-    axs_free  = getaxes(θ0_free_t)
-    axs_full  = getaxes(θ_const_t)
+    axs_free = getaxes(θ0_free_t)
+    axs_full = getaxes(θ_const_t)
 
     function obj(θt, p)
         θt_free = θt isa ComponentArray ? θt : ComponentArray(θt, axs_free)
@@ -358,7 +362,7 @@ function _fit_model_scalar(dm::DataModel, method::GHQuadrature, args...;
             Threads.@threads for bi in eachindex(batch_infos)
                 tid = Threads.threadid()
                 bll = _ghq_batch_ll(dm, batch_infos[bi], θu_re, const_cache,
-                                           ll_cache[tid], method.level)
+                    ll_cache[tid], method.level)
                 if bll == -Inf
                     Threads.atomic_or!(bad, true)
                     results[bi] = zero(T)
@@ -381,7 +385,7 @@ function _fit_model_scalar(dm::DataModel, method::GHQuadrature, args...;
     end
 
     # ── Bounds ───────────────────────────────────────────────────────────────
-    optf        = OptimizationFunction(obj, method.adtype)
+    optf = OptimizationFunction(obj, method.adtype)
     lower_t, upper_t = get_bounds_transformed(fe)
     lower_t_free = lower_t[free_names]
     upper_t_free = upper_t[free_names]
@@ -421,12 +425,12 @@ function _fit_model_scalar(dm::DataModel, method::GHQuadrature, args...;
         θ0_init = θ0_free_t
     end
 
-    prob = use_bounds ? OptimizationProblem(optf, θ0_init; lb=lb, ub=ub) :
-                        OptimizationProblem(optf, θ0_init)
+    prob = use_bounds ? OptimizationProblem(optf, θ0_init; lb = lb, ub = ub) :
+           OptimizationProblem(optf, θ0_init)
     sol = Optimization.solve(prob, method.optimizer; method.optim_kwargs...)
 
     # ── Extract solution ─────────────────────────────────────────────────────
-    θ_hat_t_raw  = sol.u
+    θ_hat_t_raw = sol.u
     θ_hat_t_free = θ_hat_t_raw isa ComponentArray ?
                    θ_hat_t_raw : ComponentArray(θ_hat_t_raw, axs_free)
     T = eltype(θ_hat_t_free)
@@ -438,28 +442,28 @@ function _fit_model_scalar(dm::DataModel, method::GHQuadrature, args...;
 
     # ── Post-hoc EB mode finding (for get_random_effects) ────────────────────
     _laplace_get_bstar!(ebe_cache, dm, batch_infos, θ_hat_u, const_cache, ll_cache;
-                        optimizer    = inner_opts.optimizer,
-                        optim_kwargs = inner_opts.kwargs,
-                        adtype       = inner_opts.adtype,
-                        grad_tol     = inner_opts.grad_tol,
-                        multistart   = multistart_opts,
-                        rng          = rng,
-                        serialization = serialization)
+        optimizer = inner_opts.optimizer,
+        optim_kwargs = inner_opts.kwargs,
+        adtype = inner_opts.adtype,
+        grad_tol = inner_opts.grad_tol,
+        multistart = multistart_opts,
+        rng = rng,
+        serialization = serialization)
 
     # ── Build result ─────────────────────────────────────────────────────────
     summary = FitSummary(sol.objective,
-                         sol.retcode == SciMLBase.ReturnCode.Success,
-                         FitParameters(θ_hat_t, θ_hat_u),
-                         NamedTuple())
-    diagnostics = FitDiagnostics((;), (optimizer=method.optimizer,),
-                                 (retcode=sol.retcode,), NamedTuple())
+        sol.retcode == SciMLBase.ReturnCode.Success,
+        FitParameters(θ_hat_t, θ_hat_u),
+        NamedTuple())
+    diagnostics = FitDiagnostics((;), (optimizer = method.optimizer,),
+        (retcode = sol.retcode,), NamedTuple())
     niter = hasproperty(sol, :stats) && hasproperty(sol.stats, :iterations) ?
             sol.stats.iterations : missing
     raw = hasproperty(sol, :original) ? sol.original : sol
     result = GHQuadratureResult(sol, sol.objective, niter, raw, NamedTuple(),
-                              ebe_cache.bstar_cache.b_star)
+        ebe_cache.bstar_cache.b_star)
     return FitResult(method, result, summary, diagnostics,
-                     store_data_model ? dm : nothing, args, fit_kwargs)
+        store_data_model ? dm : nothing, args, fit_kwargs)
 end
 
 # ---------------------------------------------------------------------------
@@ -491,34 +495,36 @@ struct GHQuadratureMAP{LV, O, K, A, IO, MS, L, U} <: FittingMethod
     ignore_model_bounds::Bool
 end
 
-GHQuadratureMAP(;
-    level = 3,  # Int or NamedTuple for anisotropic levels
-    optimizer = OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking()),
-    optim_kwargs = NamedTuple(),
-    adtype = Optimization.AutoForwardDiff(),
-    inner_options = nothing,
-    inner_optimizer = OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking(maxstep=1.0)),
-    inner_kwargs = NamedTuple(),
-    inner_adtype = Optimization.AutoForwardDiff(),
-    inner_grad_tol = :auto,
-    multistart_options = nothing,
-    multistart_n = 50,
-    multistart_k = 10,
-    multistart_grad_tol = inner_grad_tol,
-    multistart_max_rounds = 1,
-    multistart_sampling = :lhs,
-    lb = nothing,
-    ub = nothing,
-    ignore_model_bounds = false,
-) = begin
+function GHQuadratureMAP(;
+        level = 3,  # Int or NamedTuple for anisotropic levels
+        optimizer = OptimizationOptimJL.LBFGS(linesearch = LineSearches.BackTracking()),
+        optim_kwargs = NamedTuple(),
+        adtype = Optimization.AutoForwardDiff(),
+        inner_options = nothing,
+        inner_optimizer = OptimizationOptimJL.LBFGS(linesearch = LineSearches.BackTracking(maxstep = 1.0)),
+        inner_kwargs = NamedTuple(),
+        inner_adtype = Optimization.AutoForwardDiff(),
+        inner_grad_tol = :auto,
+        multistart_options = nothing,
+        multistart_n = 50,
+        multistart_k = 10,
+        multistart_grad_tol = inner_grad_tol,
+        multistart_max_rounds = 1,
+        multistart_sampling = :lhs,
+        lb = nothing,
+        ub = nothing,
+        ignore_model_bounds = false
+)
     inner = inner_options === nothing ?
-        LaplaceInnerOptions(inner_optimizer, inner_kwargs, inner_adtype, inner_grad_tol) :
-        inner_options
+            LaplaceInnerOptions(
+        inner_optimizer, inner_kwargs, inner_adtype, inner_grad_tol) :
+            inner_options
     ms = multistart_options === nothing ?
-        LaplaceMultistartOptions(multistart_n, multistart_k, multistart_grad_tol,
-                                 multistart_max_rounds, multistart_sampling) :
-        multistart_options
-    GHQuadratureMAP(level, optimizer, optim_kwargs, adtype, inner, ms, lb, ub, ignore_model_bounds)
+         LaplaceMultistartOptions(multistart_n, multistart_k, multistart_grad_tol,
+        multistart_max_rounds, multistart_sampling) :
+         multistart_options
+    GHQuadratureMAP(
+        level, optimizer, optim_kwargs, adtype, inner, ms, lb, ub, ignore_model_bounds)
 end
 
 """
@@ -541,75 +547,77 @@ end
 # Both structs are now defined, so these methods can reference them safely.
 
 function _fit_model(dm::DataModel, method::GHQuadrature, args...;
-                    theta_0_untransformed::Union{Nothing, ComponentArray} = nothing,
-                    kwargs...)
+        theta_0_untransformed::Union{Nothing, ComponentArray} = nothing,
+        kwargs...)
     level = method.level
     level isa Vector{Int} || return _fit_model_scalar(dm, method, args...;
-                                       theta_0_untransformed=theta_0_untransformed,
-                                       kwargs...)
+        theta_0_untransformed = theta_0_untransformed,
+        kwargs...)
     isempty(level) && error("GHQuadrature: `level` vector must not be empty.")
-    all(>(0), level) || error("GHQuadrature: all entries in `level` must be positive integers.")
+    all(>(0), level) ||
+        error("GHQuadrature: all entries in `level` must be positive integers.")
 
     θ0 = theta_0_untransformed
     local res
     for lv in level
         inner = GHQuadrature(lv,
-                           method.optimizer, method.optim_kwargs, method.adtype,
-                           method.inner, method.multistart, method.lb, method.ub,
-                           method.ignore_model_bounds)
-        res = _fit_model_scalar(dm, inner, args...; theta_0_untransformed=θ0, kwargs...)
-        θ0  = get_params(res; scale=:untransformed)
+            method.optimizer, method.optim_kwargs, method.adtype,
+            method.inner, method.multistart, method.lb, method.ub,
+            method.ignore_model_bounds)
+        res = _fit_model_scalar(dm, inner, args...; theta_0_untransformed = θ0, kwargs...)
+        θ0 = get_params(res; scale = :untransformed)
     end
     return res
 end
 
 function _fit_model(dm::DataModel, method::GHQuadratureMAP, args...;
-                    theta_0_untransformed::Union{Nothing, ComponentArray} = nothing,
-                    kwargs...)
+        theta_0_untransformed::Union{Nothing, ComponentArray} = nothing,
+        kwargs...)
     level = method.level
     level isa Vector{Int} || return _fit_model_scalar(dm, method, args...;
-                                       theta_0_untransformed=theta_0_untransformed,
-                                       kwargs...)
+        theta_0_untransformed = theta_0_untransformed,
+        kwargs...)
     isempty(level) && error("GHQuadratureMAP: `level` vector must not be empty.")
-    all(>(0), level) || error("GHQuadratureMAP: all entries in `level` must be positive integers.")
+    all(>(0), level) ||
+        error("GHQuadratureMAP: all entries in `level` must be positive integers.")
 
     θ0 = theta_0_untransformed
     local res
     for lv in level
         inner = GHQuadratureMAP(lv,
-                              method.optimizer, method.optim_kwargs, method.adtype,
-                              method.inner, method.multistart, method.lb, method.ub,
-                              method.ignore_model_bounds)
-        res = _fit_model_scalar(dm, inner, args...; theta_0_untransformed=θ0, kwargs...)
-        θ0  = get_params(res; scale=:untransformed)
+            method.optimizer, method.optim_kwargs, method.adtype,
+            method.inner, method.multistart, method.lb, method.ub,
+            method.ignore_model_bounds)
+        res = _fit_model_scalar(dm, inner, args...; theta_0_untransformed = θ0, kwargs...)
+        θ0 = get_params(res; scale = :untransformed)
     end
     return res
 end
 
 function _fit_model_scalar(dm::DataModel, method::GHQuadratureMAP, args...;
-                    constants::NamedTuple        = NamedTuple(),
-                    constants_re::NamedTuple     = NamedTuple(),
-                    penalty::NamedTuple          = NamedTuple(),
-                    ode_args::Tuple              = (),
-                    ode_kwargs::NamedTuple       = NamedTuple(),
-                    serialization::SciMLBase.EnsembleAlgorithm = EnsembleThreads(),
-                    rng::AbstractRNG             = Random.default_rng(),
-                    theta_0_untransformed::Union{Nothing, ComponentArray} = nothing,
-                    store_data_model::Bool       = true)
-
-    fit_kwargs = (constants            = constants,
-                  constants_re         = constants_re,
-                  penalty              = penalty,
-                  ode_args             = ode_args,
-                  ode_kwargs           = ode_kwargs,
-                  serialization        = serialization,
-                  rng                  = rng,
-                  theta_0_untransformed = theta_0_untransformed,
-                  store_data_model     = store_data_model)
+        constants::NamedTuple = NamedTuple(),
+        constants_re::NamedTuple = NamedTuple(),
+        penalty::NamedTuple = NamedTuple(),
+        ode_args::Tuple = (),
+        ode_kwargs::NamedTuple = NamedTuple(),
+        serialization::SciMLBase.EnsembleAlgorithm = EnsembleThreads(),
+        rng::AbstractRNG = Random.default_rng(),
+        theta_0_untransformed::Union{Nothing, ComponentArray} = nothing,
+        store_data_model::Bool = true)
+    fit_kwargs = (constants = constants,
+        constants_re = constants_re,
+        penalty = penalty,
+        ode_args = ode_args,
+        ode_kwargs = ode_kwargs,
+        serialization = serialization,
+        rng = rng,
+        theta_0_untransformed = theta_0_untransformed,
+        store_data_model = store_data_model)
 
     # ── Validate ────────────────────────────────────────────────────────────
     re_names = get_re_names(dm.model.random.random)
-    isempty(re_names) && error("GHQuadratureMAP requires random effects. Use MAP for fixed-effects-only models.")
+    isempty(re_names) &&
+        error("GHQuadratureMAP requires random effects. Use MAP for fixed-effects-only models.")
 
     _ghq_validate_re_distributions(dm)
 
@@ -628,8 +636,10 @@ function _fit_model_scalar(dm::DataModel, method::GHQuadratureMAP, args...;
     # Validate priors for MAP
     priors = get_priors(fe)
     for name in free_names
-        hasproperty(priors, name) || error("GHQuadratureMAP requires priors on all free fixed effects. Missing prior for $(name).")
-        getfield(priors, name) isa Priorless && error("GHQuadratureMAP requires priors on all free fixed effects. Priorless for $(name).")
+        hasproperty(priors, name) ||
+            error("GHQuadratureMAP requires priors on all free fixed effects. Missing prior for $(name).")
+        getfield(priors, name) isa Priorless &&
+            error("GHQuadratureMAP requires priors on all free fixed effects. Priorless for $(name).")
     end
 
     # ── Starting point ───────────────────────────────────────────────────────
@@ -642,24 +652,25 @@ function _fit_model_scalar(dm::DataModel, method::GHQuadratureMAP, args...;
         θ0_u = theta_0_untransformed
     end
 
-    transform     = get_transform(fe)
+    transform = get_transform(fe)
     inv_transform = get_inverse_transform(fe)
-    θ0_t          = transform(θ0_u)
-    θ_const_u     = deepcopy(θ0_u)
+    θ0_t = transform(θ0_u)
+    θ_const_u = deepcopy(θ0_u)
     _apply_constants!(θ_const_u, constants)
-    θ_const_t     = transform(θ_const_u)
+    θ_const_t = transform(θ_const_u)
 
-    inner_opts      = _resolve_inner_options(method.inner, dm)
+    inner_opts = _resolve_inner_options(method.inner, dm)
     multistart_opts = _resolve_multistart_options(method.multistart, inner_opts)
 
     # ── Infrastructure ───────────────────────────────────────────────────────
     pairing, batch_infos, const_cache = _build_laplace_batch_infos(dm, constants_re)
 
     ll_cache = if serialization isa SciMLBase.EnsembleThreads
-        build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs,
-                       nthreads=Threads.maxthreadid(), force_saveat=true)
+        build_ll_cache(dm; ode_args = ode_args, ode_kwargs = ode_kwargs,
+            nthreads = Threads.maxthreadid(), force_saveat = true)
     else
-        build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs, force_saveat=true)
+        build_ll_cache(
+            dm; ode_args = ode_args, ode_kwargs = ode_kwargs, force_saveat = true)
     end
 
     # Pre-populate sparse-grid cache for all unique free-RE dimensions.
@@ -673,18 +684,18 @@ function _fit_model_scalar(dm::DataModel, method::GHQuadratureMAP, args...;
     n_batches = length(batch_infos)
     Tθ = eltype(θ0_t)
     bstar_cache = _LaplaceBStarCache([Vector{Tθ}() for _ in 1:n_batches], falses(n_batches))
-    grad_cache  = _LaplaceGradCache([Vector{Tθ}() for _ in 1:n_batches],
-                                    fill(Tθ(NaN), n_batches),
-                                    [Vector{Tθ}() for _ in 1:n_batches],
-                                    falses(n_batches))
-    ad_cache    = _init_laplace_ad_cache(n_batches)
-    hess_cache  = _init_laplace_hess_cache(Tθ, n_batches)
-    ebe_cache   = _LaplaceCache(nothing, bstar_cache, grad_cache, ad_cache, hess_cache)
+    grad_cache = _LaplaceGradCache([Vector{Tθ}() for _ in 1:n_batches],
+        fill(Tθ(NaN), n_batches),
+        [Vector{Tθ}() for _ in 1:n_batches],
+        falses(n_batches))
+    ad_cache = _init_laplace_ad_cache(n_batches)
+    hess_cache = _init_laplace_hess_cache(Tθ, n_batches)
+    ebe_cache = _LaplaceCache(nothing, bstar_cache, grad_cache, ad_cache, hess_cache)
 
     # ── Objective ────────────────────────────────────────────────────────────
     θ0_free_t = θ0_t[free_names]
-    axs_free  = getaxes(θ0_free_t)
-    axs_full  = getaxes(θ_const_t)
+    axs_free = getaxes(θ0_free_t)
+    axs_full = getaxes(θ_const_t)
 
     function obj(θt, p)
         θt_free = θt isa ComponentArray ? θt : ComponentArray(θt, axs_free)
@@ -704,7 +715,7 @@ function _fit_model_scalar(dm::DataModel, method::GHQuadratureMAP, args...;
             Threads.@threads for bi in eachindex(batch_infos)
                 tid = Threads.threadid()
                 bll = _ghq_batch_ll(dm, batch_infos[bi], θu_re, const_cache,
-                                           ll_cache[tid], method.level)
+                    ll_cache[tid], method.level)
                 if bll == -Inf
                     Threads.atomic_or!(bad, true)
                     results[bi] = zero(T)
@@ -729,7 +740,7 @@ function _fit_model_scalar(dm::DataModel, method::GHQuadratureMAP, args...;
     end
 
     # ── Bounds ───────────────────────────────────────────────────────────────
-    optf        = OptimizationFunction(obj, method.adtype)
+    optf = OptimizationFunction(obj, method.adtype)
     lower_t, upper_t = get_bounds_transformed(fe)
     lower_t_free = lower_t[free_names]
     upper_t_free = upper_t[free_names]
@@ -769,12 +780,12 @@ function _fit_model_scalar(dm::DataModel, method::GHQuadratureMAP, args...;
         θ0_init = θ0_free_t
     end
 
-    prob = use_bounds ? OptimizationProblem(optf, θ0_init; lb=lb, ub=ub) :
-                        OptimizationProblem(optf, θ0_init)
+    prob = use_bounds ? OptimizationProblem(optf, θ0_init; lb = lb, ub = ub) :
+           OptimizationProblem(optf, θ0_init)
     sol = Optimization.solve(prob, method.optimizer; method.optim_kwargs...)
 
     # ── Extract solution ─────────────────────────────────────────────────────
-    θ_hat_t_raw  = sol.u
+    θ_hat_t_raw = sol.u
     θ_hat_t_free = θ_hat_t_raw isa ComponentArray ?
                    θ_hat_t_raw : ComponentArray(θ_hat_t_raw, axs_free)
     T = eltype(θ_hat_t_free)
@@ -786,26 +797,26 @@ function _fit_model_scalar(dm::DataModel, method::GHQuadratureMAP, args...;
 
     # ── Post-hoc EB mode finding (for get_random_effects) ────────────────────
     _laplace_get_bstar!(ebe_cache, dm, batch_infos, θ_hat_u, const_cache, ll_cache;
-                        optimizer    = inner_opts.optimizer,
-                        optim_kwargs = inner_opts.kwargs,
-                        adtype       = inner_opts.adtype,
-                        grad_tol     = inner_opts.grad_tol,
-                        multistart   = multistart_opts,
-                        rng          = rng,
-                        serialization = serialization)
+        optimizer = inner_opts.optimizer,
+        optim_kwargs = inner_opts.kwargs,
+        adtype = inner_opts.adtype,
+        grad_tol = inner_opts.grad_tol,
+        multistart = multistart_opts,
+        rng = rng,
+        serialization = serialization)
 
     # ── Build result ─────────────────────────────────────────────────────────
     summary = FitSummary(sol.objective,
-                         sol.retcode == SciMLBase.ReturnCode.Success,
-                         FitParameters(θ_hat_t, θ_hat_u),
-                         NamedTuple())
-    diagnostics = FitDiagnostics((;), (optimizer=method.optimizer,),
-                                 (retcode=sol.retcode,), NamedTuple())
+        sol.retcode == SciMLBase.ReturnCode.Success,
+        FitParameters(θ_hat_t, θ_hat_u),
+        NamedTuple())
+    diagnostics = FitDiagnostics((;), (optimizer = method.optimizer,),
+        (retcode = sol.retcode,), NamedTuple())
     niter = hasproperty(sol, :stats) && hasproperty(sol.stats, :iterations) ?
             sol.stats.iterations : missing
     raw = hasproperty(sol, :original) ? sol.original : sol
     result = GHQuadratureMAPResult(sol, sol.objective, niter, raw, NamedTuple(),
-                                 ebe_cache.bstar_cache.b_star)
+        ebe_cache.bstar_cache.b_star)
     return FitResult(method, result, summary, diagnostics,
-                     store_data_model ? dm : nothing, args, fit_kwargs)
+        store_data_model ? dm : nothing, args, fit_kwargs)
 end

@@ -7,13 +7,13 @@ using Distributions
     model = @Model begin
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
         @covariates begin
             t = Covariate()
         end
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:SITE)
+            η = RandomEffect(Normal(0.0, 1.0); column = :SITE)
         end
         @formulas begin
             y ~ Normal(a + η, σ)
@@ -28,7 +28,7 @@ using Distributions
     )
 
     err = try
-        DataModel(model, df; primary_id=:ID, time_col=:t)
+        DataModel(model, df; primary_id = :ID, time_col = :t)
         nothing
     catch e
         e
@@ -44,7 +44,7 @@ end
     model = @Model begin
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
         @covariates begin
             t = Covariate()
@@ -59,9 +59,9 @@ end
         t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
         y = [0.1, 0.2, 0.0, -0.1, 0.05, 0.15]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
 
-    rep = identifiability_report(dm; method=:mle, at=:start)
+    rep = identifiability_report(dm; method = :mle, at = :start)
     @test rep isa IdentifiabilityReport
     @test rep.method == :mle
     @test rep.objective == :likelihood
@@ -71,7 +71,7 @@ end
     @test rep.rank <= length(rep.free_parameters)
     @test isempty(rep.random_effect_information)
 
-    res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
+    res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
     rep_fit = identifiability_report(res)
     @test rep_fit.method == :mle
     @test rep_fit.at == :fit
@@ -81,14 +81,14 @@ end
     model = @Model begin
         @fixedEffects begin
             a = RealNumber(0.0)
-            ω = RealNumber(0.4, scale=:log)
-            σ = RealNumber(0.4, scale=:log)
+            ω = RealNumber(0.4, scale = :log)
+            σ = RealNumber(0.4, scale = :log)
         end
         @covariates begin
             t = Covariate()
         end
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, ω); column=:OBS)
+            η = RandomEffect(Normal(0.0, ω); column = :OBS)
         end
         @formulas begin
             y ~ Normal(a + η, σ)
@@ -103,18 +103,19 @@ end
     )
     dm = nothing
     @test_logs match_mode=:any (:warn, r"weakly identified") begin
-        dm = DataModel(model, df; primary_id=:OBS, time_col=:t)
+        dm = DataModel(model, df; primary_id = :OBS, time_col = :t)
     end
 
-    lap = NoLimits.Laplace(; inner_kwargs=(maxiters=2,), multistart_n=2, multistart_k=2)
+    lap = NoLimits.Laplace(;
+        inner_kwargs = (maxiters = 2,), multistart_n = 2, multistart_k = 2)
     rep = identifiability_report(dm;
-                                 method=lap,
-                                 at=:start,
-                                 hessian_backend=:fd_gradient,
-                                 atol=1e-8,
-                                 rtol=1e-4,
-                                 fd_abs_step=1e-4,
-                                 fd_rel_step=1e-3)
+        method = lap,
+        at = :start,
+        hessian_backend = :fd_gradient,
+        atol = 1e-8,
+        rtol = 1e-4,
+        fd_abs_step = 1e-4,
+        fd_rel_step = 1e-3)
     @test rep.method == :laplace
     @test rep.objective == :laplace_likelihood
     @test rep.at == :start
@@ -128,15 +129,15 @@ end
 @testset "identifiability_report supports LaplaceMAP objective" begin
     model = @Model begin
         @fixedEffects begin
-            a = RealNumber(0.0, prior=Normal(0.0, 1.0))
-            ω = RealNumber(0.5, scale=:log, prior=LogNormal(0.0, 0.5))
-            σ = RealNumber(0.5, scale=:log, prior=LogNormal(0.0, 0.5))
+            a = RealNumber(0.0, prior = Normal(0.0, 1.0))
+            ω = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.5))
+            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.5))
         end
         @covariates begin
             t = Covariate()
         end
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, ω); column=:ID)
+            η = RandomEffect(Normal(0.0, ω); column = :ID)
         end
         @formulas begin
             y ~ Normal(a + η, σ)
@@ -148,14 +149,15 @@ end
         t = [0.0, 1.0, 0.0, 1.0],
         y = [0.1, 0.2, 0.0, -0.1]
     )
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    lap_map = NoLimits.LaplaceMAP(; inner_kwargs=(maxiters=2,), multistart_n=2, multistart_k=2)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    lap_map = NoLimits.LaplaceMAP(;
+        inner_kwargs = (maxiters = 2,), multistart_n = 2, multistart_k = 2)
     rep = identifiability_report(dm;
-                                 method=lap_map,
-                                 at=:start,
-                                 hessian_backend=:fd_gradient,
-                                 fd_abs_step=1e-4,
-                                 fd_rel_step=1e-3)
+        method = lap_map,
+        at = :start,
+        hessian_backend = :fd_gradient,
+        fd_abs_step = 1e-4,
+        fd_rel_step = 1e-3)
     @test rep.method == :laplace_map
     @test rep.objective == :laplace_posterior
     @test !isempty(rep.random_effect_information)

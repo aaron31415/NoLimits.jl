@@ -68,7 +68,7 @@ end
 
 function _nl_uqresult_show_line(uq::UQResult)
     level = _nl_uq_level(uq)
-    level_str = level === nothing ? "-" : string(round(level; digits=4))
+    level_str = level === nothing ? "-" : string(round(level; digits = 4))
     return "UQResult(backend=$(uq.backend), source_method=$(uq.source_method), n_params=$(length(uq.parameter_names)), level=$(level_str))"
 end
 

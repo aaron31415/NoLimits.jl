@@ -13,11 +13,13 @@ function _require_varying_covariate(dm::DataModel, x_axis_feature)
     if x_axis_feature == dm.config.time_col
         return x_axis_feature
     end
-    x_axis_feature in cov.varying || error("x_axis_feature must be a varying covariate. Got $(x_axis_feature).")
+    x_axis_feature in cov.varying ||
+        error("x_axis_feature must be a varying covariate. Got $(x_axis_feature).")
     return x_axis_feature
 end
 
-function _vpc_x_values(dm::DataModel, ind::Individual, obs_rows::Vector{Int}, x_axis_feature)
+function _vpc_x_values(
+        dm::DataModel, ind::Individual, obs_rows::Vector{Int}, x_axis_feature)
     return _get_x_values(dm, ind, obs_rows, x_axis_feature)
 end
 
@@ -27,7 +29,7 @@ function _bin_edges_quantile(x::Vector{Float64}, n_bins::Int)
     if x_min == x_max
         return [x_min, x_max]
     end
-    qs = range(0.0, 1.0; length=n_bins + 1)
+    qs = range(0.0, 1.0; length = n_bins + 1)
     edges = [quantile(x, q) for q in qs]
     edges[1] = x_min
     edges[end] = x_max
@@ -57,10 +59,10 @@ function _weighted_quantile(values::Vector{Float64}, weights::Vector{Float64}, p
 end
 
 function _collect_observed_xy(ind::Individual,
-                              dm::DataModel,
-                              obs_rows::Vector{Int},
-                              obs_name::Symbol,
-                              x_axis_feature)
+        dm::DataModel,
+        obs_rows::Vector{Int},
+        obs_name::Symbol,
+        x_axis_feature)
     x_raw = _vpc_x_values(dm, ind, obs_rows, x_axis_feature)
     y_raw = getfield(ind.series.obs, obs_name)
     x_all = Float64[]
@@ -83,13 +85,14 @@ function _collect_observed_xy(ind::Individual,
 end
 
 function _kernel_quantiles(x::Vector{Float64},
-                           y::Vector{Float64},
-                           xgrid::Vector{Float64},
-                           bandwidth::Float64,
-                           percentiles::Vector{Float64})
-    out = Dict{Float64, Vector{Float64}}((p => Vector{Float64}(undef, length(xgrid))) for p in percentiles)
+        y::Vector{Float64},
+        xgrid::Vector{Float64},
+        bandwidth::Float64,
+        percentiles::Vector{Float64})
+    out = Dict{Float64, Vector{Float64}}((p => Vector{Float64}(undef, length(xgrid)))
+    for p in percentiles)
     for (i, xg) in enumerate(xgrid)
-        w = exp.(-0.5 .* ((x .- xg) ./ bandwidth).^2)
+        w = exp.(-0.5 .* ((x .- xg) ./ bandwidth) .^ 2)
         for p in percentiles
             out[p][i] = _weighted_quantile(y, w, p / 100)
         end
@@ -104,14 +107,16 @@ function _resolve_n_bins(x::Vector{Float64}, n_bins::Union{Nothing, Int})
         if n_unique < 1
             return 1
         end
-        n_bins > n_unique && @warn "n_bins exceeds unique x values; reducing bins." requested=n_bins used=n_unique
+        n_bins > n_unique &&
+            @warn "n_bins exceeds unique x values; reducing bins." requested=n_bins used=n_unique
         return min(n_bins, n_unique)
     end
     n_unique = length(unique(x))
     return max(1, min(10, n_unique))
 end
 
-function _extend_bin_series(x_centers::Vector{Float64}, y::Vector{Float64}, edges::Vector{Float64})
+function _extend_bin_series(
+        x_centers::Vector{Float64}, y::Vector{Float64}, edges::Vector{Float64})
     length(x_centers) == length(y) || error("Bin series length mismatch.")
     x = [edges[1]; x_centers; edges[end]]
     y_ext = [y[1]; y; y[end]]
@@ -134,9 +139,9 @@ function _re_level_reps(dm::DataModel, re::Symbol)
 end
 
 function _sample_random_effects_levels(dm::DataModel,
-                                       θ::ComponentArray,
-                                       constants_re::NamedTuple,
-                                       rng::AbstractRNG)
+        θ::ComponentArray,
+        constants_re::NamedTuple,
+        rng::AbstractRNG)
     re_names = get_re_names(dm.model.random.random)
     isempty(re_names) && return Dict{Symbol, Dict{Any, Any}}()
     fixed_maps = _normalize_constants_re(dm, constants_re)
@@ -188,11 +193,11 @@ function _eta_vec_from_levels(dm::DataModel, level_vals::Dict{Symbol, Dict{Any, 
 end
 
 function _simulate_obs(dm::DataModel,
-                       θ::ComponentArray,
-                       η_vec::Vector{ComponentArray},
-                       obs_name::Symbol,
-                       rng::AbstractRNG,
-                       x_axis_feature)
+        θ::ComponentArray,
+        η_vec::Vector{ComponentArray},
+        obs_name::Symbol,
+        rng::AbstractRNG,
+        x_axis_feature)
     sim_vals = Vector{Vector{Float64}}(undef, length(dm.individuals))
     sim_x = Vector{Vector{Float64}}(undef, length(dm.individuals))
     for (i, ind) in enumerate(dm.individuals)
@@ -200,7 +205,7 @@ function _simulate_obs(dm::DataModel,
         x = _vpc_x_values(dm, ind, obs_rows, x_axis_feature)
         sim_x[i] = Float64.(x)
         η_ind = η_vec[i]
-        rowwise_re = _needs_rowwise_random_effects(dm, i; obs_only=true)
+        rowwise_re = _needs_rowwise_random_effects(dm, i; obs_only = true)
         sol_accessors = nothing
         if dm.model.de.de !== nothing
             sol, compiled = _solve_dense_individual(dm, ind, θ, η_ind)
@@ -210,10 +215,11 @@ function _simulate_obs(dm::DataModel,
         hmm_prev_state = 0
         for (j, row) in enumerate(obs_rows)
             vary = _varying_at_plot(dm, ind, j, row)
-            η_row = _row_random_effects_at(dm, i, j, η_ind, rowwise_re; obs_only=true)
+            η_row = _row_random_effects_at(dm, i, j, η_ind, rowwise_re; obs_only = true)
             obs = sol_accessors === nothing ?
                   calculate_formulas_obs(dm.model, θ, η_row, ind.const_cov, vary) :
-                  calculate_formulas_obs(dm.model, θ, η_row, ind.const_cov, vary, sol_accessors)
+                  calculate_formulas_obs(
+                dm.model, θ, η_row, ind.const_cov, vary, sol_accessors)
             dist = getproperty(obs, obs_name)
             if _is_hmm_dist(dist)
                 state = hmm_prev_state == 0 ?
@@ -236,7 +242,7 @@ function _representative_dist(dm::DataModel, obs_name::Symbol, x_axis_feature)
     ind = dm.individuals[1]
     obs_rows = dm.row_groups.obs_rows[1]
     η_ind = η_vec[1]
-    rowwise_re = _needs_rowwise_random_effects(dm, 1; obs_only=true)
+    rowwise_re = _needs_rowwise_random_effects(dm, 1; obs_only = true)
     sol_accessors = nothing
     if dm.model.de.de !== nothing
         sol, compiled = _solve_dense_individual(dm, ind, θ, η_ind)
@@ -246,7 +252,7 @@ function _representative_dist(dm::DataModel, obs_name::Symbol, x_axis_feature)
     if dm.model.de.de === nothing && x_axis_feature !== nothing
         vary = merge(vary, (t = 0.0,))
     end
-    η_row = _row_random_effects_at(dm, 1, 1, η_ind, rowwise_re; obs_only=true)
+    η_row = _row_random_effects_at(dm, 1, 1, η_ind, rowwise_re; obs_only = true)
     obs = sol_accessors === nothing ?
           calculate_formulas_obs(dm.model, θ, η_row, ind.const_cov, vary) :
           calculate_formulas_obs(dm.model, θ, η_row, ind.const_cov, vary, sol_accessors)
@@ -287,29 +293,29 @@ predictive percentile bands stratified by x-axis bins.
 - `style::PlotStyle = PlotStyle()`: visual style configuration.
 """
 function plot_vpc(res::FitResult;
-                  dm::Union{Nothing, DataModel}=nothing,
-                  n_simulations::Int=100,
-                  n_sim::Union{Nothing, Int}=nothing,
-                  percentiles::Vector{<:Real}=[5, 50, 95],
-                  show_obs_points::Bool=true,
-                  show_obs_percentiles::Bool=true,
-                  n_bins::Union{Nothing, Int}=nothing,
-                  seed::Int=12345,
-                  observables=nothing,
-                  x_axis_feature::Union{Nothing, Symbol}=nothing,
-                  ncols::Int=DEFAULT_PLOT_COLS,
-                  serialization=nothing,
-                  kwargs_plot=NamedTuple(),
-                  save_path::Union{Nothing, String}=nothing,
-                  plot_path::Union{Nothing, String}=nothing,
-                  obs_percentiles_mode::Symbol=:pooled,
-                  bandwidth::Union{Nothing, Float64}=nothing,
-                  obs_percentiles_method::Symbol=:kernel,
-                  constants_re::NamedTuple=NamedTuple(),
-                  mcmc_draws::Int=1000,
-                  mcmc_warmup::Union{Nothing, Int}=nothing,
-                  style::PlotStyle=PlotStyle(),
-                  kwargs_subplot=NamedTuple())
+        dm::Union{Nothing, DataModel} = nothing,
+        n_simulations::Int = 100,
+        n_sim::Union{Nothing, Int} = nothing,
+        percentiles::Vector{<:Real} = [5, 50, 95],
+        show_obs_points::Bool = true,
+        show_obs_percentiles::Bool = true,
+        n_bins::Union{Nothing, Int} = nothing,
+        seed::Int = 12345,
+        observables = nothing,
+        x_axis_feature::Union{Nothing, Symbol} = nothing,
+        ncols::Int = DEFAULT_PLOT_COLS,
+        serialization = nothing,
+        kwargs_plot = NamedTuple(),
+        save_path::Union{Nothing, String} = nothing,
+        plot_path::Union{Nothing, String} = nothing,
+        obs_percentiles_mode::Symbol = :pooled,
+        bandwidth::Union{Nothing, Float64} = nothing,
+        obs_percentiles_method::Symbol = :kernel,
+        constants_re::NamedTuple = NamedTuple(),
+        mcmc_draws::Int = 1000,
+        mcmc_warmup::Union{Nothing, Int} = nothing,
+        style::PlotStyle = PlotStyle(),
+        kwargs_subplot = NamedTuple())
     dm = _get_dm(res, dm)
     save_path = _resolve_plot_path(save_path, plot_path)
     if n_sim !== nothing
@@ -320,7 +326,8 @@ function plot_vpc(res::FitResult;
         n_simulations = n_sim
     end
     n_simulations >= 1 || error("n_simulations must be >= 1.")
-    serialization === nothing || throw(ArgumentError("`serialization` is not supported by `plot_vpc`."))
+    serialization === nothing ||
+        throw(ArgumentError("`serialization` is not supported by `plot_vpc`."))
     constants_re_use = _res_constants_re(res, constants_re)
     model = dm.model
     if model.de.de === nothing
@@ -331,7 +338,8 @@ function plot_vpc(res::FitResult;
     obs_names = get_formulas_meta(model.formulas.formulas).obs_names
     observables === nothing && (observables = obs_names)
     percentiles = sort(Float64.(collect(percentiles)))
-    (length(percentiles) >= 2 && all(0 .<= percentiles .<= 100)) || error("percentiles must be in [0,100] with length >= 2.")
+    (length(percentiles) >= 2 && all(0 .<= percentiles .<= 100)) ||
+        error("percentiles must be in [0,100] with length >= 2.")
 
     is_mcmc = _is_posterior_draw_fit(res)
     if is_mcmc
@@ -349,7 +357,8 @@ function plot_vpc(res::FitResult;
         y_by_ind = Vector{Vector{Float64}}(undef, length(dm.individuals))
         for (i, ind) in enumerate(dm.individuals)
             obs_rows = dm.row_groups.obs_rows[i]
-            x_all_i, x_i, y_i = _collect_observed_xy(ind, dm, obs_rows, obs_name, x_axis_feature)
+            x_all_i, x_i, y_i = _collect_observed_xy(
+                ind, dm, obs_rows, obs_name, x_axis_feature)
             append!(all_x_bins, x_all_i)
             append!(all_x, x_i)
             append!(all_y, y_i)
@@ -359,8 +368,9 @@ function plot_vpc(res::FitResult;
         x_for_bins = isempty(all_x) ? all_x_bins : all_x
         if isempty(x_for_bins)
             @warn "No finite x values found for observable; returning empty VPC subplot." observable=obs_name
-            _kw_vpc = merge((xlabel=x_label, ylabel=_axis_label(obs_name)), kwargs_subplot)
-            plots[oi] = create_styled_plot(; title="", style=style, _kw_vpc...)
+            _kw_vpc = merge(
+                (xlabel = x_label, ylabel = _axis_label(obs_name)), kwargs_subplot)
+            plots[oi] = create_styled_plot(; title = "", style = style, _kw_vpc...)
             continue
         end
         n_bins_eff = _resolve_n_bins(x_for_bins, n_bins)
@@ -374,10 +384,12 @@ function plot_vpc(res::FitResult;
         is_bern = dist_rep isa Bernoulli
 
         if is_mcmc
-            θ_draws, η_draws, _ = _posterior_drawn_params(res, dm, constants_re_use, NamedTuple(), mcmc_draws, rng)
+            θ_draws, η_draws, _ = _posterior_drawn_params(
+                res, dm, constants_re_use, NamedTuple(), mcmc_draws, rng)
             n_sim = length(θ_draws)
             for s in 1:n_sim
-                sim_x, sim_vals = _simulate_obs(dm, θ_draws[s], η_draws[s], obs_name, rng, x_axis_feature)
+                sim_x, sim_vals = _simulate_obs(
+                    dm, θ_draws[s], η_draws[s], obs_name, rng, x_axis_feature)
                 xs = reduce(vcat, sim_x)
                 ys = reduce(vcat, sim_vals)
                 append!(sim_x_all, xs)
@@ -385,7 +397,7 @@ function plot_vpc(res::FitResult;
             end
         else
             for s in 1:n_simulations
-                θ = get_params(res; scale=:untransformed)
+                θ = get_params(res; scale = :untransformed)
                 level_vals = _sample_random_effects_levels(dm, θ, constants_re_use, rng)
                 η_vec = _eta_vec_from_levels(dm, level_vals)
                 sim_x, sim_vals = _simulate_obs(dm, θ, η_vec, obs_name, rng, x_axis_feature)
@@ -396,37 +408,45 @@ function plot_vpc(res::FitResult;
             end
         end
 
-        _kw_vpc = merge((xlabel=x_label, ylabel=_axis_label(obs_name)), kwargs_subplot)
-        p = create_styled_plot(; title="", style=style, _kw_vpc...)
+        _kw_vpc = merge((xlabel = x_label, ylabel = _axis_label(obs_name)), kwargs_subplot)
+        p = create_styled_plot(; title = "", style = style, _kw_vpc...)
         if show_obs_points && !isempty(all_y)
-            scatter!(p, all_x, all_y; color=style.color_primary, alpha=0.3,
-                     markersize=style.marker_size, markerstrokewidth=style.marker_stroke_width,
-                     label="obs")
+            scatter!(p, all_x, all_y; color = style.color_primary, alpha = 0.3,
+                markersize = style.marker_size, markerstrokewidth = style.marker_stroke_width,
+                label = "obs")
         end
 
         if show_obs_percentiles && !is_discrete && !isempty(all_y)
             if obs_percentiles_method == :kernel
-                obs_percentiles_mode == :pooled || error("obs_percentiles_mode=:per_individual is only supported with obs_percentiles_method=:quantile.")
-                bw = bandwidth === nothing ? (maximum(all_x) - minimum(all_x)) / 10 : bandwidth
+                obs_percentiles_mode == :pooled ||
+                    error("obs_percentiles_mode=:per_individual is only supported with obs_percentiles_method=:quantile.")
+                bw = bandwidth === nothing ? (maximum(all_x) - minimum(all_x)) / 10 :
+                     bandwidth
                 xgrid = sort(unique(all_x))
                 sm = _kernel_quantiles(all_x, all_y, xgrid, bw, percentiles)
                 for pctl in percentiles
-                    plot!(p, xgrid, sm[pctl]; color=COLOR_ACCENT, linestyle=pctl==median(percentiles) ? :solid : :dot, label="")
+                    plot!(p, xgrid, sm[pctl]; color = COLOR_ACCENT,
+                        linestyle = pctl == median(percentiles) ? :solid : :dot,
+                        label = "")
                 end
             elseif obs_percentiles_method == :quantile
                 bins = _assign_bins(all_x, edges)
-                x_centers = [mean(edges[b:b+1]) for b in 1:n_bins_eff]
-                obs_q = Dict{Float64, Vector{Float64}}((p => Vector{Float64}(undef, n_bins_eff)) for p in percentiles)
+                x_centers = [mean(edges[b:(b + 1)]) for b in 1:n_bins_eff]
+                obs_q = Dict{Float64, Vector{Float64}}((p => Vector{Float64}(
+                                                           undef, n_bins_eff))
+                for p in percentiles)
                 if obs_percentiles_mode == :pooled
                     for b in 1:n_bins_eff
                         vals = all_y[bins .== b]
                         for pctl in percentiles
-                            obs_q[pctl][b] = isempty(vals) ? NaN : quantile(vals, pctl / 100)
+                            obs_q[pctl][b] = isempty(vals) ? NaN :
+                                             quantile(vals, pctl / 100)
                         end
                     end
                 elseif obs_percentiles_mode == :per_individual
                     for b in 1:n_bins_eff
-                        per_ind_vals = Dict{Float64, Vector{Float64}}((p => Float64[]) for p in percentiles)
+                        per_ind_vals = Dict{Float64, Vector{Float64}}((p => Float64[])
+                        for p in percentiles)
                         for (x, y) in zip(x_by_ind, y_by_ind)
                             bins_ind = _assign_bins(x, edges)
                             vals = y[bins_ind .== b]
@@ -436,7 +456,8 @@ function plot_vpc(res::FitResult;
                             end
                         end
                         for pctl in percentiles
-                            obs_q[pctl][b] = isempty(per_ind_vals[pctl]) ? NaN : mean(per_ind_vals[pctl])
+                            obs_q[pctl][b] = isempty(per_ind_vals[pctl]) ? NaN :
+                                             mean(per_ind_vals[pctl])
                         end
                     end
                 else
@@ -445,7 +466,9 @@ function plot_vpc(res::FitResult;
                 for pctl in percentiles
                     x_plot, y_plot = _extend_bin_series(x_centers, obs_q[pctl], edges)
                     lbl = "obs $(pctl)%"
-                    plot!(p, x_plot, y_plot; color=COLOR_ACCENT, linestyle=pctl==median(percentiles) ? :solid : :dot, label=lbl)
+                    plot!(p, x_plot, y_plot; color = COLOR_ACCENT,
+                        linestyle = pctl == median(percentiles) ? :solid : :dot,
+                        label = lbl)
                 end
             else
                 error("obs_percentiles_method must be :quantile or :kernel.")
@@ -454,15 +477,15 @@ function plot_vpc(res::FitResult;
 
         if !isempty(sim_x_all)
             bins_sim = _assign_bins(sim_x_all, edges)
-            x_centers = [mean(edges[b:b+1]) for b in 1:n_bins_eff]
+            x_centers = [mean(edges[b:(b + 1)]) for b in 1:n_bins_eff]
             if is_discrete
                 if is_bern
                     p1 = [mean(sim_y_all[bins_sim .== b]) for b in 1:n_bins_eff]
                     x_plot, y_plot = _extend_bin_series(x_centers, p1, edges)
-                    scatter!(p, x_plot, y_plot; color=style.color_secondary, marker=:x,
-                             markersize=style.marker_size_pmf,
-                             markerstrokewidth=style.marker_stroke_width_pmf,
-                             label="sim P(Y=1)")
+                    scatter!(p, x_plot, y_plot; color = style.color_secondary, marker = :x,
+                        markersize = style.marker_size_pmf,
+                        markerstrokewidth = style.marker_stroke_width_pmf,
+                        label = "sim P(Y=1)")
                 else
                     added = false
                     for b in 1:n_bins_eff
@@ -473,33 +496,38 @@ function plot_vpc(res::FitResult;
                         support = collect(lo:hi)
                         probs = [mean(vals .== v) for v in support]
                         lbl = added ? "" : "sim PMF"
-                        scatter!(p, fill(x_centers[b], length(support)), support; marker_z=probs, color=:viridis, marker=:x,
-                                 markersize=style.marker_size_pmf,
-                                 markerstrokewidth=style.marker_stroke_width_pmf,
-                                 label=lbl)
+                        scatter!(p, fill(x_centers[b], length(support)), support;
+                            marker_z = probs, color = :viridis, marker = :x,
+                            markersize = style.marker_size_pmf,
+                            markerstrokewidth = style.marker_stroke_width_pmf,
+                            label = lbl)
                         added = true
                     end
                 end
             else
                 if bandwidth !== nothing
                     xgrid = collect(LinRange(minimum(sim_x_all), maximum(sim_x_all), 200))
-                    sm_sim = _kernel_quantiles(sim_x_all, sim_y_all, xgrid, bandwidth, percentiles)
+                    sm_sim = _kernel_quantiles(
+                        sim_x_all, sim_y_all, xgrid, bandwidth, percentiles)
                     for pctl in percentiles
                         lbl = "sim $(pctl)%"
-                        plot!(p, xgrid, sm_sim[pctl]; color=COLOR_SECONDARY, label=lbl)
+                        plot!(p, xgrid, sm_sim[pctl]; color = COLOR_SECONDARY, label = lbl)
                     end
                 else
-                    sim_q = Dict{Float64, Vector{Float64}}((p => Vector{Float64}(undef, n_bins_eff)) for p in percentiles)
+                    sim_q = Dict{Float64, Vector{Float64}}((p => Vector{Float64}(
+                                                               undef, n_bins_eff))
+                    for p in percentiles)
                     for b in 1:n_bins_eff
                         vals = sim_y_all[bins_sim .== b]
                         for pctl in percentiles
-                            sim_q[pctl][b] = isempty(vals) ? NaN : quantile(vals, pctl / 100)
+                            sim_q[pctl][b] = isempty(vals) ? NaN :
+                                             quantile(vals, pctl / 100)
                         end
                     end
                     for pctl in percentiles
                         x_plot, y_plot = _extend_bin_series(x_centers, sim_q[pctl], edges)
                         lbl = "sim $(pctl)%"
-                        plot!(p, x_plot, y_plot; color=COLOR_SECONDARY, label=lbl)
+                        plot!(p, x_plot, y_plot; color = COLOR_SECONDARY, label = lbl)
                     end
                 end
             end
@@ -509,6 +537,6 @@ function plot_vpc(res::FitResult;
         xlims!(p, _pad_limits(minimum(x_for_bins), maximum(x_for_bins)))
     end
 
-    p = combine_plots(plots; ncols=ncols, kwargs_plot...)
+    p = combine_plots(plots; ncols = ncols, kwargs_plot...)
     return _save_plot!(p, save_path)
 end

@@ -7,7 +7,7 @@ using LinearAlgebra
     model = @Model begin
         @fixedEffects begin
             a = RealNumber(0.2)
-            sigma = RealNumber(0.3, scale=:log)
+            sigma = RealNumber(0.3, scale = :log)
         end
 
         @covariates begin
@@ -15,7 +15,7 @@ using LinearAlgebra
         end
 
         @randomEffects begin
-            eta = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            eta = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @preDifferentialEquation begin
@@ -61,16 +61,17 @@ using LinearAlgebra
     @test eqs[5].args[1] == :~
     @test eqs[5].args[2] == :y
 
-    txt_plain = sprint(io -> NoLimits.show_equations(io, model; latex=false))
+    txt_plain = sprint(io -> NoLimits.show_equations(io, model; latex = false))
     @test occursin("k", txt_plain)
     @test occursin("x1̇(t) =", txt_plain)
     @test occursin("y = Normal", txt_plain)
 
-    txt_num = sprint(io -> NoLimits.show_equations(io, model; latex=false, numbered=true))
+    txt_num = sprint(io -> NoLimits.show_equations(
+        io, model; latex = false, numbered = true))
     @test startswith(txt_num, "1.")
     @test occursin("\n2.", txt_num)
 
-    txt_latex = sprint(io -> NoLimits.show_equations(io, model; latex=true))
+    txt_latex = sprint(io -> NoLimits.show_equations(io, model; latex = true))
     @test !isempty(strip(txt_latex))
     @test !occursin("~\\left", txt_latex)
     @test occursin("\\dot{", txt_latex)
@@ -78,9 +79,9 @@ using LinearAlgebra
 
     model_vec = @Model begin
         @fixedEffects begin
-            omega1 = RealNumber(1.0, scale=:log)
-            omega2 = RealNumber(1.0, scale=:log)
-            sigma = RealNumber(0.3, scale=:log)
+            omega1 = RealNumber(1.0, scale = :log)
+            omega2 = RealNumber(1.0, scale = :log)
+            sigma = RealNumber(0.3, scale = :log)
         end
 
         @covariates begin
@@ -90,7 +91,7 @@ using LinearAlgebra
         @randomEffects begin
             eta = RandomEffect(
                 MvNormal([0.0, 0.0], Diagonal([omega1, omega2]));
-                column=:ID,
+                column = :ID
             )
         end
 
@@ -100,7 +101,7 @@ using LinearAlgebra
         end
     end
 
-    txt_vec_latex = sprint(io -> NoLimits.show_equations(io, model_vec; latex=true))
+    txt_vec_latex = sprint(io -> NoLimits.show_equations(io, model_vec; latex = true))
     @test occursin(raw"\eta^{\left(1\right)}", txt_vec_latex)
     @test occursin(raw"\eta^{\left(2\right)}", txt_vec_latex)
     @test !occursin(raw"\eta\left( 1 \right)", txt_vec_latex)

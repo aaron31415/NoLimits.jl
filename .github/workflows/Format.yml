@@ -1,0 +1,35 @@
+name: Format
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Formatting gate: JuliaFormatter v1 (pinned major; v2 formats differently)
+  # with the SciML style from .JuliaFormatter.toml. The job re-formats the
+  # tracked source trees and fails if that produces any diff.
+  format-check:
+    name: format check (JuliaFormatter v1, sciml style)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+      - name: Install JuliaFormatter v1
+        run: julia -e 'using Pkg; Pkg.add(PackageSpec(name="JuliaFormatter", version="1"))'
+      - name: Run formatter
+        run: julia -e 'using JuliaFormatter; format(["src", "test", "docs"])'
+      - name: Fail if formatting changed files
+        run: |
+          if ! git diff --quiet; then
+            echo "::error::Source is not formatted. Run locally with JuliaFormatter v1: julia -e 'using JuliaFormatter; format([\"src\", \"test\", \"docs\"])' and commit the result."
+            git diff --stat
+            git diff | head -300
+            exit 1
+          fi

@@ -1,5 +1,5 @@
-@inline _omm_is_state_set_observation(y) =
-    (y isa AbstractVector || y isa Tuple || y isa AbstractSet)
+@inline _omm_is_state_set_observation(y) = (y isa AbstractVector || y isa Tuple ||
+                                            y isa AbstractSet)
 
 @inline _omm_is_observed_markov_dist(::Any) = false
 

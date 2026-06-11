@@ -10,14 +10,14 @@ using OptimizationOptimJL
 @testset "MLE non-ODE" begin
     res = fx_mle()                        # shared no-RE MLE fit
     @test res isa FitResult
-    @test NoLimits.get_params(res; scale=:untransformed) isa ComponentArray
+    @test NoLimits.get_params(res; scale = :untransformed) isa ComponentArray
 end
 
 @testset "MLE ODE" begin
     model = @Model begin
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.3, scale=:log)
+            σ = RealNumber(0.3, scale = :log)
         end
 
         @covariates begin
@@ -43,8 +43,8 @@ end
         y = [1.0, 1.05]
     )
 
-    model_saveat = set_solver_config(model; saveat_mode=:saveat)
-    dm = DataModel(model_saveat, df; primary_id=:ID, time_col=:t)
+    model_saveat = set_solver_config(model; saveat_mode = :saveat)
+    dm = DataModel(model_saveat, df; primary_id = :ID, time_col = :t)
     res = fit_model(dm, NoLimits.MLE())
 
     @test res isa FitResult
@@ -57,11 +57,11 @@ end
         end
 
         @fixedEffects begin
-            ka = RealNumber(1.0, prior=Normal(1.0, 0.5))
-            ke = RealNumber(0.1, prior=Normal(0.1, 0.05))
-            V  = RealNumber(20.0, prior=Normal(20.0, 5.0))
-            D  = RealNumber(320.0, prior=Normal(320.0, 50.0))
-            σ  = RealNumber(1.0, scale=:log, prior=LogNormal(0.0, 0.5))
+            ka = RealNumber(1.0, prior = Normal(1.0, 0.5))
+            ke = RealNumber(0.1, prior = Normal(0.1, 0.05))
+            V = RealNumber(20.0, prior = Normal(20.0, 5.0))
+            D = RealNumber(320.0, prior = Normal(320.0, 50.0))
+            σ = RealNumber(1.0, scale = :log, prior = LogNormal(0.0, 0.5))
         end
 
         @DifferentialEquation begin
@@ -85,8 +85,8 @@ end
         y = [1.0, 1.05, 0.98, 1.02]
     )
 
-    model_saveat = set_solver_config(model; saveat_mode=:saveat)
-    dm = DataModel(model_saveat, df; primary_id=:ID, time_col=:t)
+    model_saveat = set_solver_config(model; saveat_mode = :saveat)
+    dm = DataModel(model_saveat, df; primary_id = :ID, time_col = :t)
     res = fit_model(dm, NoLimits.MLE())
 
     @test res isa FitResult
@@ -100,11 +100,11 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.3, scale=:log)
+            σ = RealNumber(0.3, scale = :log)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -118,7 +118,7 @@ end
         y = [1.0, 1.05]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     @test_throws ErrorException fit_model(dm, NoLimits.MLE())
 end
 
@@ -130,7 +130,7 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.2)
-            σ = RealNumber(0.3, scale=:log)
+            σ = RealNumber(0.3, scale = :log)
         end
 
         @formulas begin
@@ -144,15 +144,16 @@ end
         y = [1.0, 1.05]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    @test_throws ErrorException fit_model(dm, NoLimits.MLE(); constants=(a=0.2, σ=0.3))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    @test_throws ErrorException fit_model(
+        dm, NoLimits.MLE(); constants = (a = 0.2, σ = 0.3))
 end
 
 @testset "MLE fixed vector parameters" begin
     model = @Model begin
         @fixedEffects begin
             β = RealVector([0.2, -0.1])
-            σ = RealNumber(0.3, scale=:log)
+            σ = RealNumber(0.3, scale = :log)
         end
 
         @covariates begin
@@ -173,8 +174,8 @@ end
         y = [1.0, 1.05, 1.02, 1.08]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MLE());
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.MLE())
 
     @test res isa FitResult
 end
@@ -187,7 +188,7 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.1)
-            σ = RealNumber(0.5; lower=0.3, scale=:identity)
+            σ = RealNumber(0.5; lower = 0.3, scale = :identity)
         end
 
         @formulas begin
@@ -201,10 +202,10 @@ end
         y = [0.1, 0.12, 0.11]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     res = fit_model(dm, NoLimits.MLE())
 
-    θu = NoLimits.get_params(res; scale=:untransformed)
+    θu = NoLimits.get_params(res; scale = :untransformed)
     @test θu.σ >= 0.3
 end
 
@@ -216,7 +217,7 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.1)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @formulas begin
@@ -230,10 +231,10 @@ end
         y = [0.1, 0.12, 0.11]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MLE(); constants=(a=0.0,))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.MLE(); constants = (a = 0.0,))
 
-    θu = NoLimits.get_params(res; scale=:untransformed)
+    θu = NoLimits.get_params(res; scale = :untransformed)
     @test θu.a == 0.0
 end
 
@@ -245,7 +246,7 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.1)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @formulas begin
@@ -259,12 +260,12 @@ end
         y = [0.1, 0.12, 0.11]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     res_no_penalty = fit_model(dm, NoLimits.MLE())
-    res = fit_model(dm, NoLimits.MLE(); penalty=(a=100.0,))
+    res = fit_model(dm, NoLimits.MLE(); penalty = (a = 100.0,))
 
-    θu0 = NoLimits.get_params(res_no_penalty; scale=:untransformed)
-    θu = NoLimits.get_params(res; scale=:untransformed)
+    θu0 = NoLimits.get_params(res_no_penalty; scale = :untransformed)
+    θu = NoLimits.get_params(res; scale = :untransformed)
     @test abs(θu.a) ≤ abs(θu0.a)
 end
 
@@ -275,7 +276,7 @@ end
         end
 
         @fixedEffects begin
-            a = RealNumber(0.1; prior=Normal(0.0, 1.0))
+            a = RealNumber(0.1; prior = Normal(0.0, 1.0))
         end
 
         @formulas begin
@@ -304,14 +305,14 @@ end
         y = [0.1, 0.12, 0.11]
     )
 
-    dm_prior = DataModel(model_prior, df; primary_id=:ID, time_col=:t)
-    dm_penalty = DataModel(model_penalty, df; primary_id=:ID, time_col=:t)
+    dm_prior = DataModel(model_prior, df; primary_id = :ID, time_col = :t)
+    dm_penalty = DataModel(model_penalty, df; primary_id = :ID, time_col = :t)
     res_map = fit_model(dm_prior, NoLimits.MAP())
-    res_pen = fit_model(dm_penalty, NoLimits.MLE(); penalty=(a=0.5,))
+    res_pen = fit_model(dm_penalty, NoLimits.MLE(); penalty = (a = 0.5,))
 
-    a_map = NoLimits.get_params(res_map; scale=:untransformed).a
-    a_pen = NoLimits.get_params(res_pen; scale=:untransformed).a
-    @test isapprox(a_map, a_pen; rtol=1e-4, atol=1e-4)
+    a_map = NoLimits.get_params(res_map; scale = :untransformed).a
+    a_pen = NoLimits.get_params(res_pen; scale = :untransformed).a
+    @test isapprox(a_map, a_pen; rtol = 1e-4, atol = 1e-4)
 end
 
 @testset "MLE uses optim_kwargs" begin
@@ -322,7 +323,7 @@ end
 
         @fixedEffects begin
             a = RealNumber(0.1)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @formulas begin
@@ -336,9 +337,9 @@ end
         y = [0.1, 0.12, 0.11]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    method = NoLimits.MLE(optim_kwargs=(; iterations=1))
-    res = fit_model(dm, method);
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    method = NoLimits.MLE(optim_kwargs = (; iterations = 1))
+    res = fit_model(dm, method)
 
     @test res isa FitResult
     stats = res.result.solution.stats
@@ -354,7 +355,7 @@ function _mle_dm_basic()
 
         @fixedEffects begin
             a = RealNumber(0.1)
-            σ = RealNumber(0.5, scale=:log)
+            σ = RealNumber(0.5, scale = :log)
         end
 
         @formulas begin
@@ -368,29 +369,30 @@ function _mle_dm_basic()
         y = [0.1, 0.12, 0.11]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     return dm
 end
 
 @testset "MLE accepts lb-only user bounds" begin
     dm = _mle_dm_basic()
-    lb = ComponentArray((; a=-2.0, σ=-3.0))
-    res = fit_model(dm, NoLimits.MLE(lb=lb))
+    lb = ComponentArray((; a = -2.0, σ = -3.0))
+    res = fit_model(dm, NoLimits.MLE(lb = lb))
     @test res isa FitResult
 end
 
 @testset "MLE accepts ub-only user bounds" begin
     dm = _mle_dm_basic()
-    ub = ComponentArray((; a=2.0, σ=2.0))
-    res = fit_model(dm, NoLimits.MLE(ub=ub))
+    ub = ComponentArray((; a = 2.0, σ = 2.0))
+    res = fit_model(dm, NoLimits.MLE(ub = ub))
     @test res isa FitResult
 end
 
 @testset "MLE BBO requires finite bounds on both sides" begin
     dm = _mle_dm_basic()
-    lb = ComponentArray((; a=-2.0, σ=-3.0))
-    method = NoLimits.MLE(optimizer=OptimizationBBO.BBO_adaptive_de_rand_1_bin_radiuslimited(),
-                                  lb=lb, optim_kwargs=(; iterations=5))
+    lb = ComponentArray((; a = -2.0, σ = -3.0))
+    method = NoLimits.MLE(
+        optimizer = OptimizationBBO.BBO_adaptive_de_rand_1_bin_radiuslimited(),
+        lb = lb, optim_kwargs = (; iterations = 5))
     err = try
         fit_model(dm, method)
         nothing
@@ -403,21 +405,22 @@ end
 
 @testset "MLE optimizer BFGS (Optim)" begin
     dm = _mle_dm_basic()
-    method = NoLimits.MLE(optimizer=BFGS(), optim_kwargs=(; ))
+    method = NoLimits.MLE(optimizer = BFGS(), optim_kwargs = (;))
     res = fit_model(dm, method)
     @test res isa FitResult
 end
 
 @testset "MLE optimizer NelderMead (Optim)" begin
     dm = _mle_dm_basic()
-    method = NoLimits.MLE(optimizer=Optim.NelderMead(), optim_kwargs=(; ))
+    method = NoLimits.MLE(optimizer = Optim.NelderMead(), optim_kwargs = (;))
     res = fit_model(dm, method)
     @test res isa FitResult
 end
 
 @testset "MLE optimizer Adam (OptimizationOptimisers)" begin
     dm = _mle_dm_basic()
-    method = NoLimits.MLE(optimizer=OptimizationOptimisers.Adam(0.05), optim_kwargs=(; maxiters=2))
+    method = NoLimits.MLE(
+        optimizer = OptimizationOptimisers.Adam(0.05), optim_kwargs = (; maxiters = 2))
     res = fit_model(dm, method)
     @test res isa FitResult
 end
@@ -429,8 +432,8 @@ end
         end
 
         @fixedEffects begin
-            a = RealNumber(0.1;  lower=-2.0, upper=2.0, scale=:identity)
-            σ = RealNumber(0.5;  lower=0.1, upper=2.0, scale=:identity)
+            a = RealNumber(0.1; lower = -2.0, upper = 2.0, scale = :identity)
+            σ = RealNumber(0.5; lower = 0.1, upper = 2.0, scale = :identity)
         end
 
         @formulas begin
@@ -444,8 +447,10 @@ end
         y = [0.1, 0.12, 0.11]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    method = NoLimits.MLE(optimizer=OptimizationBBO.BBO_adaptive_de_rand_1_bin_radiuslimited(), optim_kwargs=(; iterations=5))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    method = NoLimits.MLE(
+        optimizer = OptimizationBBO.BBO_adaptive_de_rand_1_bin_radiuslimited(),
+        optim_kwargs = (; iterations = 5))
     res = fit_model(dm, method)
     @test res isa FitResult
 end
@@ -475,11 +480,11 @@ end
         y = [1, 1, 2, 3]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     res = fit_model(dm, NoLimits.MLE())
 
     @test res isa FitResult
-    θu = NoLimits.get_params(res; scale=:untransformed)
+    θu = NoLimits.get_params(res; scale = :untransformed)
 end
 
 @testset "MLE handles +Inf objective in AD path" begin
@@ -503,8 +508,8 @@ end
         y = [1.0]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    res = fit_model(dm, NoLimits.MLE(; optim_kwargs=(maxiters=2,)))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
 
     @test res isa FitResult
     @test !isfinite(NoLimits.get_objective(res))

@@ -62,10 +62,10 @@ compare_parameters("Gaussian" => fit_gauss, "flow" => fit_flow)
 ```
 """
 function compare_parameters(f1::FitResult, frest::FitResult...;
-                            labels=nothing,
-                            scale::Symbol=:natural,
-                            include_non_se::Bool=false,
-                            common_only::Bool=false)
+        labels = nothing,
+        scale::Symbol = :natural,
+        include_non_se::Bool = false,
+        common_only::Bool = false)
     fits = (f1, frest...)
     n = length(fits)
     scale = _fq_scale_symbol(scale)
@@ -74,7 +74,8 @@ function compare_parameters(f1::FitResult, frest::FitResult...;
     per_model = Vector{Vector{NamedTuple}}(undef, n)
     notes = String[]
     for (j, res) in enumerate(fits)
-        rows, _, _, nts = _fq_fit_parameter_rows(res; scale=scale, include_non_se=include_non_se)
+        rows, _, _, nts = _fq_fit_parameter_rows(
+            res; scale = scale, include_non_se = include_non_se)
         per_model[j] = rows
         append!(notes, nts)
     end
@@ -92,7 +93,8 @@ function compare_parameters(f1::FitResult, frest::FitResult...;
         end
     end
 
-    lookups = [Dict{Symbol, Float64}(r.parameter => Float64(r.estimate) for r in rows) for rows in per_model]
+    lookups = [Dict{Symbol, Float64}(r.parameter => Float64(r.estimate) for r in rows)
+               for rows in per_model]
     if common_only
         params = filter(p -> all(lk -> haskey(lk, p), lookups), params)
     end
@@ -109,22 +111,23 @@ function compare_parameters(f1::FitResult, frest::FitResult...;
 end
 
 function compare_parameters(p1::Pair, prest::Pair...;
-                            scale::Symbol=:natural,
-                            include_non_se::Bool=false,
-                            common_only::Bool=false)
+        scale::Symbol = :natural,
+        include_non_se::Bool = false,
+        common_only::Bool = false)
     pairs = (p1, prest...)
     all(p -> last(p) isa FitResult, pairs) ||
         error("compare_parameters: each pair must map a label to a FitResult.")
     labels = [string(first(p)) for p in pairs]
     fits = FitResult[last(p) for p in pairs]
-    return compare_parameters(fits...; labels=labels, scale=scale,
-                              include_non_se=include_non_se, common_only=common_only)
+    return compare_parameters(fits...; labels = labels, scale = scale,
+        include_non_se = include_non_se, common_only = common_only)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", c::ParameterComparison)
     n = length(c.labels)
     np = length(c.parameters)
-    name_w = max(length("parameter"), np == 0 ? 0 : maximum(length(string(p)) for p in c.parameters))
+    name_w = max(
+        length("parameter"), np == 0 ? 0 : maximum(length(string(p)) for p in c.parameters))
 
     cells = Matrix{String}(undef, np, n)
     for i in 1:np
@@ -163,7 +166,8 @@ function Base.show(io::IO, ::MIME"text/plain", c::ParameterComparison)
     end
     if !isempty(c.notes)
         println(io)
-        _fq_print_key_values(io, "Notes", [string("note ", i) => c.notes[i] for i in eachindex(c.notes)])
+        _fq_print_key_values(
+            io, "Notes", [string("note ", i) => c.notes[i] for i in eachindex(c.notes)])
     end
 end
 

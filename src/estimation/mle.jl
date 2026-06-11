@@ -36,12 +36,15 @@ struct MLE{O, K, A, L, U} <: FittingMethod
     ignore_model_bounds::Bool
 end
 
-MLE(; optimizer=OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking()),
-     optim_kwargs=NamedTuple(),
-     adtype=Optimization.AutoForwardDiff(),
-     lb=nothing,
-     ub=nothing,
-     ignore_model_bounds=false) = MLE(optimizer, optim_kwargs, adtype, lb, ub, ignore_model_bounds)
+function MLE(;
+        optimizer = OptimizationOptimJL.LBFGS(linesearch = LineSearches.BackTracking()),
+        optim_kwargs = NamedTuple(),
+        adtype = Optimization.AutoForwardDiff(),
+        lb = nothing,
+        ub = nothing,
+        ignore_model_bounds = false)
+    MLE(optimizer, optim_kwargs, adtype, lb, ub, ignore_model_bounds)
+end
 
 """
     MLEResult{S, O, I, R, N} <: MethodResult
@@ -58,21 +61,22 @@ struct MLEResult{S, O, I, R, N} <: MethodResult
 end
 
 struct _NoOpTerm end
-@inline (_:: _NoOpTerm)(θ) = 0.0
+@inline (_::_NoOpTerm)(θ) = 0.0
 
 function _fit_no_re(dm::DataModel, method;
-                    constants::NamedTuple,
-                    penalty::NamedTuple,
-                    ode_args::Tuple,
-                    ode_kwargs::NamedTuple,
-                    serialization::SciMLBase.EnsembleAlgorithm,
-                    add_term,
-                    theta_0_untransformed::Union{Nothing, ComponentArray}=nothing,
-                    store_data_model::Bool=true,
-                    fit_args::Tuple=(),
-                    fit_kwargs::NamedTuple=NamedTuple())
+        constants::NamedTuple,
+        penalty::NamedTuple,
+        ode_args::Tuple,
+        ode_kwargs::NamedTuple,
+        serialization::SciMLBase.EnsembleAlgorithm,
+        add_term,
+        theta_0_untransformed::Union{Nothing, ComponentArray} = nothing,
+        store_data_model::Bool = true,
+        fit_args::Tuple = (),
+        fit_kwargs::NamedTuple = NamedTuple())
     re_names = get_re_names(dm.model.random.random)
-    isempty(re_names) || error("This method is only valid for models without random effects. Use Laplace, SAEM, or MCMC for random-effects models.")
+    isempty(re_names) ||
+        error("This method is only valid for models without random effects. Use Laplace, SAEM, or MCMC for random-effects models.")
 
     fe = dm.model.fixed.fixed
     fixed_names = get_names(fe)
@@ -87,11 +91,12 @@ function _fit_no_re(dm::DataModel, method;
     θ0_u = get_θ0_untransformed(fe)
     if theta_0_untransformed !== nothing
         for n in fixed_names
-            hasproperty(theta_0_untransformed, n) || error("theta_0_untransformed is missing parameter $(n).")
+            hasproperty(theta_0_untransformed, n) ||
+                error("theta_0_untransformed is missing parameter $(n).")
         end
         θ0_u = theta_0_untransformed
     end
-    
+
     transform = get_transform(fe)
     inv_transform = get_inverse_transform(fe)
     θ0_t = transform(θ0_u)
@@ -99,10 +104,13 @@ function _fit_no_re(dm::DataModel, method;
     _apply_constants!(θ_const_u, constants)
     θ_const_t = transform(θ_const_u)
     cache = serialization isa SciMLBase.EnsembleThreads ?
-            build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs, nthreads=Threads.maxthreadid(), force_saveat=true) :
-            build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs, force_saveat=true)
+            build_ll_cache(dm; ode_args = ode_args, ode_kwargs = ode_kwargs,
+        nthreads = Threads.maxthreadid(), force_saveat = true) :
+            build_ll_cache(
+        dm; ode_args = ode_args, ode_kwargs = ode_kwargs, force_saveat = true)
 
-    θ0_free_t = ComponentArray(NamedTuple{Tuple(free_names)}(Tuple(getproperty(θ0_t, n) for n in free_names)))
+    θ0_free_t = ComponentArray(NamedTuple{Tuple(free_names)}(Tuple(getproperty(θ0_t, n)
+    for n in free_names)))
     axs = getaxes(θ0_free_t)
     # Precompute the flat positions of the free parameters inside the full
     # transformed vector. The free/constants merge inside `obj` is then plain
@@ -110,7 +118,8 @@ function _fit_no_re(dm::DataModel, method;
     # runtime Symbols, which Enzyme's runtime rules reject
     # (`AssertionError: x.indices == dx.indices` on the shadow views).
     free_idx = let lab_full = ComponentArrays.labels(θ_const_t),
-                   lab_free = ComponentArrays.labels(θ0_free_t)
+        lab_free = ComponentArrays.labels(θ0_free_t)
+
         pos_full = Dict{String, Int}(lab_full[i] => i for i in eachindex(lab_full))
         Int[pos_full[l] for l in lab_free]
     end
@@ -131,28 +140,37 @@ function _fit_no_re(dm::DataModel, method;
         θu = inv_transform(θt_full)
         add = add_term(θu)
         add == Inf && return infT
-        ll = loglikelihood(dm, θu, ComponentArray(); cache=cache, serialization=serialization)
+        ll = loglikelihood(
+            dm, θu, ComponentArray(); cache = cache, serialization = serialization)
         ll == -Inf && return infT
         return -ll + _penalty_value(θu, penalty) + add
     end
 
     optf = OptimizationFunction(obj, method.adtype)
     lower_t, upper_t = get_bounds_transformed(fe)
-    lower_t_free = ComponentArray(NamedTuple{Tuple(free_names)}(Tuple(getproperty(lower_t, n) for n in free_names)))
-    upper_t_free = ComponentArray(NamedTuple{Tuple(free_names)}(Tuple(getproperty(upper_t, n) for n in free_names)))
+    lower_t_free = ComponentArray(NamedTuple{Tuple(free_names)}(Tuple(getproperty(
+                                                                          lower_t, n)
+    for n in free_names)))
+    upper_t_free = ComponentArray(NamedTuple{Tuple(free_names)}(Tuple(getproperty(
+                                                                          upper_t, n)
+    for n in free_names)))
     lower_t_free_vec = collect(lower_t_free)
     upper_t_free_vec = collect(upper_t_free)
-    use_bounds = !method.ignore_model_bounds && !(all(isinf, lower_t_free_vec) && all(isinf, upper_t_free_vec))
-    normalize_bound = function(bound, fallback)
+    use_bounds = !method.ignore_model_bounds &&
+                 !(all(isinf, lower_t_free_vec) && all(isinf, upper_t_free_vec))
+    normalize_bound = function (bound, fallback)
         if bound === nothing
             return fallback
         elseif bound isa Number
-            length(fallback) == 1 || error("Scalar bounds are only valid when there is one free parameter.")
+            length(fallback) == 1 ||
+                error("Scalar bounds are only valid when there is one free parameter.")
             return [bound]
         end
         if bound isa ComponentArray || bound isa NamedTuple
             bound_ca = bound isa ComponentArray ? bound : ComponentArray(bound)
-            bound_ca = ComponentArray(NamedTuple{Tuple(free_names)}(Tuple(getproperty(bound_ca, n) for n in free_names)))
+            bound_ca = ComponentArray(NamedTuple{Tuple(free_names)}(Tuple(getproperty(
+                                                                              bound_ca, n)
+            for n in free_names)))
             return collect(bound_ca)
         end
         return collect(bound)
@@ -186,12 +204,13 @@ function _fit_no_re(dm::DataModel, method;
     else
         θ0_init = θ0_free_t
     end
-    prob = use_bounds ? OptimizationProblem(optf, θ0_init; lb=lb, ub=ub) :
-                        OptimizationProblem(optf, θ0_init)
+    prob = use_bounds ? OptimizationProblem(optf, θ0_init; lb = lb, ub = ub) :
+           OptimizationProblem(optf, θ0_init)
     sol = Optimization.solve(prob, method.optimizer; method.optim_kwargs...)
 
     θ_hat_t_raw = sol.u
-    θ_hat_t_free = θ_hat_t_raw isa ComponentArray ? θ_hat_t_raw : ComponentArray(θ_hat_t_raw, axs)
+    θ_hat_t_free = θ_hat_t_raw isa ComponentArray ? θ_hat_t_raw :
+                   ComponentArray(θ_hat_t_raw, axs)
     T = eltype(θ_hat_t_free)
     θ_hat_t = ComponentArray(T.(θ_const_t), getaxes(θ_const_t))
     for name in free_names
@@ -200,13 +219,16 @@ function _fit_no_re(dm::DataModel, method;
     θ_hat_u = inv_transform(θ_hat_t)
 
     summary = FitSummary(sol.objective, sol.retcode == SciMLBase.ReturnCode.Success,
-                         FitParameters(θ_hat_t, θ_hat_u),
-                         NamedTuple())
-    diagnostics = FitDiagnostics((;), (optimizer=method.optimizer,), (retcode=sol.retcode,), NamedTuple())
-    niter = hasproperty(sol, :stats) && hasproperty(sol.stats, :iterations) ? sol.stats.iterations : missing
+        FitParameters(θ_hat_t, θ_hat_u),
+        NamedTuple())
+    diagnostics = FitDiagnostics(
+        (;), (optimizer = method.optimizer,), (retcode = sol.retcode,), NamedTuple())
+    niter = hasproperty(sol, :stats) && hasproperty(sol.stats, :iterations) ?
+            sol.stats.iterations : missing
     raw = hasproperty(sol, :original) ? sol.original : sol
     result = MLEResult(sol, sol.objective, niter, raw, NamedTuple())
-    return FitResult(method, result, summary, diagnostics, store_data_model ? dm : nothing, fit_args, fit_kwargs)
+    return FitResult(method, result, summary, diagnostics,
+        store_data_model ? dm : nothing, fit_args, fit_kwargs)
 end
 
 """
@@ -221,7 +243,7 @@ too wide or absent.
 # Keyword Arguments
 - `margin::Real = 1.0`: half-width of the symmetric box on the transformed scale.
 """
-function default_bounds_from_start(dm::DataModel; margin::Real=1.0)
+function default_bounds_from_start(dm::DataModel; margin::Real = 1.0)
     θ = get_θ0_transformed(dm.model.fixed.fixed)
     lower = deepcopy(θ)
     upper = deepcopy(θ)
@@ -254,31 +276,31 @@ function _penalty_value(θ, penalty::NamedTuple)
 end
 
 function _fit_model(dm::DataModel, method::MLE, args...;
-                    constants::NamedTuple=NamedTuple(),
-                    penalty::NamedTuple=NamedTuple(),
-                    ode_args::Tuple=(),
-                    ode_kwargs::NamedTuple=NamedTuple(),
-                    serialization::SciMLBase.EnsembleAlgorithm=EnsembleThreads(),
-                    rng::AbstractRNG=Xoshiro(0),
-                    theta_0_untransformed::Union{Nothing, ComponentArray}=nothing,
-                    store_data_model::Bool=true)
-    fit_kwargs = (constants=constants,
-                  penalty=penalty,
-                  ode_args=ode_args,
-                  ode_kwargs=ode_kwargs,
-                  serialization=serialization,
-                  rng=rng,
-                  theta_0_untransformed=theta_0_untransformed,
-                  store_data_model=store_data_model)
+        constants::NamedTuple = NamedTuple(),
+        penalty::NamedTuple = NamedTuple(),
+        ode_args::Tuple = (),
+        ode_kwargs::NamedTuple = NamedTuple(),
+        serialization::SciMLBase.EnsembleAlgorithm = EnsembleThreads(),
+        rng::AbstractRNG = Xoshiro(0),
+        theta_0_untransformed::Union{Nothing, ComponentArray} = nothing,
+        store_data_model::Bool = true)
+    fit_kwargs = (constants = constants,
+        penalty = penalty,
+        ode_args = ode_args,
+        ode_kwargs = ode_kwargs,
+        serialization = serialization,
+        rng = rng,
+        theta_0_untransformed = theta_0_untransformed,
+        store_data_model = store_data_model)
     return _fit_no_re(dm, method;
-                      constants=constants,
-                      penalty=penalty,
-                      ode_args=ode_args,
-                      ode_kwargs=ode_kwargs,
-                      serialization=serialization,
-                      add_term=_NoOpTerm(),
-                      theta_0_untransformed=theta_0_untransformed,
-                      store_data_model=store_data_model,
-                      fit_args=args,
-                      fit_kwargs=fit_kwargs)
+        constants = constants,
+        penalty = penalty,
+        ode_args = ode_args,
+        ode_kwargs = ode_kwargs,
+        serialization = serialization,
+        add_term = _NoOpTerm(),
+        theta_0_untransformed = theta_0_untransformed,
+        store_data_model = store_data_model,
+        fit_args = args,
+        fit_kwargs = fit_kwargs)
 end

@@ -83,7 +83,8 @@ function _sampled_random_effects_for_individual(dm::DataModel, idx::Int, re_samp
     return ComponentArray(NamedTuple(nt_pairs))
 end
 
-function _simulate_individual!(df::DataFrame, dm::DataModel, idx::Int, θ, re_samples, rng, replace_missings::Bool)
+function _simulate_individual!(
+        df::DataFrame, dm::DataModel, idx::Int, θ, re_samples, rng, replace_missings::Bool)
     model = dm.model
     ind = dm.individuals[idx]
     obs_rows = dm.row_groups.obs_rows[idx]
@@ -117,26 +118,27 @@ function _simulate_individual!(df::DataFrame, dm::DataModel, idx::Int, θ, re_sa
         solver_cfg = get_solver_config(model)
         alg = solver_cfg.alg === nothing ? Tsit5() : solver_cfg.alg
         if ind.saveat === nothing
-            solve_kwargs = _ode_solve_kwargs(solver_cfg.kwargs, NamedTuple(), (dense=true,))
+            solve_kwargs = _ode_solve_kwargs(
+                solver_cfg.kwargs, NamedTuple(), (dense = true,))
             sol = cb === nothing ?
                   solve(prob, alg, solver_cfg.args...; solve_kwargs...) :
-                  solve(prob, alg, solver_cfg.args...; solve_kwargs..., callback=cb)
+                  solve(prob, alg, solver_cfg.args...; solve_kwargs..., callback = cb)
         else
             solve_kwargs = _ode_solve_kwargs(solver_cfg.kwargs, NamedTuple(),
-                                             (saveat=ind.saveat, save_everystep=false, dense=false))
+                (saveat = ind.saveat, save_everystep = false, dense = false))
             sol = cb === nothing ?
                   solve(prob, alg, solver_cfg.args...; solve_kwargs...) :
-                  solve(prob, alg, solver_cfg.args...; solve_kwargs..., callback=cb)
+                  solve(prob, alg, solver_cfg.args...; solve_kwargs..., callback = cb)
         end
         sol_accessors = get_de_accessors_builder(model.de.de)(sol, compiled)
     end
 
     obs_cols = dm.config.obs_cols
-    rowwise_re = _needs_rowwise_random_effects(dm, idx; obs_only=true)
+    rowwise_re = _needs_rowwise_random_effects(dm, idx; obs_only = true)
     hmm_states = Dict{Symbol, Int}()
     for (i, row) in enumerate(obs_rows)
         vary = _varying_at(dm, ind, i, row)
-        η_row = _row_random_effects_at(dm, idx, i, η, rowwise_re; obs_only=true)
+        η_row = _row_random_effects_at(dm, idx, i, η, rowwise_re; obs_only = true)
         obs = sol_accessors === nothing ?
               calculate_formulas_obs(model, θ, η_row, const_cov, vary) :
               calculate_formulas_obs(model, θ, η_row, const_cov, vary, sol_accessors)
@@ -167,7 +169,8 @@ function _simulate_individual!(df::DataFrame, dm::DataModel, idx::Int, θ, re_sa
     return nothing
 end
 
-function _simulate_individual_values(dm::DataModel, idx::Int, θ, re_samples, rng, replace_missings::Bool)
+function _simulate_individual_values(
+        dm::DataModel, idx::Int, θ, re_samples, rng, replace_missings::Bool)
     model = dm.model
     ind = dm.individuals[idx]
     obs_rows = dm.row_groups.obs_rows[idx]
@@ -201,16 +204,17 @@ function _simulate_individual_values(dm::DataModel, idx::Int, θ, re_samples, rn
         solver_cfg = get_solver_config(model)
         alg = solver_cfg.alg === nothing ? Tsit5() : solver_cfg.alg
         if ind.saveat === nothing
-            solve_kwargs = _ode_solve_kwargs(solver_cfg.kwargs, NamedTuple(), (dense=true,))
+            solve_kwargs = _ode_solve_kwargs(
+                solver_cfg.kwargs, NamedTuple(), (dense = true,))
             sol = cb === nothing ?
                   solve(prob, alg, solver_cfg.args...; solve_kwargs...) :
-                  solve(prob, alg, solver_cfg.args...; solve_kwargs..., callback=cb)
+                  solve(prob, alg, solver_cfg.args...; solve_kwargs..., callback = cb)
         else
             solve_kwargs = _ode_solve_kwargs(solver_cfg.kwargs, NamedTuple(),
-                                             (saveat=ind.saveat, save_everystep=false, dense=false))
+                (saveat = ind.saveat, save_everystep = false, dense = false))
             sol = cb === nothing ?
                   solve(prob, alg, solver_cfg.args...; solve_kwargs...) :
-                  solve(prob, alg, solver_cfg.args...; solve_kwargs..., callback=cb)
+                  solve(prob, alg, solver_cfg.args...; solve_kwargs..., callback = cb)
         end
         sol_accessors = get_de_accessors_builder(model.de.de)(sol, compiled)
     end
@@ -221,11 +225,11 @@ function _simulate_individual_values(dm::DataModel, idx::Int, θ, re_samples, rn
         out[col] = Vector{Any}(undef, length(obs_rows))
     end
 
-    rowwise_re = _needs_rowwise_random_effects(dm, idx; obs_only=true)
+    rowwise_re = _needs_rowwise_random_effects(dm, idx; obs_only = true)
     hmm_states = Dict{Symbol, Int}()
     for (i, row) in enumerate(obs_rows)
         vary = _varying_at(dm, ind, i, row)
-        η_row = _row_random_effects_at(dm, idx, i, η, rowwise_re; obs_only=true)
+        η_row = _row_random_effects_at(dm, idx, i, η, rowwise_re; obs_only = true)
         obs = sol_accessors === nothing ?
               calculate_formulas_obs(model, θ, η_row, const_cov, vary) :
               calculate_formulas_obs(model, θ, η_row, const_cov, vary, sol_accessors)
@@ -336,7 +340,8 @@ function _resolve_sim_theta(dm::DataModel, theta_untransformed)
     if theta_untransformed === nothing
         return get_θ0_untransformed(fe)
     end
-    θ = theta_untransformed isa ComponentArray ? theta_untransformed : ComponentArray(theta_untransformed)
+    θ = theta_untransformed isa ComponentArray ? theta_untransformed :
+        ComponentArray(theta_untransformed)
     for name in get_names(fe)
         hasproperty(θ, name) || error("theta_untransformed is missing parameter $(name).")
     end
@@ -365,10 +370,10 @@ are left unchanged.
 # Returns
 A copy of `dm.df` with simulated observation values.
 """
-function simulate_data(dm::DataModel; rng=Random.default_rng(),
-                       replace_missings::Bool=false,
-                       serialization::SciMLBase.EnsembleAlgorithm=EnsembleSerial(),
-                       theta_untransformed=nothing)
+function simulate_data(dm::DataModel; rng = Random.default_rng(),
+        replace_missings::Bool = false,
+        serialization::SciMLBase.EnsembleAlgorithm = EnsembleSerial(),
+        theta_untransformed = nothing)
     df = deepcopy(dm.df)
     θ = _resolve_sim_theta(dm, theta_untransformed)
 
@@ -378,13 +383,17 @@ function simulate_data(dm::DataModel; rng=Random.default_rng(),
     rngs = _rngs_for_serialization(rng, serialization)
     if serialization isa SciMLBase.EnsembleThreads
         Threads.@threads for i in eachindex(dm.individuals)
-            _simulate_individual!(df, dm, i, θ, re_samples, rngs[Threads.threadid()], replace_missings)
+            _simulate_individual!(
+                df, dm, i, θ, re_samples, rngs[Threads.threadid()], replace_missings)
         end
     elseif serialization isa SciMLBase.EnsembleDistributed
-        parts = pmap(i -> begin
+        parts = pmap(
+            i -> begin
                 local_rng = Random.MersenneTwister(rand(rng, UInt))
-                _simulate_individual_values(dm, i, θ, re_samples, local_rng, replace_missings)
-            end, collect(eachindex(dm.individuals)))
+                _simulate_individual_values(
+                    dm, i, θ, re_samples, local_rng, replace_missings)
+            end,
+            collect(eachindex(dm.individuals)))
         for (obs_rows, out) in parts
             for col in dm.config.obs_cols
                 vals = out[col]
@@ -420,22 +429,22 @@ Calls [`simulate_data`](@ref) and constructs a fresh `DataModel` from the result
 - `theta_untransformed = nothing`: fixed-effect parameter vector used for simulation on
   the natural scale. Forwarded to [`simulate_data`](@ref).
 """
-function simulate_data_model(dm::DataModel; rng=Random.default_rng(),
-                             replace_missings::Bool=false,
-                             serialization::SciMLBase.EnsembleAlgorithm=dm.config.serialization,
-                             theta_untransformed=nothing)
+function simulate_data_model(dm::DataModel; rng = Random.default_rng(),
+        replace_missings::Bool = false,
+        serialization::SciMLBase.EnsembleAlgorithm = dm.config.serialization,
+        theta_untransformed = nothing)
     df_sim = simulate_data(dm;
-                           rng=rng,
-                           replace_missings=replace_missings,
-                           serialization=serialization,
-                           theta_untransformed=theta_untransformed)
+        rng = rng,
+        replace_missings = replace_missings,
+        serialization = serialization,
+        theta_untransformed = theta_untransformed)
     cfg = dm.config
     return DataModel(dm.model, df_sim;
-                     primary_id=cfg.primary_id,
-                     time_col=cfg.time_col,
-                     evid_col=cfg.evid_col,
-                     amt_col=cfg.amt_col,
-                     rate_col=cfg.rate_col,
-                     cmt_col=cfg.cmt_col,
-                     serialization=serialization)
+        primary_id = cfg.primary_id,
+        time_col = cfg.time_col,
+        evid_col = cfg.evid_col,
+        amt_col = cfg.amt_col,
+        rate_col = cfg.rate_col,
+        cmt_col = cfg.cmt_col,
+        serialization = serialization)
 end

@@ -6,7 +6,6 @@ import Statistics
 export AbstractNormalizingFlow
 export NormalizingPlanarFlow
 
-
 """
     AbstractNormalizingFlow <: Distributions.ContinuousMultivariateDistribution
 
@@ -90,9 +89,10 @@ log p(x) = log q₀(z₀) - Σᵢ log|det(Jfᵢ)|
 - Rezende, D. J., & Mohamed, S. (2015). "Variational Inference with Normalizing Flows"
   ICML 2015.
 """
-struct NormalizingPlanarFlow{D<:Distribution, R<:Optimisers.Restructure} <: AbstractNormalizingFlow
-    base    :: D       # transformed distribution with fixed base q0
-    rebuild :: R       # maps flat θ → bijector/transform
+struct NormalizingPlanarFlow{D <: Distribution, R <: Optimisers.Restructure} <:
+       AbstractNormalizingFlow
+    base::D       # transformed distribution with fixed base q0
+    rebuild::R       # maps flat θ → bijector/transform
 end
 
 """
@@ -122,8 +122,9 @@ flow_t = NormalizingPlanarFlow(1, 3; base_dist=MvTDist(3, zeros(1), ones(1,1)))
 samples = rand(flow, 1000)
 ```
 """
-function NormalizingPlanarFlow(n_input::Int, n_layers::Int; init= x -> sqrt( (1/n_input)) .* x,
-                               base_dist=nothing)
+function NormalizingPlanarFlow(
+        n_input::Int, n_layers::Int; init = x -> sqrt((1 / n_input)) .* x,
+        base_dist = nothing)
     q₀ = isnothing(base_dist) ? MvNormal(zeros(Float64, n_input), I) : base_dist
     d = length(q₀)
     Ls = [PlanarLayer(d, init) for _ in 1:n_layers]
@@ -133,7 +134,6 @@ function NormalizingPlanarFlow(n_input::Int, n_layers::Int; init= x -> sqrt( (1/
     transformed_obj = transformed(q₀, ts)
 
     NormalizingPlanarFlow(transformed_obj, restructure)
-
 end
 
 """
@@ -150,7 +150,8 @@ lookups inside `fmap`).
 function _planar_chain_from_flat(θ::AbstractVector, d::Int)
     npl = 2 * d + 1
     n_layers, rem = divrem(length(θ), npl)
-    rem == 0 || throw(ArgumentError("NPF flat parameter length $(length(θ)) is not a multiple of 2*d + 1 = $(npl) (d = $(d))."))
+    rem == 0 ||
+        throw(ArgumentError("NPF flat parameter length $(length(θ)) is not a multiple of 2*d + 1 = $(npl) (d = $(d))."))
     layers = map(1:n_layers) do k
         off = (k - 1) * npl
         PlanarLayer(θ[off .+ (1:d)], θ[(off + d) .+ (1:d)], θ[(off + 2 * d) .+ (1:1)])
@@ -177,26 +178,32 @@ object (its `fmap`-based reconstruction breaks Enzyme forward mode).
 # Returns
 A `NormalizingPlanarFlow` with the specified parameters.
 """
-function NormalizingPlanarFlow(θ::AbstractVector, rebuild::Optimisers.Restructure, q0::ContinuousDistribution)
+function NormalizingPlanarFlow(
+        θ::AbstractVector, rebuild::Optimisers.Restructure, q0::ContinuousDistribution)
     bij = _planar_chain_from_flat(θ, length(q0))
     trans = transformed(q0, bij)
     NormalizingPlanarFlow(trans, rebuild)
-
 end
 
 Distributions.logpdf(d::NormalizingPlanarFlow, x::Real) = logpdf(d.base, [x])
 Distributions.logpdf(d::NormalizingPlanarFlow, x::AbstractVector) = logpdf(d.base, x)
-Distributions.logpdf(d::NormalizingPlanarFlow, x::StaticArrays.StaticVector) = logpdf(d.base, x)
-Distributions.pdf(d::NormalizingPlanarFlow, x::AbstractVector)    = pdf(d.base, x)
-Distributions.length(d::NormalizingPlanarFlow)                    = length(d.base)
-Distributions.size(d::NormalizingPlanarFlow)                    = size(d.base)
-Base.eltype(d::NormalizingPlanarFlow)                = eltype(d.base)
+function Distributions.logpdf(d::NormalizingPlanarFlow, x::StaticArrays.StaticVector)
+    logpdf(d.base, x)
+end
+Distributions.pdf(d::NormalizingPlanarFlow, x::AbstractVector) = pdf(d.base, x)
+Distributions.length(d::NormalizingPlanarFlow) = length(d.base)
+Distributions.size(d::NormalizingPlanarFlow) = size(d.base)
+Base.eltype(d::NormalizingPlanarFlow) = eltype(d.base)
 Distributions.rand(d::NormalizingPlanarFlow) = rand(d.base)
 Distributions.rand(rng::AbstractRNG, d::NormalizingPlanarFlow) = rand(rng, d.base)
 Distributions.rand(d::NormalizingPlanarFlow, n::Int) = rand(default_rng(), d, n)
-Distributions.rand(rng::AbstractRNG, d::NormalizingPlanarFlow, n::Int) = rand(rng, d.base, n)
+function Distributions.rand(rng::AbstractRNG, d::NormalizingPlanarFlow, n::Int)
+    rand(rng, d.base, n)
+end
 Distributions.rand(d::NormalizingPlanarFlow, dims::Dims...) = rand(d.base, dims...)
-Distributions.rand(rng::AbstractRNG, d::NormalizingPlanarFlow, dims::Dims...) = rand(rng, d.base, dims...)
+function Distributions.rand(rng::AbstractRNG, d::NormalizingPlanarFlow, dims::Dims...)
+    rand(rng, d.base, dims...)
+end
 
 # Use the underlying transformed distribution's bijector for HMC/NUTS.
 Bijectors.bijector(d::NormalizingPlanarFlow) = Bijectors.bijector(d.base)
@@ -210,15 +217,19 @@ Bijectors.bijector(d::NormalizingPlanarFlow) = Bijectors.bijector(d.base)
     # so delegate them to the wrapped transformed distribution. (`vec_length`/`to_vec`/`from_vec`
     # already resolve via the `MultivariateDistribution` fallback, since `NormalizingPlanarFlow`
     # is a `ContinuousMultivariateDistribution`.)
-    Bijectors.VectorBijectors.to_linked_vec(d::NormalizingPlanarFlow) =
+    function Bijectors.VectorBijectors.to_linked_vec(d::NormalizingPlanarFlow)
         Bijectors.VectorBijectors.to_linked_vec(d.base)
-    Bijectors.VectorBijectors.from_linked_vec(d::NormalizingPlanarFlow) =
+    end
+    function Bijectors.VectorBijectors.from_linked_vec(d::NormalizingPlanarFlow)
         Bijectors.VectorBijectors.from_linked_vec(d.base)
-    Bijectors.VectorBijectors.linked_vec_length(d::NormalizingPlanarFlow) =
+    end
+    function Bijectors.VectorBijectors.linked_vec_length(d::NormalizingPlanarFlow)
         Bijectors.VectorBijectors.linked_vec_length(d.base)
+    end
 end
 
 # Estimate covariance via sampling — used only for MH step-size initialisation,
 # so an empirical approximation is sufficient.
-Statistics.cov(d::NormalizingPlanarFlow; n_samples::Int=2000) =
+function Statistics.cov(d::NormalizingPlanarFlow; n_samples::Int = 2000)
     Statistics.cov(rand(default_rng(), d, n_samples)')
+end

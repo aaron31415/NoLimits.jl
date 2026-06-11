@@ -1,14 +1,16 @@
 export ContinuousTimeDiscreteStatesHMM
 
 using Distributions, ExponentialAction, Random, Lux
-import Distributions: pdf, logpdf, rand, mean, var, median, quantile, mode, cdf, support, params
+import Distributions: pdf, logpdf, rand, mean, var, median, quantile, mode, cdf, support,
+                      params
 import ForwardDiff
 
-_ct_hmm_validate_mode(mode::Symbol) =
+function _ct_hmm_validate_mode(mode::Symbol)
     mode in (:auto, :expv, :pathsum) ||
-    error("Invalid CT-HMM propagation mode $(mode). Use one of :auto, :expv, :pathsum.")
+        error("Invalid CT-HMM propagation mode $(mode). Use one of :auto, :expv, :pathsum.")
+end
 
-function _ct_hmm_adjacency(transition_matrix::AbstractMatrix{<:Real}; atol::Real=1e-12)
+function _ct_hmm_adjacency(transition_matrix::AbstractMatrix{<:Real}; atol::Real = 1e-12)
     n_states = size(transition_matrix, 1)
     adj = [Int[] for _ in 1:n_states]
     for i in 1:n_states
@@ -48,12 +50,12 @@ function _ct_hmm_topological_order(adj::Vector{Vector{Int}})
     return (k == n + 1) ? order : nothing
 end
 
-function _ct_hmm_is_acyclic(transition_matrix::AbstractMatrix{<:Real}; atol::Real=1e-12)
-    adj = _ct_hmm_adjacency(transition_matrix; atol=atol)
+function _ct_hmm_is_acyclic(transition_matrix::AbstractMatrix{<:Real}; atol::Real = 1e-12)
+    adj = _ct_hmm_adjacency(transition_matrix; atol = atol)
     return _ct_hmm_topological_order(adj) !== nothing
 end
 
-function _ct_hmm_path_kernel(lambdas::AbstractVector{<:Real}, Δt::Real; atol::Real=1e-10)
+function _ct_hmm_path_kernel(lambdas::AbstractVector{<:Real}, Δt::Real; atol::Real = 1e-10)
     m = length(lambdas)
     m == 1 && return exp(-lambdas[1] * Δt)
 
@@ -92,10 +94,11 @@ function _ct_hmm_collect_paths(adj::Vector{Vector{Int}}, src::Int)
     return paths
 end
 
-function _ct_hmm_transition_matrix_pathsum(transition_matrix::AbstractMatrix{<:Real}, Δt::Real; atol::Real=1e-10)
+function _ct_hmm_transition_matrix_pathsum(
+        transition_matrix::AbstractMatrix{<:Real}, Δt::Real; atol::Real = 1e-10)
     n_states = size(transition_matrix, 1)
     Tprob = zeros(promote_type(eltype(transition_matrix), typeof(Δt)), n_states, n_states)
-    adj = _ct_hmm_adjacency(transition_matrix; atol=atol)
+    adj = _ct_hmm_adjacency(transition_matrix; atol = atol)
     exit_rates = [-transition_matrix[s, s] for s in 1:n_states]
 
     for src in 1:n_states
@@ -109,10 +112,10 @@ function _ct_hmm_transition_matrix_pathsum(transition_matrix::AbstractMatrix{<:R
                 for k in eachindex(path)
                     lambdas[k] = exit_rates[path[k]]
                 end
-                for k in 1:(length(path)-1)
-                    weight *= transition_matrix[path[k], path[k+1]]
+                for k in 1:(length(path) - 1)
+                    weight *= transition_matrix[path[k], path[k + 1]]
                 end
-                kernel = _ct_hmm_path_kernel(lambdas, Δt; atol=atol)
+                kernel = _ct_hmm_path_kernel(lambdas, Δt; atol = atol)
                 kernel === nothing && return nothing
                 total += weight * kernel
             end
@@ -124,13 +127,13 @@ function _ct_hmm_transition_matrix_pathsum(transition_matrix::AbstractMatrix{<:R
 end
 
 function _ct_hmm_probabilities_pathsum_dag(
-    transition_matrix::AbstractMatrix{<:Real},
-    initial_p::AbstractVector{<:Real},
-    Δt::Real;
-    atol::Real=1e-10
+        transition_matrix::AbstractMatrix{<:Real},
+        initial_p::AbstractVector{<:Real},
+        Δt::Real;
+        atol::Real = 1e-10
 )
     n_states = size(transition_matrix, 1)
-    adj = _ct_hmm_adjacency(transition_matrix; atol=atol)
+    adj = _ct_hmm_adjacency(transition_matrix; atol = atol)
     order = _ct_hmm_topological_order(adj)
     order === nothing && return nothing
 
@@ -209,7 +212,7 @@ end
 # Returns nothing for non-ergodic Q (multiple communicating classes or absorbing states),
 # where the null space has dimension > 1 and the long-time limit of exp(Qt)v depends on v.
 # Non-ergodicity is detected by any π component being negative after solving.
-function _ct_hmm_stationary(Q::AbstractMatrix{T}) where T
+function _ct_hmm_stationary(Q::AbstractMatrix{T}) where {T}
     n = size(Q, 1)
     A = Matrix{T}(transpose(Q))
     for j in 1:n
@@ -236,11 +239,11 @@ function _ct_hmm_stationary(Q::AbstractMatrix{T}) where T
 end
 
 function _ct_hmm_probabilities_hidden_states(
-    transition_matrix::AbstractMatrix{<:Real},
-    initial_p::AbstractVector{<:Real},
-    Δt::Real;
-    mode::Symbol=:auto,
-    atol::Real=1e-10
+        transition_matrix::AbstractMatrix{<:Real},
+        initial_p::AbstractVector{<:Real},
+        Δt::Real;
+        mode::Symbol = :auto,
+        atol::Real = 1e-10
 )
     _ct_hmm_validate_mode(mode)
 
@@ -262,7 +265,7 @@ function _ct_hmm_probabilities_hidden_states(
     end
 
     if mode == :pathsum || mode == :auto
-        p = _ct_hmm_probabilities_pathsum_dag(transition_matrix, initial_p, Δt; atol=atol)
+        p = _ct_hmm_probabilities_pathsum_dag(transition_matrix, initial_p, Δt; atol = atol)
         if p !== nothing
             return p
         end
@@ -306,10 +309,10 @@ rate matrix (`transition_matrix`). Implements the `Distributions.jl` interface.
 - `Δt::Real`: time elapsed since the previous observation.
 """
 struct ContinuousTimeDiscreteStatesHMM{
-    M<:AbstractMatrix{<:Real},
-    E<:Tuple,
-    D<:Distributions.Categorical,
-    T<:Real,
+    M <: AbstractMatrix{<:Real},
+    E <: Tuple,
+    D <: Distributions.Categorical,
+    T <: Real
 } <: Distribution{Univariate, Continuous}
     n_states::Int
     transition_matrix::M
@@ -320,11 +323,11 @@ struct ContinuousTimeDiscreteStatesHMM{
 end
 
 function ContinuousTimeDiscreteStatesHMM(
-    transition_matrix::AbstractMatrix{<:Real},
-    emission_dists::Tuple,
-    initial_dist::Distributions.Categorical,
-    Δt::Real;
-    propagation_mode::Symbol=:auto
+        transition_matrix::AbstractMatrix{<:Real},
+        emission_dists::Tuple,
+        initial_dist::Distributions.Categorical,
+        Δt::Real;
+        propagation_mode::Symbol = :auto
 )
     _ct_hmm_validate_mode(propagation_mode)
     n_states = size(transition_matrix, 1)
@@ -334,9 +337,10 @@ end
 
 # _ct_hmm_probabilities_hidden_states transposes the rate matrix internally, because
 # expv expects a generator whose columns (not rows) sum to zero.
-probabilities_hidden_states(hmm::ContinuousTimeDiscreteStatesHMM) =
+function probabilities_hidden_states(hmm::ContinuousTimeDiscreteStatesHMM)
     _ct_hmm_probabilities_hidden_states(
-        hmm.transition_matrix, hmm.initial_dist.p, hmm.Δt; mode=hmm.propagation_mode)
+        hmm.transition_matrix, hmm.initial_dist.p, hmm.Δt; mode = hmm.propagation_mode)
+end
 
 """
     posterior_hidden_states(hmm::ContinuousTimeDiscreteStatesHMM, y::Real)
@@ -384,7 +388,7 @@ function Distributions.var(hmm::ContinuousTimeDiscreteStatesHMM)
     emission_means = mean.(hmm.emission_dists)
     emission_vars = var.(hmm.emission_dists)
     # Law of total variance: Var[Y] = E[Var[Y|S]] + Var[E[Y|S]]
-    return sum(p_hidden .* emission_vars) + sum(p_hidden .* (emission_means .- μ).^2)
+    return sum(p_hidden .* emission_vars) + sum(p_hidden .* (emission_means .- μ) .^ 2)
 end
 
 function Distributions.cdf(hmm::ContinuousTimeDiscreteStatesHMM, y::Real)
@@ -393,7 +397,7 @@ function Distributions.cdf(hmm::ContinuousTimeDiscreteStatesHMM, y::Real)
 end
 
 function Distributions.quantile(hmm::ContinuousTimeDiscreteStatesHMM, p::Real)
-    @assert 0 < p < 1 "p must be in (0, 1)"
+    @assert 0<p<1 "p must be in (0, 1)"
 
     # Bound the search using component quantiles
     lower_bounds = quantile.(hmm.emission_dists, Ref(0.001))
@@ -414,9 +418,10 @@ function Distributions.quantile(hmm::ContinuousTimeDiscreteStatesHMM, p::Real)
     return (lb + ub) / 2
 end
 
-
 Distributions.median(hmm::ContinuousTimeDiscreteStatesHMM) = quantile(hmm, 0.5)
 
-Distributions.params(hmm::ContinuousTimeDiscreteStatesHMM) = (hmm.transition_matrix, hmm.emission_dists, hmm.initial_dist, hmm.Δt)
+function Distributions.params(hmm::ContinuousTimeDiscreteStatesHMM)
+    (hmm.transition_matrix, hmm.emission_dists, hmm.initial_dist, hmm.Δt)
+end
 
 Base.length(hmm::ContinuousTimeDiscreteStatesHMM) = 1

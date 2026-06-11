@@ -24,11 +24,11 @@ using DataInterpolations
             t = Covariate()
             x = ConstantCovariateVector([:Age])
             z = Covariate()
-            w1 = DynamicCovariate(; interpolation=LinearInterpolation)
+            w1 = DynamicCovariate(; interpolation = LinearInterpolation)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:id)
+            η = RandomEffect(Normal(0.0, 1.0); column = :id)
         end
 
         @preDifferentialEquation begin
@@ -76,9 +76,10 @@ using DataInterpolations
         compiled = get_de_compiler(model.de.de)(pc)
         u0 = calculate_initial_state(model, θt, η, const_covariates_i)
         prob = ODEProblem(get_de_f!(model.de.de), u0, tspan, compiled)
-        sol = solve(prob, Tsit5(); callback=cb, abstol=1e-9, reltol=1e-9)
+        sol = solve(prob, Tsit5(); callback = cb, abstol = 1e-9, reltol = 1e-9)
         sol_accessors = get_de_accessors_builder(model.de.de)(sol, compiled)
-        obs = calculate_formulas_obs(model, θt, η, const_covariates_i, varying_covariates, sol_accessors)
+        obs = calculate_formulas_obs(
+            model, θt, η, const_covariates_i, varying_covariates, sol_accessors)
         return logpdf(obs.obs, 1.0)
     end
 
@@ -103,24 +104,25 @@ using DataInterpolations
         u0 = calculate_initial_state(model, fe0, η, const_covariates_i)
         prob = ODEProblem(f!_local, u0, tspan, θt)
         sol = solve(prob, Tsit5();
-                    callback=cb, abstol=1e-9, reltol=1e-9,
-                    sensealg=InterpolatingAdjoint(autojacvec=ZygoteVJP()))
-        sol_accessors = get_de_accessors_builder(model.de.de)(sol, get_de_compiler(model.de.de)((;
-            fixed_effects = fe0,
-            random_effects = η,
-            constant_covariates = const_covariates_i,
-            varying_covariates = varying_covariates,
-            helpers = helpers,
-            model_funs = model_funs,
-            preDE = calculate_prede(model, fe0, η, const_covariates_i)
-        )))
-        obs = calculate_formulas_obs(model, fe0, η, const_covariates_i, varying_covariates, sol_accessors)
+            callback = cb, abstol = 1e-9, reltol = 1e-9,
+            sensealg = InterpolatingAdjoint(autojacvec = ZygoteVJP()))
+        sol_accessors = get_de_accessors_builder(model.de.de)(sol,
+            get_de_compiler(model.de.de)((;
+                fixed_effects = fe0,
+                random_effects = η,
+                constant_covariates = const_covariates_i,
+                varying_covariates = varying_covariates,
+                helpers = helpers,
+                model_funs = model_funs,
+                preDE = calculate_prede(model, fe0, η, const_covariates_i)
+            )))
+        obs = calculate_formulas_obs(
+            model, fe0, η, const_covariates_i, varying_covariates, sol_accessors)
         return logpdf(obs.obs, 1.0)
     end
 
     θ0 = get_θ0_transformed(model.fixed.fixed)
-    
+
     grad_fwd = ForwardDiff.gradient(objective_fd, θ0)
     grad_fd = FiniteDifferences.grad(FiniteDifferences.central_fdm(5, 1), objective_fd, θ0)
-    
 end

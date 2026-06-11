@@ -7,7 +7,7 @@ using NoLimits
 
 bib = CitationBibliography(
     joinpath(@__DIR__, "src", "references.bib");
-    style = :numeric,
+    style = :numeric
 )
 
 makedocs(;
@@ -19,7 +19,7 @@ makedocs(;
     format = DocumenterVitepress.MarkdownVitepress(;
         repo = "github.com/manuhuth/NoLimits.jl",
         devbranch = "main",
-        devurl = "dev",
+        devurl = "dev"
     ),
     pages = [
         "Home" => "index.md",
@@ -27,7 +27,7 @@ makedocs(;
             "Installation" => "installation.md",
             "Quickstart" => "quickstart.md",
             "Capabilities" => "capabilities.md",
-            "NLME Methodology" => "nlme-methodology.md",
+            "NLME Methodology" => "nlme-methodology.md"
         ],
         "Model Building" => [
             "Overview" => "model-building/index.md",
@@ -40,7 +40,7 @@ makedocs(;
             "@DifferentialEquation" => "model-building/differential-equation.md",
             "@initialDE" => "model-building/initial-de.md",
             "@formulas" => "model-building/formulas.md",
-            "Function Approximators (NNs + SoftTrees)" => "model-building/universal-function-approximators.md",
+            "Function Approximators (NNs + SoftTrees)" => "model-building/universal-function-approximators.md"
         ],
         "Data Model Construction" => "data-model-construction.md",
         "Estimation" => [
@@ -56,13 +56,13 @@ makedocs(;
             "VI" => "estimation/vi.md",
             "Multistart" => "estimation/multistart.md",
             "Cross-Validation" => "estimation/cv.md",
-            "Saving & Loading" => "estimation/saving-and-loading.md",
+            "Saving & Loading" => "estimation/saving-and-loading.md"
         ],
         "Uncertainty Quantification" => [
             "Overview" => "uncertainty-quantification/index.md",
             "Wald" => "uncertainty-quantification/wald.md",
             "Profile likelihood" => "uncertainty-quantification/profile-likelihood.md",
-            "MCMC-based uncertainty" => "uncertainty-quantification/mcmc-based-uncertainty.md",
+            "MCMC-based uncertainty" => "uncertainty-quantification/mcmc-based-uncertainty.md"
         ],
         "Plotting" => "plotting/index.md",
         "Tutorials" => [
@@ -74,13 +74,13 @@ makedocs(;
             "Left-Censored Nonlinear Model (Laplace)" => "tutorials/mixed-effects-left-censored-virload50-laplace.md",
             "Fixed-Effects: MLE & MAP" => "tutorials/fixed-effects-nonlinear-mle-map.md",
             "Fixed-Effects: Variational Inference" => "tutorials/fixed-effects-vi.md",
-            "Hidden & Observed Markov Models" => "tutorials/markov-models-observed-hidden-coarsed.md",
+            "Hidden & Observed Markov Models" => "tutorials/markov-models-observed-hidden-coarsed.md"
         ],
         "Developers Guide" => "developers-guide.md",
         "How to Contribute" => "how-to-contribute.md",
         "References" => "references.md",
-        "API" => "api.md",
-    ],
+        "API" => "api.md"
+    ]
 )
 
 # Must be DocumenterVitepress.deploydocs (NOT Documenter.deploydocs): it reads bases.txt
@@ -91,5 +91,5 @@ DocumenterVitepress.deploydocs(;
     target = "build",
     branch = "gh-pages",
     devbranch = "main",
-    push_preview = true,
+    push_preview = true
 )

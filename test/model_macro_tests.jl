@@ -10,7 +10,7 @@ using Distributions
         end
 
         @fixedEffects begin
-            a = RealNumber(1.0, prior=Normal(0.0, 10.0))
+            a = RealNumber(1.0, prior = Normal(0.0, 10.0))
             σ = RealNumber(0.5)
         end
 
@@ -20,7 +20,7 @@ using Distributions
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:id)
+            η = RandomEffect(Normal(0.0, 1.0); column = :id)
         end
 
         @formulas begin
@@ -37,8 +37,8 @@ using Distributions
     obs = calculate_formulas_obs(model, θ, η, const_covariates_i, varying_covariates)
     all = calculate_formulas_all(model, θ, η, const_covariates_i, varying_covariates)
     @test obs.obs isa Normal
-    @test isapprox(mean(obs.obs), 4.1; rtol=1e-6, atol=1e-8)
-    @test isapprox(all.lin, 4.1; rtol=1e-6, atol=1e-8)
+    @test isapprox(mean(obs.obs), 4.1; rtol = 1e-6, atol = 1e-8)
+    @test isapprox(all.lin, 4.1; rtol = 1e-6, atol = 1e-8)
 end
 
 @testset "Model macro wiring (with DE + initialDE)" begin
@@ -220,7 +220,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(c, 1.0); column=:ID)
+            η = RandomEffect(Normal(c, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -243,8 +243,8 @@ end
         end
 
         @randomEffects begin
-            η1 = RandomEffect(Normal(c, 1.0); column=:ID)
-            η2 = RandomEffect(Normal(c, 1.0); column=:YEAR)
+            η1 = RandomEffect(Normal(c, 1.0); column = :ID)
+            η2 = RandomEffect(Normal(c, 1.0); column = :YEAR)
         end
 
         @formulas begin
@@ -261,11 +261,11 @@ end
 
         @covariates begin
             t = Covariate()
-            c = ConstantCovariate(; constant_on=:ID)
+            c = ConstantCovariate(; constant_on = :ID)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(c, 1.0); column=:YEAR)
+            η = RandomEffect(Normal(c, 1.0); column = :YEAR)
         end
 
         @formulas begin
@@ -300,7 +300,8 @@ end
     const_covariates_i = (x = (Age = 2.0,),)
     varying_covariates = (t = 0.0,)
 
-    @test_throws ErrorException calculate_formulas_obs(model, θ, η, const_covariates_i, varying_covariates)
+    @test_throws ErrorException calculate_formulas_obs(
+        model, θ, η, const_covariates_i, varying_covariates)
 end
 
 @testset "Model macro hygiene" begin
@@ -346,7 +347,7 @@ end
         model = @Model begin
             @fixedEffects begin
                 a = RealNumber(0.1)
-                σ = RealNumber(0.2, scale=:log)
+                σ = RealNumber(0.2, scale = :log)
             end
 
             @covariates begin
@@ -369,21 +370,22 @@ end
     mod = Core.eval(Main, :(module $mod_name end))
     Core.eval(mod, :(using NoLimits))
     Core.eval(mod, :(using Distributions))
-    ok = Core.eval(mod, quote
-        re = @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
-        end
-        pre = @preDifferentialEquation begin
-            x = 1.0
-        end
-        de = @DifferentialEquation begin
-            D(u) ~ -u
-        end
+    ok = Core.eval(mod,
+        quote
+            re = @randomEffects begin
+                η = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            end
+            pre = @preDifferentialEquation begin
+                x = 1.0
+            end
+            de = @DifferentialEquation begin
+                D(u) ~ -u
+            end
 
-        re isa NoLimits.RandomEffects &&
-        pre isa NoLimits.PreDifferentialEquation &&
-        de isa NoLimits.DifferentialEquation
-    end)
+            re isa NoLimits.RandomEffects &&
+                pre isa NoLimits.PreDifferentialEquation &&
+                de isa NoLimits.DifferentialEquation
+        end)
 
     @test ok === true
 end

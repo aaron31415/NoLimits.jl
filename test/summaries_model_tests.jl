@@ -10,23 +10,25 @@ using DataInterpolations
         end
 
         @fixedEffects begin
-            a = RealNumber(0.8; scale=:log, lower=0.01, calculate_se=true)
-            b = RealVector([0.1, 0.2]; scale=[:identity, :log], lower=[-Inf, 0.01], calculate_se=true)
-            σ = RealNumber(0.3; scale=:log)
-            Ω = RealPSDMatrix([1.0 0.2; 0.2 1.2]; scale=:cholesky)
-            spline = SplineParameters([0.0, 0.5, 1.0, 1.5, 2.0]; function_name=:spline_fn, degree=2)
+            a = RealNumber(0.8; scale = :log, lower = 0.01, calculate_se = true)
+            b = RealVector([0.1, 0.2]; scale = [:identity, :log],
+                lower = [-Inf, 0.01], calculate_se = true)
+            σ = RealNumber(0.3; scale = :log)
+            Ω = RealPSDMatrix([1.0 0.2; 0.2 1.2]; scale = :cholesky)
+            spline = SplineParameters(
+                [0.0, 0.5, 1.0, 1.5, 2.0]; function_name = :spline_fn, degree = 2)
         end
 
         @covariates begin
             t = Covariate()
-            x = ConstantCovariate(; constant_on=:ID)
+            x = ConstantCovariate(; constant_on = :ID)
             z = Covariate()
-            w = DynamicCovariate(; interpolation=LinearInterpolation)
+            w = DynamicCovariate(; interpolation = LinearInterpolation)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
-            κ = RandomEffect(Distributions.Laplace(0.0, 1.0); column=:SITE)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            κ = RandomEffect(Distributions.Laplace(0.0, 1.0); column = :SITE)
         end
 
         @formulas begin

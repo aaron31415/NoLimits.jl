@@ -13,12 +13,12 @@ function _re_hmm_scalar_discrete_dm()
         end
 
         @fixedEffects begin
-            p1_r = RealNumber(0.0, prior=Normal(0.0, 1.0))
-            p2_r = RealNumber(0.1, prior=Normal(0.0, 1.0))
+            p1_r = RealNumber(0.0, prior = Normal(0.0, 1.0))
+            p2_r = RealNumber(0.1, prior = Normal(0.0, 1.0))
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -27,8 +27,8 @@ function _re_hmm_scalar_discrete_dm()
             P = [0.85 0.15;
                  0.25 0.75]
             y ~ DiscreteTimeDiscreteStatesHMM(P,
-                                              (Bernoulli(p1), Bernoulli(p2)),
-                                              Categorical([0.6, 0.4]))
+                (Bernoulli(p1), Bernoulli(p2)),
+                Categorical([0.6, 0.4]))
         end
     end
 
@@ -38,16 +38,16 @@ function _re_hmm_scalar_discrete_dm()
         y = [0, 1, 1, 0]
     )
 
-    return DataModel(model, df; primary_id=:ID, time_col=:t)
+    return DataModel(model, df; primary_id = :ID, time_col = :t)
 end
 
 function _re_hmm_scalar_continuous_dm()
     model = @Model begin
         @fixedEffects begin
-            λ12_r = RealNumber(0.0, prior=Normal(0.0, 0.5))
-            λ21_r = RealNumber(-0.1, prior=Normal(0.0, 0.5))
-            p1_r = RealNumber(0.0, prior=Normal(0.0, 1.0))
-            p2_r = RealNumber(0.1, prior=Normal(0.0, 1.0))
+            λ12_r = RealNumber(0.0, prior = Normal(0.0, 0.5))
+            λ21_r = RealNumber(-0.1, prior = Normal(0.0, 0.5))
+            p1_r = RealNumber(0.0, prior = Normal(0.0, 1.0))
+            p2_r = RealNumber(0.1, prior = Normal(0.0, 1.0))
         end
 
         @covariates begin
@@ -56,7 +56,7 @@ function _re_hmm_scalar_continuous_dm()
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -65,11 +65,11 @@ function _re_hmm_scalar_continuous_dm()
             p1 = 0.8 / (1 + exp(-clamp(p1_r + η, -2.0, 2.0))) + 0.1
             p2 = 0.8 / (1 + exp(-clamp(p2_r, -2.0, 2.0))) + 0.1
             Q = [-λ12 λ12;
-                  λ21 -λ21]
+                 λ21 -λ21]
             y ~ ContinuousTimeDiscreteStatesHMM(Q,
-                                                (Bernoulli(p1), Bernoulli(p2)),
-                                                Categorical([0.6, 0.4]),
-                                                dt)
+                (Bernoulli(p1), Bernoulli(p2)),
+                Categorical([0.6, 0.4]),
+                dt)
         end
     end
 
@@ -80,7 +80,7 @@ function _re_hmm_scalar_continuous_dm()
         y = [0, 1, 1, 0]
     )
 
-    return DataModel(model, df; primary_id=:ID, time_col=:t)
+    return DataModel(model, df; primary_id = :ID, time_col = :t)
 end
 
 function _re_hmm_mv_discrete_dm()
@@ -90,14 +90,14 @@ function _re_hmm_mv_discrete_dm()
         end
 
         @fixedEffects begin
-            p11_r = RealNumber(0.0, prior=Normal(0.0, 1.0))
-            p12_r = RealNumber(0.2, prior=Normal(0.0, 1.0))
-            p21_r = RealNumber(-0.2, prior=Normal(0.0, 1.0))
-            p22_r = RealNumber(0.3, prior=Normal(0.0, 1.0))
+            p11_r = RealNumber(0.0, prior = Normal(0.0, 1.0))
+            p12_r = RealNumber(0.2, prior = Normal(0.0, 1.0))
+            p21_r = RealNumber(-0.2, prior = Normal(0.0, 1.0))
+            p22_r = RealNumber(0.3, prior = Normal(0.0, 1.0))
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -119,18 +119,18 @@ function _re_hmm_mv_discrete_dm()
         y = Any[[0, 1], [1, 1], [1, 0], [0, 0]]
     )
 
-    return DataModel(model, df; primary_id=:ID, time_col=:t)
+    return DataModel(model, df; primary_id = :ID, time_col = :t)
 end
 
 function _re_hmm_mv_continuous_dm()
     model = @Model begin
         @fixedEffects begin
-            λ12_r = RealNumber(0.0, prior=Normal(0.0, 0.5))
-            λ21_r = RealNumber(-0.1, prior=Normal(0.0, 0.5))
-            p11_r = RealNumber(0.0, prior=Normal(0.0, 1.0))
-            p12_r = RealNumber(0.2, prior=Normal(0.0, 1.0))
-            p21_r = RealNumber(-0.2, prior=Normal(0.0, 1.0))
-            p22_r = RealNumber(0.3, prior=Normal(0.0, 1.0))
+            λ12_r = RealNumber(0.0, prior = Normal(0.0, 0.5))
+            λ21_r = RealNumber(-0.1, prior = Normal(0.0, 0.5))
+            p11_r = RealNumber(0.0, prior = Normal(0.0, 1.0))
+            p12_r = RealNumber(0.2, prior = Normal(0.0, 1.0))
+            p21_r = RealNumber(-0.2, prior = Normal(0.0, 1.0))
+            p22_r = RealNumber(0.3, prior = Normal(0.0, 1.0))
         end
 
         @covariates begin
@@ -139,7 +139,7 @@ function _re_hmm_mv_continuous_dm()
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -150,7 +150,7 @@ function _re_hmm_mv_continuous_dm()
             p21 = 0.8 / (1 + exp(-clamp(p21_r, -2.0, 2.0))) + 0.1
             p22 = 0.8 / (1 + exp(-clamp(p22_r, -2.0, 2.0))) + 0.1
             Q = [-λ12 λ12;
-                  λ21 -λ21]
+                 λ21 -λ21]
             e1 = (Bernoulli(p11), Bernoulli(p12))
             e2 = (Bernoulli(p21), Bernoulli(p22))
             y ~ MVContinuousTimeDiscreteStatesHMM(Q, (e1, e2), Categorical([0.6, 0.4]), dt)
@@ -164,11 +164,11 @@ function _re_hmm_mv_continuous_dm()
         y = Any[[0, 1], [1, 1], [1, 0], [0, 0]]
     )
 
-    return DataModel(model, df; primary_id=:ID, time_col=:t)
+    return DataModel(model, df; primary_id = :ID, time_col = :t)
 end
 
 function _assert_hmm_method_smoke(dm, method_name::Symbol, method)
-    res = fit_model(dm, method; rng=Random.Xoshiro(123), store_data_model=false)
+    res = fit_model(dm, method; rng = Random.Xoshiro(123), store_data_model = false)
     @test res isa FitResult
     if method_name === :MCMC
         @test NoLimits.get_chain(res) isa Chains
@@ -181,15 +181,24 @@ const _HMM_RE_SMOKE_MODELS = [
     ("scalar discrete", _re_hmm_scalar_discrete_dm),
     ("scalar continuous", _re_hmm_scalar_continuous_dm),
     ("mv discrete", _re_hmm_mv_discrete_dm),
-    ("mv continuous", _re_hmm_mv_continuous_dm),
+    ("mv continuous", _re_hmm_mv_continuous_dm)
 ]
 
 const _HMM_RE_SMOKE_METHODS = [
     # Reduced from 6 methods to 3: LaplaceMAP, VI, MCEM are each tested thoroughly
     # in their own dedicated files; this matrix only needs one representative per solver family.
-    (:Laplace, () -> NoLimits.Laplace(; optim_kwargs=(maxiters=2,), inner_kwargs=(maxiters=2,), multistart_n=2, multistart_k=2)),
-    (:MCMC, () -> NoLimits.MCMC(; sampler=MH(), turing_kwargs=(n_samples=2, n_adapt=2, progress=false))),
-    (:SAEM, () -> NoLimits.SAEM(; sampler=MH(), turing_kwargs=(n_samples=2, n_adapt=2, progress=false), mcmc_steps=1, q_store_max=2, maxiters=2, progress=false, builtin_stats=:auto)),
+    (:Laplace,
+        () -> NoLimits.Laplace(;
+            optim_kwargs = (maxiters = 2,), inner_kwargs = (maxiters = 2,),
+            multistart_n = 2, multistart_k = 2)),
+    (:MCMC,
+        () -> NoLimits.MCMC(;
+            sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false))),
+    (:SAEM,
+        () -> NoLimits.SAEM(;
+            sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
+            mcmc_steps = 1, q_store_max = 2, maxiters = 2,
+            progress = false, builtin_stats = :auto))
 ]
 
 for (model_name, dm_builder) in _HMM_RE_SMOKE_MODELS

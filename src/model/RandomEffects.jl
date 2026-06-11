@@ -40,7 +40,7 @@ constructing distributions and evaluating log-densities.
 
 Use accessor functions rather than accessing fields directly.
 """
-struct RandomEffects{B<:RandomEffectsBuilders}
+struct RandomEffects{B <: RandomEffectsBuilders}
     meta::RandomEffectsMeta
     builders::B
 end
@@ -145,7 +145,8 @@ function _re_componentize(fixed_effects)
     fixed_effects isa ComponentArray && return fixed_effects
     axs = _component_axes_from(fixed_effects)
     if axs !== nothing
-        _is_component_axes(axs) || error("RandomEffects expects ComponentArray-compatible fixed effects.")
+        _is_component_axes(axs) ||
+            error("RandomEffects expects ComponentArray-compatible fixed effects.")
         return ComponentArray(fixed_effects, axs...)
     end
     if fixed_effects isa AbstractArray
@@ -155,7 +156,8 @@ function _re_componentize(fixed_effects)
         elseif hasproperty(fixed_effects, :parent)
             parent = getproperty(fixed_effects, :parent)
             axs = axes(parent)
-            _is_component_axes(axs) || error("RandomEffects expects ComponentArray-compatible fixed effects.")
+            _is_component_axes(axs) ||
+                error("RandomEffects expects ComponentArray-compatible fixed effects.")
             return ComponentArray(fixed_effects, axs...)
         end
     end
@@ -163,7 +165,7 @@ function _re_componentize(fixed_effects)
 end
 
 struct RandomEffectDecl
-    dist
+    dist::Any
     column::Symbol
 end
 
@@ -282,17 +284,20 @@ function _re_parse_call_args(rhs::Expr, lhs::Symbol)
     for arg in rhs.args[2:end]
         if arg isa Expr && arg.head == :parameters
             for kw in arg.args
-                if !(kw isa Expr && (kw.head == :(kw) || kw.head == :(=)) && kw.args[1] isa Symbol)
+                if !(kw isa Expr && (kw.head == :(kw) || kw.head == :(=)) &&
+                     kw.args[1] isa Symbol)
                     error("Invalid keyword argument in RandomEffect for $(lhs). Use RandomEffect(dist; column=:group).")
                 end
                 key = kw.args[1]
-                haskey(kwargs, key) && error("Duplicate keyword $(key) in RandomEffect for $(lhs).")
+                haskey(kwargs, key) &&
+                    error("Duplicate keyword $(key) in RandomEffect for $(lhs).")
                 kwargs[key] = kw.args[2]
             end
         elseif arg isa Expr && arg.head == :kw
             key = arg.args[1]
             key isa Symbol || error("Invalid keyword argument in RandomEffect for $(lhs).")
-            haskey(kwargs, key) && error("Duplicate keyword $(key) in RandomEffect for $(lhs).")
+            haskey(kwargs, key) &&
+                error("Duplicate keyword $(key) in RandomEffect for $(lhs).")
             kwargs[key] = arg.args[2]
         else
             push!(positional, arg)
@@ -301,10 +306,12 @@ function _re_parse_call_args(rhs::Expr, lhs::Symbol)
 
     length(positional) == 1 ||
         error("RandomEffect for $(lhs) expects exactly one positional argument (the distribution). Use RandomEffect(dist; column=:group).")
-    haskey(kwargs, :column) || error("RandomEffect for $(lhs) requires keyword column=:group.")
+    haskey(kwargs, :column) ||
+        error("RandomEffect for $(lhs) requires keyword column=:group.")
 
     bad_keys = sort([k for k in keys(kwargs) if k != :column])
-    isempty(bad_keys) || error("Unsupported keyword(s) $(bad_keys) in RandomEffect for $(lhs). Allowed keywords: column.")
+    isempty(bad_keys) ||
+        error("Unsupported keyword(s) $(bad_keys) in RandomEffect for $(lhs). Allowed keywords: column.")
 
     column = kwargs[:column]
     if column isa QuoteNode
@@ -328,13 +335,16 @@ function _parse_random_effects(block::Expr)
         stmt.head == :(=) || error("Only assignments are allowed in @randomEffects block.")
         lhs, rhs = stmt.args
         lhs isa Symbol || error("Left-hand side must be a symbol in @randomEffects block.")
-        rhs isa Expr && rhs.head == :call || error("Right-hand side must be a RandomEffect(...) call.")
-        _re_ctor_name(rhs.args[1]) === :RandomEffect || error("Right-hand side must be a RandomEffect(...) call.")
+        rhs isa Expr && rhs.head == :call ||
+            error("Right-hand side must be a RandomEffect(...) call.")
+        _re_ctor_name(rhs.args[1]) === :RandomEffect ||
+            error("Right-hand side must be a RandomEffect(...) call.")
 
         dist, column = _re_parse_call_args(rhs, lhs)
 
         forbidden = _re_forbidden_symbol(dist)
-        forbidden === nothing || error("RandomEffect $(lhs) uses forbidden symbol $(forbidden).")
+        forbidden === nothing ||
+            error("RandomEffect $(lhs) uses forbidden symbol $(forbidden).")
 
         push!(re_names, lhs)
         push!(dist_exprs, dist)
@@ -344,7 +354,8 @@ function _parse_random_effects(block::Expr)
 end
 
 function _dist_type_symbol(dist_expr)
-    dist_expr isa Expr && dist_expr.head == :call && dist_expr.args[1] isa Symbol && return dist_expr.args[1]
+    dist_expr isa Expr && dist_expr.head == :call && dist_expr.args[1] isa Symbol &&
+        return dist_expr.args[1]
     return :unknown
 end
 
@@ -406,8 +417,13 @@ macro randomEffects(block)
         local_var = Set([s for s in local_var if Base.isidentifier(s)])
         skip_vars = Set([:Inf, :NaN, :nothing, :missing, :true, :false])
         local_var = Set([s for s in local_var if !(s in skip_vars)])
-        local_var = Set([s for s in local_var if !(isdefined(@__MODULE__, s) && getfield(@__MODULE__, s) isa Module)])
-        local_var = Set([s for s in local_var if !(isdefined(Base, s) && getfield(Base, s) isa Module)])
+        local_var = Set([s
+                         for s in local_var
+                         if !(isdefined(@__MODULE__, s) &&
+                              getfield(@__MODULE__, s) isa Module)])
+        local_var = Set([s
+                         for s in local_var
+                         if !(isdefined(Base, s) && getfield(Base, s) isa Module)])
 
         re_syms[i] = sort(collect(union(local_var, local_prop)))
     end
@@ -417,54 +433,61 @@ macro randomEffects(block)
     delete!(var_syms, :model_funs)
     delete!(var_syms, :helper_functions)
 
-    call_syms = Set([s for s in call_syms if !(isdefined(Base, s) || isdefined(Distributions, s) || isdefined(@__MODULE__, s))])
+    call_syms = Set([s
+                     for s in call_syms
+                     if !(isdefined(Base, s) || isdefined(Distributions, s) ||
+                          isdefined(@__MODULE__, s))])
     var_syms = Set([s for s in var_syms if Base.isidentifier(s)])
     # Keep symbols even if Base defines them (e.g., μ, σ), but skip a few literals.
     skip_vars = Set([:Inf, :NaN, :nothing, :missing, :true, :false])
     var_syms = Set([s for s in var_syms if !(s in skip_vars)])
-    var_syms = Set([s for s in var_syms if !(isdefined(@__MODULE__, s) && getfield(@__MODULE__, s) isa Module)])
-    var_syms = Set([s for s in var_syms if !(isdefined(Base, s) && getfield(Base, s) isa Module)])
+    var_syms = Set([s
+                    for s in var_syms
+                    if !(isdefined(@__MODULE__, s) && getfield(@__MODULE__, s) isa Module)])
+    var_syms = Set([s
+                    for s in var_syms
+                    if !(isdefined(Base, s) && getfield(Base, s) isa Module)])
 
     # `sym in prop_syms` is decidable at macro-expansion time — emit the chosen
     # branch directly. (The old code carried the membership test into the
     # generated function as `sym in Set([...])`, allocating a fresh Set on every
     # builder invocation — and the builder runs per RE level per log-density
     # evaluation in the estimation hot paths.)
-    binds_vars = [
-        if sym in prop_syms
-            quote
-                if hasproperty(constant_features_i, $(QuoteNode(sym)))
-                    $(sym) = getproperty(constant_features_i, $(QuoteNode(sym)))
-                end
-            end
-        else
-            quote
-                if hasproperty(constant_features_i, $(QuoteNode(sym)))
-                    $(sym) = getproperty(constant_features_i, $(QuoteNode(sym)))
-                elseif hasproperty(fixed_effects, $(QuoteNode(sym)))
-                    $(sym) = getproperty(fixed_effects, $(QuoteNode(sym)))
-                end
-            end
-        end for sym in var_syms
-    ]
+    binds_vars = [if sym in prop_syms
+                      quote
+                          if hasproperty(constant_features_i, $(QuoteNode(sym)))
+                              $(sym) = getproperty(constant_features_i, $(QuoteNode(sym)))
+                          end
+                      end
+                  else
+                      quote
+                          if hasproperty(constant_features_i, $(QuoteNode(sym)))
+                              $(sym) = getproperty(constant_features_i, $(QuoteNode(sym)))
+                          elseif hasproperty(fixed_effects, $(QuoteNode(sym)))
+                              $(sym) = getproperty(fixed_effects, $(QuoteNode(sym)))
+                          end
+                      end
+                  end
+                  for sym in var_syms]
 
-    binds_funs = [
-        quote
-            if hasproperty(model_funs, $(QuoteNode(sym)))
-                $(sym) = getproperty(model_funs, $(QuoteNode(sym)))
-            elseif hasproperty(helper_functions, $(QuoteNode(sym)))
-                $(sym) = getproperty(helper_functions, $(QuoteNode(sym)))
-            end
-        end for sym in call_syms
-    ]
+    binds_funs = [quote
+                      if hasproperty(model_funs, $(QuoteNode(sym)))
+                          $(sym) = getproperty(model_funs, $(QuoteNode(sym)))
+                      elseif hasproperty(helper_functions, $(QuoteNode(sym)))
+                          $(sym) = getproperty(helper_functions, $(QuoteNode(sym)))
+                      end
+                  end
+                  for sym in call_syms]
 
-    dist_assigns = [:( $(re_names[i]) = $(dist_exprs_rewritten[i]) ) for i in eachindex(re_names)]
-    ret_expr = Expr(:tuple, (Expr(:(=), re_names[i], re_names[i]) for i in eachindex(re_names))...)
+    dist_assigns = [:($(re_names[i]) = $(dist_exprs_rewritten[i]))
+                    for i in eachindex(re_names)]
+    ret_expr = Expr(
+        :tuple, (Expr(:(=), re_names[i], re_names[i]) for i in eachindex(re_names))...)
 
     func_expr = :(function (fixed_effects::ComponentArray,
-                            constant_features_i::NamedTuple,
-                            model_funs::NamedTuple,
-                            helper_functions::NamedTuple)
+            constant_features_i::NamedTuple,
+            model_funs::NamedTuple,
+            helper_functions::NamedTuple)
         $(binds_vars...)
         $(binds_funs...)
         $(dist_assigns...)
@@ -474,42 +497,49 @@ macro randomEffects(block)
     re_names_expr = Expr(:vect, QuoteNode.(re_names)...)
     groups_values = Expr(:tuple, (QuoteNode.(columns))...)
     type_values = Expr(:tuple, (QuoteNode.(_dist_type_symbol.(dist_exprs)))...)
-    re_syms_expr = Expr(:call, Expr(:curly, :NamedTuple, Expr(:tuple, QuoteNode.(re_names)...)),
-                        Expr(:tuple, [Expr(:vect, QuoteNode.(syms)...) for syms in re_syms]...))
+    re_syms_expr = Expr(
+        :call, Expr(:curly, :NamedTuple, Expr(:tuple, QuoteNode.(re_names)...)),
+        Expr(:tuple, [Expr(:vect, QuoteNode.(syms)...) for syms in re_syms]...))
     dist_expr_values = Expr(:tuple, (QuoteNode.(dist_exprs))...)
 
     return quote
-        create_dist = RuntimeGeneratedFunction(@__MODULE__, @__MODULE__, $(QuoteNode(func_expr)))
+        create_dist = RuntimeGeneratedFunction(
+            @__MODULE__, @__MODULE__, $(QuoteNode(func_expr)))
         function create_wrapper(fixed_effects::ComponentArray,
-                                constant_features_i::NamedTuple,
-                                model_funs::NamedTuple)
+                constant_features_i::NamedTuple,
+                model_funs::NamedTuple)
             return create_dist(fixed_effects, constant_features_i, model_funs, NamedTuple())
         end
         function create_wrapper(fixed_effects::AbstractArray,
-                                constant_features_i::NamedTuple,
-                                model_funs::NamedTuple)
-            return create_dist(_re_componentize(fixed_effects), constant_features_i, model_funs, NamedTuple())
+                constant_features_i::NamedTuple,
+                model_funs::NamedTuple)
+            return create_dist(_re_componentize(fixed_effects),
+                constant_features_i, model_funs, NamedTuple())
         end
         function create_wrapper(fixed_effects::ComponentArray,
-                                constant_features_i::NamedTuple,
-                                model_funs::NamedTuple,
-                                helper_functions::NamedTuple)
-            return create_dist(fixed_effects, constant_features_i, model_funs, helper_functions)
+                constant_features_i::NamedTuple,
+                model_funs::NamedTuple,
+                helper_functions::NamedTuple)
+            return create_dist(
+                fixed_effects, constant_features_i, model_funs, helper_functions)
         end
         function create_wrapper(fixed_effects::AbstractArray,
-                                constant_features_i::NamedTuple,
-                                model_funs::NamedTuple,
-                                helper_functions::NamedTuple)
-            return create_dist(_re_componentize(fixed_effects), constant_features_i, model_funs, helper_functions)
+                constant_features_i::NamedTuple,
+                model_funs::NamedTuple,
+                helper_functions::NamedTuple)
+            return create_dist(_re_componentize(fixed_effects),
+                constant_features_i, model_funs, helper_functions)
         end
         meta = RandomEffectsMeta($re_names_expr,
-                                 NamedTuple{($(QuoteNode.(re_names)...),)}($groups_values),
-                                 NamedTuple{($(QuoteNode.(re_names)...),)}($type_values),
-                                 $re_syms_expr,
-                                 NamedTuple{($(QuoteNode.(re_names)...),)}($dist_expr_values))
+            NamedTuple{($(QuoteNode.(re_names)...),)}($groups_values),
+            NamedTuple{($(QuoteNode.(re_names)...),)}($type_values),
+            $re_syms_expr,
+            NamedTuple{($(QuoteNode.(re_names)...),)}($dist_expr_values))
         logpdf_fn = function (dists, re_values)
             total = 0.0
-            $(Expr(:block, [:(total += logpdf(getproperty(dists, $(QuoteNode(n))), getproperty(re_values, $(QuoteNode(n))))) for n in re_names]...))
+            $(Expr(:block,
+                [:(total += logpdf(getproperty(dists, $(QuoteNode(n))),
+                     getproperty(re_values, $(QuoteNode(n))))) for n in re_names]...))
             total
         end
         builders = RandomEffectsBuilders(create_wrapper, logpdf_fn)

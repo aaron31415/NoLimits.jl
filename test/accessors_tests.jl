@@ -13,12 +13,13 @@ const NL = NoLimits
 
 @testset "Accessors: fixed-effects methods (MLE / MAP)" begin
     res_mle = fx_mle()
-    @test NL.get_params(res_mle; scale=:untransformed) isa ComponentArray
+    @test NL.get_params(res_mle; scale = :untransformed) isa ComponentArray
     @test NL.get_converged(res_mle) isa Bool
     @test_throws ErrorException NL.get_chain(res_mle)
 
     # Without a stored DataModel, get_loglikelihood must error.
-    res_nostore = fit_model(fx_nore_dm(), NL.MLE(; optim_kwargs=(maxiters=2,)); store_data_model=false)
+    res_nostore = fit_model(
+        fx_nore_dm(), NL.MLE(; optim_kwargs = (maxiters = 2,)); store_data_model = false)
     @test_throws ErrorException NL.get_loglikelihood(res_nostore)
 
     @test_throws ErrorException NL.get_chain(fx_map())
@@ -43,14 +44,15 @@ end
 
     # sample_random_effects returns n_samples × per-level rows, tagged by :sample.
     for (res, n, kw) in ((fx_laplace(), 5, ()),
-                         (fx_lmap(), 3, ()),
-                         (fx_mcem(), 4, (; n_adapt=2)),
-                         (fx_saem(), 3, (; n_adapt=2)))
+        (fx_lmap(), 3, ()),
+        (fx_mcem(), 4, (; n_adapt = 2)),
+        (fx_saem(), 3, (; n_adapt = 2)))
         base = nrow(NL.get_random_effects(res).η)
-        s = NL.sample_random_effects(res; n_samples=n, kw...)
+        s = NL.sample_random_effects(res; n_samples = n, kw...)
         @test !isempty(s)
         @test :sample in propertynames(s.η)
         @test nrow(s.η) == n * base
     end
-    @test sort(unique(NL.sample_random_effects(fx_laplace(); n_samples=5).η.sample)) == collect(1:5)
+    @test sort(unique(NL.sample_random_effects(fx_laplace(); n_samples = 5).η.sample)) ==
+          collect(1:5)
 end

@@ -38,8 +38,8 @@ struct FakeSol end
     obs = form_obs(ctx, sol_accessors, const_covariates_i, varying_covariates)
     all = form_all(ctx, sol_accessors, const_covariates_i, varying_covariates)
     @test obs.obs isa Normal
-    @test isapprox(mean(obs.obs), 6.0; rtol=1e-6, atol=1e-8)
-    @test isapprox(all.lin, 6.0; rtol=1e-6, atol=1e-8)
+    @test isapprox(mean(obs.obs), 6.0; rtol = 1e-6, atol = 1e-8)
+    @test isapprox(all.lin, 6.0; rtol = 1e-6, atol = 1e-8)
 end
 
 @testset "Formulas helpers and model_funs" begin
@@ -78,8 +78,8 @@ end
     obs = form_obs(ctx, sol_accessors, const_covariates_i, varying_covariates)
     all = form_all(ctx, sol_accessors, const_covariates_i, varying_covariates)
     @test obs.obs isa Normal
-    @test isapprox(mean(obs.obs), 6.0; rtol=1e-6, atol=1e-8)
-    @test isapprox(all.y, 6.0; rtol=1e-6, atol=1e-8)
+    @test isapprox(mean(obs.obs), 6.0; rtol = 1e-6, atol = 1e-8)
+    @test isapprox(all.y, 6.0; rtol = 1e-6, atol = 1e-8)
 end
 
 @testset "Formulas varying covariates" begin
@@ -111,8 +111,8 @@ end
     obs = form_obs(ctx, sol_accessors, const_covariates_i, varying_covariates)
     all = form_all(ctx, sol_accessors, const_covariates_i, varying_covariates)
     @test obs.obs isa Normal
-    @test isapprox(mean(obs.obs), 9.0; rtol=1e-6, atol=1e-8)
-    @test isapprox(all.z, 9.0; rtol=1e-6, atol=1e-8)
+    @test isapprox(mean(obs.obs), 9.0; rtol = 1e-6, atol = 1e-8)
+    @test isapprox(all.z, 9.0; rtol = 1e-6, atol = 1e-8)
 end
 
 @testset "Formulas with DE accessors" begin
@@ -146,8 +146,8 @@ end
     obs = form_obs(ctx, sol_accessors, const_covariates_i, varying_covariates)
     all = form_all(ctx, sol_accessors, const_covariates_i, varying_covariates)
     @test obs.obs isa Normal
-    @test isapprox(mean(obs.obs), 4.0; rtol=1e-6, atol=1e-8)
-    @test isapprox(all.y, 4.0; rtol=1e-6, atol=1e-8)
+    @test isapprox(mean(obs.obs), 4.0; rtol = 1e-6, atol = 1e-8)
+    @test isapprox(all.y, 4.0; rtol = 1e-6, atol = 1e-8)
 end
 
 @testset "Formulas multiple deterministics and observations" begin
@@ -180,10 +180,10 @@ end
     all = form_all(ctx, sol_accessors, const_covariates_i, varying_covariates)
     @test obs.y isa Normal
     @test obs.y2 isa Normal
-    @test isapprox(mean(obs.y), 10.0; rtol=1e-6, atol=1e-8)
-    @test isapprox(mean(obs.y2), 4.0; rtol=1e-6, atol=1e-8)
-    @test isapprox(all.d1, 4.0; rtol=1e-6, atol=1e-8)
-    @test isapprox(all.d2, 10.0; rtol=1e-6, atol=1e-8)
+    @test isapprox(mean(obs.y), 10.0; rtol = 1e-6, atol = 1e-8)
+    @test isapprox(mean(obs.y2), 4.0; rtol = 1e-6, atol = 1e-8)
+    @test isapprox(all.d1, 4.0; rtol = 1e-6, atol = 1e-8)
+    @test isapprox(all.d2, 10.0; rtol = 1e-6, atol = 1e-8)
 end
 
 @testset "Formulas mixed constant and varying covariates" begin
@@ -212,8 +212,8 @@ end
     obs = form_obs(ctx, sol_accessors, const_covariates_i, varying_covariates)
     all = form_all(ctx, sol_accessors, const_covariates_i, varying_covariates)
     @test obs.obs isa Normal
-    @test isapprox(mean(obs.obs), 10.0; rtol=1e-6, atol=1e-8)
-    @test isapprox(all.u, 10.0; rtol=1e-6, atol=1e-8)
+    @test isapprox(mean(obs.obs), 10.0; rtol = 1e-6, atol = 1e-8)
+    @test isapprox(all.u, 10.0; rtol = 1e-6, atol = 1e-8)
 end
 
 @testset "Formulas helpers, model_funs, and random effects" begin
@@ -250,8 +250,8 @@ end
     obs = form_obs(ctx, sol_accessors, const_covariates_i, varying_covariates)
     all = form_all(ctx, sol_accessors, const_covariates_i, varying_covariates)
     @test obs.obs isa Normal
-    @test isapprox(mean(obs.obs), 7.25; rtol=1e-6, atol=1e-8)
-    @test isapprox(all.y, 7.25; rtol=1e-6, atol=1e-8)
+    @test isapprox(mean(obs.obs), 7.25; rtol = 1e-6, atol = 1e-8)
+    @test isapprox(all.y, 7.25; rtol = 1e-6, atol = 1e-8)
 end
 
 @testset "Formulas with DE accessors and covariates" begin
@@ -285,15 +285,15 @@ end
     obs = form_obs(ctx, sol_accessors, const_covariates_i, varying_covariates)
     all = form_all(ctx, sol_accessors, const_covariates_i, varying_covariates)
     @test obs.obs isa Normal
-    @test isapprox(mean(obs.obs), 9.0; rtol=1e-6, atol=1e-8)
-    @test isapprox(all.y, 9.0; rtol=1e-6, atol=1e-8)
+    @test isapprox(mean(obs.obs), 9.0; rtol = 1e-6, atol = 1e-8)
+    @test isapprox(all.y, 9.0; rtol = 1e-6, atol = 1e-8)
 end
 
 @testset "Formulas with HMM outcome" begin
     formulas = @formulas begin
         outcome_1_current ~ ContinuousTimeDiscreteStatesHMM(
-            [-λ12  λ12;
-              λ21 -λ21],
+            [-λ12 λ12;
+             λ21 -λ21],
             (Bernoulli(p1), Bernoulli(p2)),
             Categorical([0.6, 0.4]),
             delta_t

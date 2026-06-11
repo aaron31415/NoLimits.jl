@@ -8,7 +8,7 @@ using Distributions
         @fixedEffects begin
             a = RealNumber(0.1)
             b = RealNumber(0.2)
-            σ = RealNumber(0.3, scale=:log)
+            σ = RealNumber(0.3, scale = :log)
         end
 
         @covariates begin
@@ -18,9 +18,9 @@ using Distributions
         end
 
         @randomEffects begin
-            η0 = RandomEffect(Normal(0.0, 0.5); column=:ID)
-            ηA = RandomEffect(Normal(b * age, 0.5); column=:ID)
-            ηt = RandomEffect(Normal(age2, 0.5); column=:ID)
+            η0 = RandomEffect(Normal(0.0, 0.5); column = :ID)
+            ηA = RandomEffect(Normal(b * age, 0.5); column = :ID)
+            ηt = RandomEffect(Normal(age2, 0.5); column = :ID)
         end
 
         @formulas begin
@@ -36,8 +36,8 @@ using Distributions
         y = [0.1, 0.2, 0.0, 0.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t);
-    res = fit_model(dm, NoLimits.Laplace(; optim_kwargs=(maxiters=2,)));
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    res = fit_model(dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
 
     usage_dm = get_re_covariate_usage(dm)
     @test usage_dm.η0 == Symbol[]

@@ -81,22 +81,23 @@ struct MultistartFitResult{M, R, RE, S, E, B}
     scores_ok::B
 end
 
-function Multistart(; dists=NamedTuple(),
-                    n_draws_requested::Int=100,
-                    n_draws_used::Int=50,
-                    sampling::Symbol=:random,
-                    serialization::SciMLBase.EnsembleAlgorithm=EnsembleThreads(),
-                    rng::AbstractRNG=Xoshiro(0),
-                    progress::Bool=true,
-                    screening::Symbol=:prior_mean,
-                    ebe_maxiters::Int=30)
+function Multistart(; dists = NamedTuple(),
+        n_draws_requested::Int = 100,
+        n_draws_used::Int = 50,
+        sampling::Symbol = :random,
+        serialization::SciMLBase.EnsembleAlgorithm = EnsembleThreads(),
+        rng::AbstractRNG = Xoshiro(0),
+        progress::Bool = true,
+        screening::Symbol = :prior_mean,
+        ebe_maxiters::Int = 30)
     n_draws_requested < 0 && error("n_draws_requested must be ≥ 0.")
     n_draws_used < 1 && error("n_draws_used must be ≥ 1.")
     (sampling == :random || sampling == :lhs) || error("sampling must be :random or :lhs.")
-    (screening == :prior_mean || screening == :ebe) || error("screening must be :prior_mean or :ebe.")
+    (screening == :prior_mean || screening == :ebe) ||
+        error("screening must be :prior_mean or :ebe.")
     ebe_maxiters < 1 && error("ebe_maxiters must be ≥ 1.")
     return Multistart(dists, n_draws_requested, n_draws_used, sampling, serialization, rng,
-                      progress, screening, ebe_maxiters)
+        progress, screening, ebe_maxiters)
 end
 
 function _lhs_unit(n::Int, rng::AbstractRNG)
@@ -159,10 +160,12 @@ function _check_bounds(name::Symbol, v, lower, upper)
         return
     end
     bad = findall((v .< lower) .| (v .> upper))
-    isempty(bad) || error("Multistart sampling for $(name) violates bounds at indices $(bad). Use a truncated distribution for sampling.")
+    isempty(bad) ||
+        error("Multistart sampling for $(name) violates bounds at indices $(bad). Use a truncated distribution for sampling.")
 end
 
-function _sample_param(name::Symbol, value, dist, n::Int, sampling::Symbol, rng::AbstractRNG)
+function _sample_param(
+        name::Symbol, value, dist, n::Int, sampling::Symbol, rng::AbstractRNG)
     function _fix_matrix(v)
         if v isa AbstractMatrix && size(v, 1) == size(v, 2)
             v = 0.5 .* (v .+ transpose(v))
@@ -311,21 +314,24 @@ function _build_mean_eta(dm::DataModel, θu::ComponentArray)
     re_cache = dm.re_group_info.laplace_cache
     (re_cache === nothing || isempty(re_cache.re_names)) && return ComponentArray()
     dists_builder = get_create_random_effect_distribution(dm.model.random.random)
-    model_funs    = get_model_funs(dm.model)
-    helpers       = get_helper_funs(dm.model)
-    n             = length(dm.individuals)
-    etas          = Vector{ComponentArray}(undef, n)
+    model_funs = get_model_funs(dm.model)
+    helpers = get_helper_funs(dm.model)
+    n = length(dm.individuals)
+    etas = Vector{ComponentArray}(undef, n)
     for i in 1:n
         const_cov = dm.individuals[i].const_cov
-        dists     = dists_builder(θu, const_cov, model_funs, helpers)
-        pairs     = Pair{Symbol, Any}[]
+        dists = dists_builder(θu, const_cov, model_funs, helpers)
+        pairs = Pair{Symbol, Any}[]
         for (ri, re) in enumerate(re_cache.re_names)
-            dim       = re_cache.dims[ri]
+            dim = re_cache.dims[ri]
             is_scalar = re_cache.is_scalar[ri]
-            dist      = getproperty(dists, re)
+            dist = getproperty(dists, re)
             val = if is_scalar || dim == 1
                 v = 0.0
-                try; v = Float64(mean(dist)); catch; end
+                try
+                    v = Float64(mean(dist))
+                catch
+                end
                 v
             else
                 v = zeros(dim)
@@ -348,31 +354,34 @@ end
 # Compute per-individual EBEs by maximising the joint log-density (obs ll + RE prior)
 # for each candidate θu.  Returns (etas, joint_score) where joint_score is the total
 # joint log-density at the EBEs (used as the screening score).
-function _build_ebe_eta(dm::DataModel, θu::ComponentArray, ll_cache; maxiters::Int=30)
+function _build_ebe_eta(dm::DataModel, θu::ComponentArray, ll_cache; maxiters::Int = 30)
     re_cache = dm.re_group_info.laplace_cache
     (re_cache === nothing || isempty(re_cache.re_names)) && return (ComponentArray(), 0.0)
-    dists_builder   = get_create_random_effect_distribution(dm.model.random.random)
-    re_logpdf_fn    = get_re_logpdf(dm.model.random.random)
-    model_funs      = get_model_funs(dm.model)
-    helpers         = get_helper_funs(dm.model)
-    re_names        = re_cache.re_names
-    re_names_tuple  = Tuple(re_names)
-    optimizer       = OptimizationOptimJL.LBFGS(linesearch=LineSearches.BackTracking(maxstep=1.0))
-    n               = length(dm.individuals)
-    etas            = Vector{ComponentArray}(undef, n)
-    joint_score     = 0.0
+    dists_builder = get_create_random_effect_distribution(dm.model.random.random)
+    re_logpdf_fn = get_re_logpdf(dm.model.random.random)
+    model_funs = get_model_funs(dm.model)
+    helpers = get_helper_funs(dm.model)
+    re_names = re_cache.re_names
+    re_names_tuple = Tuple(re_names)
+    optimizer = OptimizationOptimJL.LBFGS(linesearch = LineSearches.BackTracking(maxstep = 1.0))
+    n = length(dm.individuals)
+    etas = Vector{ComponentArray}(undef, n)
+    joint_score = 0.0
     for i in 1:n
         const_cov = dm.individuals[i].const_cov
-        dists     = dists_builder(θu, const_cov, model_funs, helpers)
+        dists = dists_builder(θu, const_cov, model_funs, helpers)
         # Build prior mean as starting point
         pairs = Pair{Symbol, Any}[]
         for (ri, re) in enumerate(re_names)
-            dim       = re_cache.dims[ri]
+            dim = re_cache.dims[ri]
             is_scalar = re_cache.is_scalar[ri]
-            dist      = getproperty(dists, re)
+            dist = getproperty(dists, re)
             val = if is_scalar || dim == 1
                 v = 0.0
-                try; v = Float64(mean(dist)); catch; end
+                try
+                    v = Float64(mean(dist))
+                catch
+                end
                 v
             else
                 v = zeros(dim)
@@ -387,20 +396,21 @@ function _build_ebe_eta(dm::DataModel, θu::ComponentArray, ll_cache; maxiters::
             end
             push!(pairs, re => val)
         end
-        η0_i    = ComponentArray(NamedTuple(pairs))
-        axs     = getaxes(η0_i)
+        η0_i = ComponentArray(NamedTuple(pairs))
+        axs = getaxes(η0_i)
         η0_flat = Vector(η0_i)
         if isempty(η0_flat)
             etas[i] = η0_i
             continue
         end
         # Closure: negative joint log-density to minimise
-        neg_logf = let dm=dm, i=i, θu=θu, ll_cache=ll_cache,
-                       axs=axs, dists=dists, re_logpdf_fn=re_logpdf_fn,
-                       re_names=re_names, re_names_tuple=re_names_tuple
+        neg_logf = let dm = dm, i = i, θu = θu, ll_cache = ll_cache,
+            axs = axs, dists = dists, re_logpdf_fn = re_logpdf_fn,
+            re_names = re_names, re_names_tuple = re_names_tuple
+
             (η_flat, _) -> begin
-                η_i  = ComponentArray(η_flat, axs)
-                ll   = _loglikelihood_individual(dm, i, θu, η_i, ll_cache)
+                η_i = ComponentArray(η_flat, axs)
+                ll = _loglikelihood_individual(dm, i, θu, η_i, ll_cache)
                 !isfinite(ll) && return eltype(η_flat)(Inf)
                 re_v = NamedTuple{re_names_tuple}(
                     Tuple([getproperty(η_i, re) for re in re_names]))
@@ -413,13 +423,13 @@ function _build_ebe_eta(dm::DataModel, θu::ComponentArray, ll_cache; maxiters::
             prob = OptimizationProblem(
                 OptimizationFunction(neg_logf, Optimization.AutoForwardDiff()),
                 η0_flat)
-            sol        = solve(prob, optimizer; maxiters=maxiters)
-            etas[i]    = ComponentArray(sol.u, axs)
-            f_sol      = sol.objective  # = -(joint log-density at EBE)
+            sol = solve(prob, optimizer; maxiters = maxiters)
+            etas[i] = ComponentArray(sol.u, axs)
+            f_sol = sol.objective  # = -(joint log-density at EBE)
             joint_score += isfinite(f_sol) ? -f_sol : -Inf
         catch
-            etas[i]    = η0_i
-            f0         = neg_logf(η0_flat, nothing)
+            etas[i] = η0_i
+            f0 = neg_logf(η0_flat, nothing)
             joint_score += isfinite(f0) ? -f0 : 0.0
         end
         !isfinite(joint_score) && break
@@ -428,27 +438,29 @@ function _build_ebe_eta(dm::DataModel, θu::ComponentArray, ll_cache; maxiters::
 end
 
 function _multistart_screen(dm::DataModel,
-                            candidates::Vector{ComponentArray},
-                            n_used::Int,
-                            ode_args::Tuple,
-                            ode_kwargs::NamedTuple,
-                            serialization::SciMLBase.EnsembleAlgorithm,
-                            screening::Symbol,
-                            ebe_maxiters::Int;
-                            progress::Bool=true)
+        candidates::Vector{ComponentArray},
+        n_used::Int,
+        ode_args::Tuple,
+        ode_kwargs::NamedTuple,
+        serialization::SciMLBase.EnsembleAlgorithm,
+        screening::Symbol,
+        ebe_maxiters::Int;
+        progress::Bool = true)
     # EBE inner optimisation is serial per individual; use EnsembleSerial for that path.
     cache_serialization = screening == :ebe ? EnsembleSerial() : serialization
-    cache = build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs,
-                           serialization=cache_serialization, force_saveat=true)
+    cache = build_ll_cache(dm; ode_args = ode_args, ode_kwargs = ode_kwargs,
+        serialization = cache_serialization, force_saveat = true)
     scores = Vector{Float64}(undef, length(candidates))
-    screen_p = progress ? Progress(length(candidates); desc="Multistart screening: ", showspeed=true) : nothing
+    screen_p = progress ?
+               Progress(
+        length(candidates); desc = "Multistart screening: ", showspeed = true) : nothing
     for (i, θu) in enumerate(candidates)
         if screening == :ebe
-            etas, joint_score = _build_ebe_eta(dm, θu, cache; maxiters=ebe_maxiters)
+            etas, joint_score = _build_ebe_eta(dm, θu, cache; maxiters = ebe_maxiters)
             scores[i] = isfinite(joint_score) ? -joint_score : Inf
         else
             η0 = _build_mean_eta(dm, θu)
-            ll = loglikelihood(dm, θu, η0; cache=cache, serialization=serialization)
+            ll = loglikelihood(dm, θu, η0; cache = cache, serialization = serialization)
             scores[i] = isfinite(ll) ? -ll : Inf
         end
         progress && next!(screen_p)
@@ -532,25 +544,25 @@ function fit_model(ms::Multistart, dm::DataModel, method::FittingMethod, args...
     kw_nt = NamedTuple(kwargs)
     if haskey(kw_nt, :theta_0_untransformed)
         @warn "theta_0_untransformed ignored in multistart; use Multistart sampling to control starts."
-        kw_nt = Base.structdiff(kw_nt, (theta_0_untransformed=nothing,))
+        kw_nt = Base.structdiff(kw_nt, (theta_0_untransformed = nothing,))
     end
 
-    progress         = ms.progress
-    ode_args         = get(kw_nt, :ode_args,       ())
-    ode_kwargs_inner = get(kw_nt, :ode_kwargs,      NamedTuple())
-    serialization    = get(kw_nt, :serialization,   EnsembleThreads())
+    progress = ms.progress
+    ode_args = get(kw_nt, :ode_args, ())
+    ode_kwargs_inner = get(kw_nt, :ode_kwargs, NamedTuple())
+    serialization = get(kw_nt, :serialization, EnsembleThreads())
 
     all_starts = _multistart_initials(dm, ms)
-    n_req  = length(all_starts)
+    n_req = length(all_starts)
     n_used = min(ms.n_draws_used, n_req)
     varied = collect(keys(_collect_param_dists(dm, ms)))
     varied_str = isempty(varied) ? "none" : join(string.(varied), ", ")
 
     if n_req > n_used
         starts, screen_scores = _multistart_screen(dm, all_starts, n_used, ode_args,
-                                                    ode_kwargs_inner, serialization,
-                                                    ms.screening, ms.ebe_maxiters;
-                                                    progress=progress)
+            ode_kwargs_inner, serialization,
+            ms.screening, ms.ebe_maxiters;
+            progress = progress)
         finite_scores = filter(isfinite, screen_scores)
         if isempty(finite_scores)
             if ms.screening == :ebe
@@ -571,15 +583,17 @@ function fit_model(ms::Multistart, dm::DataModel, method::FittingMethod, args...
     results = Vector{Union{FitResult, Nothing}}(undef, n_starts)
     errors = Vector{Any}(undef, n_starts)
     rngs = [Random.Xoshiro(rand(ms.rng, UInt)) for _ in 1:n_starts]
-    fit_p = progress ? Progress(n_starts; desc="Multistart fitting:  ", showspeed=true) : nothing
+    fit_p = progress ?
+            Progress(n_starts; desc = "Multistart fitting:  ", showspeed = true) : nothing
 
     function run_one(i)
         try
             local_kwargs = kw_nt
             if !haskey(kw_nt, :rng)
-                local_kwargs = merge(kw_nt, (rng=rngs[i],))
+                local_kwargs = merge(kw_nt, (rng = rngs[i],))
             end
-            results[i] = fit_model(dm, method, args...; theta_0_untransformed=starts[i], local_kwargs...)
+            results[i] = fit_model(
+                dm, method, args...; theta_0_untransformed = starts[i], local_kwargs...)
         catch err
             errors[i] = err
             results[i] = nothing
@@ -615,9 +629,11 @@ function fit_model(ms::Multistart, dm::DataModel, method::FittingMethod, args...
             push!(scores_ok, _multistart_score(res))
         end
     end
-    isempty(results_ok) && error("All multistart runs failed. First error: $(errors_err[1])")
+    isempty(results_ok) &&
+        error("All multistart runs failed. First error: $(errors_err[1])")
     best_idx = findmin(scores_ok)[2]
-    return MultistartFitResult(method, results_ok, results_err, starts_ok, starts_err, errors_err, best_idx, scores_ok)
+    return MultistartFitResult(method, results_ok, results_err, starts_ok,
+        starts_err, errors_err, best_idx, scores_ok)
 end
 
 get_summary(res::MultistartFitResult) = get_summary(get_multistart_best(res))

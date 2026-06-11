@@ -11,7 +11,7 @@ using DataInterpolations
 
     b = bspline_basis(0.25, knots, degree)
     @test length(b) == length(coeffs)
-    @test isapprox(sum(b), 1.0; rtol=1e-8, atol=1e-10)
+    @test isapprox(sum(b), 1.0; rtol = 1e-8, atol = 1e-10)
 
     y = bspline_eval(0.25, coeffs, knots, degree)
     @test y isa Number
@@ -27,10 +27,10 @@ using DataInterpolations
 end
 
 @testset "DynamicCovariate interpolation validation" begin
-    @test_throws ErrorException DynamicCovariate(:w; interpolation=BSplineInterpolation)
-    @test_throws ErrorException DynamicCovariate(:w; interpolation=BSplineApprox)
-    @test_throws ErrorException DynamicCovariate(:w; interpolation=CubicHermiteSpline)
-    @test_throws ErrorException DynamicCovariate(:w; interpolation=QuinticHermiteSpline)
+    @test_throws ErrorException DynamicCovariate(:w; interpolation = BSplineInterpolation)
+    @test_throws ErrorException DynamicCovariate(:w; interpolation = BSplineApprox)
+    @test_throws ErrorException DynamicCovariate(:w; interpolation = CubicHermiteSpline)
+    @test_throws ErrorException DynamicCovariate(:w; interpolation = QuinticHermiteSpline)
 end
 
 @testset "DynamicCovariate interpolation min obs" begin
@@ -42,11 +42,11 @@ end
 
         @covariates begin
             t = Covariate()
-            w = DynamicCovariate(; interpolation=LinearInterpolation)
+            w = DynamicCovariate(; interpolation = LinearInterpolation)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -54,8 +54,8 @@ end
         end
     end
 
-    df1 = DataFrame(ID=[1], t=[0.0], w=[1.0], y=[1.0])
-    @test_throws ErrorException DataModel(model, df1; primary_id=:ID, time_col=:t)
+    df1 = DataFrame(ID = [1], t = [0.0], w = [1.0], y = [1.0])
+    @test_throws ErrorException DataModel(model, df1; primary_id = :ID, time_col = :t)
 
     model2 = @Model begin
         @fixedEffects begin
@@ -65,11 +65,11 @@ end
 
         @covariates begin
             t = Covariate()
-            w = DynamicCovariate(; interpolation=QuadraticSpline)
+            w = DynamicCovariate(; interpolation = QuadraticSpline)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -77,8 +77,8 @@ end
         end
     end
 
-    df2 = DataFrame(ID=[1, 1], t=[0.0, 1.0], w=[1.0, 1.2], y=[1.0, 1.1])
-    @test_throws ErrorException DataModel(model2, df2; primary_id=:ID, time_col=:t)
+    df2 = DataFrame(ID = [1, 1], t = [0.0, 1.0], w = [1.0, 1.2], y = [1.0, 1.1])
+    @test_throws ErrorException DataModel(model2, df2; primary_id = :ID, time_col = :t)
 end
 
 @testset "DynamicCovariate interpolation min obs (per type)" begin
@@ -91,11 +91,11 @@ end
 
             @covariates begin
                 t = Covariate()
-                w = DynamicCovariate(; interpolation=itp)
+                w = DynamicCovariate(; interpolation = itp)
             end
 
             @randomEffects begin
-                η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+                η = RandomEffect(Normal(0.0, 1.0); column = :ID)
             end
 
             @formulas begin
@@ -104,17 +104,20 @@ end
         end
     end
 
-    df_one = DataFrame(ID=[1], t=[0.0], w=[1.0], y=[1.0])
-    df_two = DataFrame(ID=[1, 1], t=[0.0, 1.0], w=[1.0, 1.2], y=[1.0, 1.1])
+    df_one = DataFrame(ID = [1], t = [0.0], w = [1.0], y = [1.0])
+    df_two = DataFrame(ID = [1, 1], t = [0.0, 1.0], w = [1.0, 1.2], y = [1.0, 1.1])
 
-    for itp in (SmoothedConstantInterpolation, LinearInterpolation, LagrangeInterpolation, AkimaInterpolation)
+    for itp in (SmoothedConstantInterpolation, LinearInterpolation,
+        LagrangeInterpolation, AkimaInterpolation)
         model_itp = _model_with_interp(itp)
-        @test_throws ErrorException DataModel(model_itp, df_one; primary_id=:ID, time_col=:t)
+        @test_throws ErrorException DataModel(
+            model_itp, df_one; primary_id = :ID, time_col = :t)
     end
 
     for itp in (QuadraticInterpolation, QuadraticSpline, CubicSpline)
         model_itp = _model_with_interp(itp)
-        @test_throws ErrorException DataModel(model_itp, df_two; primary_id=:ID, time_col=:t)
+        @test_throws ErrorException DataModel(
+            model_itp, df_two; primary_id = :ID, time_col = :t)
     end
 end
 
@@ -127,11 +130,11 @@ end
 
         @covariates begin
             t = Covariate()
-            w = DynamicCovariate(; interpolation=LinearInterpolation)
+            w = DynamicCovariate(; interpolation = LinearInterpolation)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -139,8 +142,8 @@ end
         end
     end
 
-    df_bad = DataFrame(ID=[1, 1], t=[1.0, 0.0], w=[1.0, 1.2], y=[1.0, 1.1])
-    @test_throws ErrorException DataModel(model, df_bad; primary_id=:ID, time_col=:t)
+    df_bad = DataFrame(ID = [1, 1], t = [1.0, 0.0], w = [1.0, 1.2], y = [1.0, 1.1])
+    @test_throws ErrorException DataModel(model, df_bad; primary_id = :ID, time_col = :t)
 end
 
 @testset "DynamicCovariate LagrangeInterpolation DataModel" begin
@@ -152,11 +155,11 @@ end
 
         @covariates begin
             t = Covariate()
-            w = DynamicCovariate(; interpolation=LagrangeInterpolation)
+            w = DynamicCovariate(; interpolation = LagrangeInterpolation)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -171,7 +174,7 @@ end
         y = [1.0, 1.1]
     )
 
-    dm = DataModel(model, df_ok; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df_ok; primary_id = :ID, time_col = :t)
     @test length(get_individuals(dm)) == 1
 end
 
@@ -184,7 +187,7 @@ end
 
         @covariates begin
             t = Covariate()
-            w = DynamicCovariate(; interpolation=LagrangeInterpolation)
+            w = DynamicCovariate(; interpolation = LagrangeInterpolation)
         end
 
         @formulas begin
@@ -199,5 +202,5 @@ end
         y = [1.0]
     )
 
-    @test_throws ErrorException DataModel(model, df_bad; primary_id=:ID, time_col=:t)
+    @test_throws ErrorException DataModel(model, df_bad; primary_id = :ID, time_col = :t)
 end

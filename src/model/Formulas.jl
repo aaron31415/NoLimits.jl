@@ -30,14 +30,17 @@ struct FormulasIR
     lines::Vector{Expr}
 end
 
-FormulasIR(det_names::Vector{Symbol},
-           det_exprs::Vector{Expr},
-           obs_names::Vector{Symbol},
-           obs_exprs::Vector{Expr},
-           call_heads::Vector{Symbol},
-           var_syms::Vector{Symbol},
-           prop_syms::Vector{Symbol},
-           time_call_syms::Vector{Symbol}) = FormulasIR(det_names, det_exprs, obs_names, obs_exprs, call_heads, var_syms, prop_syms, time_call_syms, Expr[])
+function FormulasIR(det_names::Vector{Symbol},
+        det_exprs::Vector{Expr},
+        obs_names::Vector{Symbol},
+        obs_exprs::Vector{Expr},
+        call_heads::Vector{Symbol},
+        var_syms::Vector{Symbol},
+        prop_syms::Vector{Symbol},
+        time_call_syms::Vector{Symbol})
+    FormulasIR(det_names, det_exprs, obs_names, obs_exprs, call_heads,
+        var_syms, prop_syms, time_call_syms, Expr[])
+end
 
 """
     Formulas
@@ -116,7 +119,8 @@ function _extract_time_offset(arg)
     return nothing
 end
 
-function _collect_time_offsets(ex, name_set::Set{Symbol}, offsets::Vector{Float64}, requires_dense::Base.RefValue{Bool})
+function _collect_time_offsets(ex, name_set::Set{Symbol}, offsets::Vector{Float64},
+        requires_dense::Base.RefValue{Bool})
     ex isa Expr || return
     if ex.head == :call
         f = ex.args[1]
@@ -150,7 +154,8 @@ Scan the formula expressions for state/signal calls with constant time offsets
 - `state_names::Vector{Symbol}`: ODE state names.
 - `signal_names::Vector{Symbol}`: derived signal names.
 """
-function get_formulas_time_offsets(f::Formulas, state_names::Vector{Symbol}, signal_names::Vector{Symbol})
+function get_formulas_time_offsets(
+        f::Formulas, state_names::Vector{Symbol}, signal_names::Vector{Symbol})
     name_set = Set(vcat(state_names, signal_names))
     isempty(name_set) && return (Float64[], false)
     offsets = Float64[]
@@ -246,7 +251,7 @@ function _formulas_state_used_bare(ex, state::Symbol)
 end
 
 function _formulas_replace_state_calls(ex, state_syms::Set{Symbol},
-                                        vc_time_syms::Set{Symbol} = Set{Symbol}())
+        vc_time_syms::Set{Symbol} = Set{Symbol}())
     ex isa Expr || return ex
     if ex.head == :call
         f = ex.args[1]
@@ -257,13 +262,16 @@ function _formulas_replace_state_calls(ex, state_syms::Set{Symbol},
             end
         end
     end
-    return Expr(ex.head, map(arg -> _formulas_replace_state_calls(arg, state_syms, vc_time_syms), ex.args)...)
+    return Expr(ex.head,
+        map(arg -> _formulas_replace_state_calls(arg, state_syms, vc_time_syms),
+            ex.args)...)
 end
 
 # Scan for S(vc) calls where S is a state/signal and vc is a varying covariate.
 # Populates `found_states` with state/signal names and `found_vc` with the vc symbols.
-function _formulas_collect_vc_state_calls!(ex, state_syms::Set{Symbol}, vc_syms::Set{Symbol},
-                                           found_states::Set{Symbol}, found_vc::Set{Symbol})
+function _formulas_collect_vc_state_calls!(
+        ex, state_syms::Set{Symbol}, vc_syms::Set{Symbol},
+        found_states::Set{Symbol}, found_vc::Set{Symbol})
     ex isa Expr || return
     if ex.head == :call
         f = ex.args[1]
@@ -303,14 +311,19 @@ function _formulas_rewrite_calls(ex, helper_syms::Set{Symbol}, model_fun_syms::S
         f = ex.args[1]
         if f isa Symbol && f in helper_syms
             return Expr(:call, Expr(:., :helpers, QuoteNode(f)),
-                        map(arg -> _formulas_rewrite_calls(arg, helper_syms, model_fun_syms), ex.args[2:end])...)
+                map(arg -> _formulas_rewrite_calls(arg, helper_syms, model_fun_syms),
+                    ex.args[2:end])...)
         elseif f isa Symbol && f in model_fun_syms
             return Expr(:call, Expr(:., :model_funs, QuoteNode(f)),
-                        map(arg -> _formulas_rewrite_calls(arg, helper_syms, model_fun_syms), ex.args[2:end])...)
+                map(arg -> _formulas_rewrite_calls(arg, helper_syms, model_fun_syms),
+                    ex.args[2:end])...)
         end
-        return Expr(:call, map(arg -> _formulas_rewrite_calls(arg, helper_syms, model_fun_syms), ex.args)...)
+        return Expr(:call,
+            map(arg -> _formulas_rewrite_calls(arg, helper_syms, model_fun_syms),
+                ex.args)...)
     end
-    return Expr(ex.head, map(arg -> _formulas_rewrite_calls(arg, helper_syms, model_fun_syms), ex.args)...)
+    return Expr(ex.head,
+        map(arg -> _formulas_rewrite_calls(arg, helper_syms, model_fun_syms), ex.args)...)
 end
 
 function _parse_formulas(block::Expr)
@@ -332,8 +345,10 @@ function _parse_formulas(block::Expr)
             lhs isa Symbol || error("Left-hand side must be a symbol in @formulas block.")
             lhs == :t && error("Left-hand side cannot be t in @formulas block.")
             lhs == :ξ && error("Left-hand side cannot be ξ in @formulas block.")
-            lhs in det_set && error("Duplicate deterministic name $(lhs) in @formulas block.")
-            lhs in obs_set && error("Name $(lhs) is already used for an observation in @formulas block.")
+            lhs in det_set &&
+                error("Duplicate deterministic name $(lhs) in @formulas block.")
+            lhs in obs_set &&
+                error("Name $(lhs) is already used for an observation in @formulas block.")
             push!(det_names, lhs)
             push!(det_exprs, rhs)
             push!(det_set, lhs)
@@ -344,7 +359,8 @@ function _parse_formulas(block::Expr)
             lhs == :t && error("Left-hand side cannot be t in @formulas block.")
             lhs == :ξ && error("Left-hand side cannot be ξ in @formulas block.")
             lhs in obs_set && error("Duplicate observation name $(lhs) in @formulas block.")
-            lhs in det_set && error("Name $(lhs) is already used for a deterministic in @formulas block.")
+            lhs in det_set &&
+                error("Name $(lhs) is already used for a deterministic in @formulas block.")
             push!(obs_names, lhs)
             push!(obs_exprs, rhs)
             push!(obs_set, lhs)
@@ -358,17 +374,17 @@ function _parse_formulas(block::Expr)
 end
 
 function _formulas_build_formulas_expr(ir::FormulasIR,
-                                       fixed_names::Vector{Symbol},
-                                       re_names::Vector{Symbol},
-                                       prede_names::Vector{Symbol},
-                                       const_cov_names::Vector{Symbol},
-                                       varying_cov_names::Vector{Symbol},
-                                       helper_names::Vector{Symbol},
-                                       model_fun_names::Vector{Symbol},
-                                       state_names::Vector{Symbol},
-                                       signal_names::Vector{Symbol},
-                                       index_sym::Symbol,
-                                       collect_fixed_names::Vector{Symbol} = Symbol[])
+        fixed_names::Vector{Symbol},
+        re_names::Vector{Symbol},
+        prede_names::Vector{Symbol},
+        const_cov_names::Vector{Symbol},
+        varying_cov_names::Vector{Symbol},
+        helper_names::Vector{Symbol},
+        model_fun_names::Vector{Symbol},
+        state_names::Vector{Symbol},
+        signal_names::Vector{Symbol},
+        index_sym::Symbol,
+        collect_fixed_names::Vector{Symbol} = Symbol[])
     det_exprs = copy(ir.det_exprs)
     obs_exprs = copy(ir.obs_exprs)
     all_exprs = vcat(det_exprs, obs_exprs)
@@ -386,9 +402,11 @@ function _formulas_build_formulas_expr(ir::FormulasIR,
     # Also recognise S(vc) as a state-time call when vc is a varying covariate.
     vc_time_args = Set{Symbol}()
     let all_state_syms = Set(vcat(state_names, signal_names)),
-        vc_syms_early  = Set(varying_cov_names)
+        vc_syms_early = Set(varying_cov_names)
+
         for ex in all_exprs
-            _formulas_collect_vc_state_calls!(ex, all_state_syms, vc_syms_early, time_call_syms, vc_time_args)
+            _formulas_collect_vc_state_calls!(
+                ex, all_state_syms, vc_syms_early, time_call_syms, vc_time_args)
         end
     end
 
@@ -396,15 +414,17 @@ function _formulas_build_formulas_expr(ir::FormulasIR,
     required_signals = [s for s in signal_names if s in time_call_syms]
 
     state_call_syms = Set(vcat(required_states, required_signals))
-    all_exprs = [_formulas_replace_state_calls(ex, state_call_syms, vc_time_args) for ex in all_exprs]
+    all_exprs = [_formulas_replace_state_calls(ex, state_call_syms, vc_time_args)
+                 for ex in all_exprs]
     det_exprs = all_exprs[1:length(det_exprs)]
-    obs_exprs = all_exprs[length(det_exprs) + 1:end]
+    obs_exprs = all_exprs[(length(det_exprs) + 1):end]
 
     helper_syms = Set(helper_names)
     model_fun_syms = Set(model_fun_names)
-    all_exprs = [_formulas_rewrite_calls(ex, helper_syms, model_fun_syms) for ex in all_exprs]
+    all_exprs = [_formulas_rewrite_calls(ex, helper_syms, model_fun_syms)
+                 for ex in all_exprs]
     det_exprs = all_exprs[1:length(det_exprs)]
-    obs_exprs = all_exprs[length(det_exprs) + 1:end]
+    obs_exprs = all_exprs[(length(det_exprs) + 1):end]
 
     fixed_set = Set(fixed_names)
     re_set = Set(re_names)
@@ -420,7 +440,8 @@ function _formulas_build_formulas_expr(ir::FormulasIR,
         in_var = sym in varying_cov_set
         count = (in_fixed ? 1 : 0) + (in_re ? 1 : 0) + (in_pre ? 1 : 0) +
                 (in_const ? 1 : 0) + (in_var ? 1 : 0)
-        count > 1 && error("Symbol $(sym) is ambiguous in @formulas (appears in multiple namespaces).")
+        count > 1 &&
+            error("Symbol $(sym) is ambiguous in @formulas (appears in multiple namespaces).")
     end
 
     fixed_used = [s for s in fixed_names if s in var_syms]
@@ -442,28 +463,28 @@ function _formulas_build_formulas_expr(ir::FormulasIR,
 
     for s in fixed_used
         if s in collect_fixed_set
-            push!(binds, :( $(s) = collect(getproperty(fixed_effects, $(QuoteNode(s)))) ))
+            push!(binds, :($(s) = collect(getproperty(fixed_effects, $(QuoteNode(s))))))
         else
-            push!(binds, :( $(s) = getproperty(fixed_effects, $(QuoteNode(s))) ))
+            push!(binds, :($(s) = getproperty(fixed_effects, $(QuoteNode(s)))))
         end
     end
     for s in re_used
-        push!(binds, :( $(s) = getproperty(random_effects, $(QuoteNode(s))) ))
+        push!(binds, :($(s) = getproperty(random_effects, $(QuoteNode(s)))))
     end
     for s in prede_used
-        push!(binds, :( $(s) = getproperty(prede, $(QuoteNode(s))) ))
+        push!(binds, :($(s) = getproperty(prede, $(QuoteNode(s)))))
     end
     for s in prop_const
-        push!(binds, :( $(s) = getproperty(constant_covariates_i, $(QuoteNode(s))) ))
+        push!(binds, :($(s) = getproperty(constant_covariates_i, $(QuoteNode(s)))))
     end
     for s in prop_var
-        push!(binds, :( $(s) = getproperty(varying_covariates, $(QuoteNode(s))) ))
+        push!(binds, :($(s) = getproperty(varying_covariates, $(QuoteNode(s)))))
     end
     for s in bare_const
-        push!(binds, :( $(s) = getproperty(constant_covariates_i, $(QuoteNode(s))) ))
+        push!(binds, :($(s) = getproperty(constant_covariates_i, $(QuoteNode(s)))))
     end
     for s in explicit_var
-        push!(binds, :( $(s) = getproperty(varying_covariates, $(QuoteNode(s))) ))
+        push!(binds, :($(s) = getproperty(varying_covariates, $(QuoteNode(s)))))
     end
     for s in implicit_var
         push!(binds, quote
@@ -476,11 +497,12 @@ function _formulas_build_formulas_expr(ir::FormulasIR,
         end)
     end
 
-    det_assigns = [:( $(ir.det_names[i]) = $(det_exprs[i]) ) for i in eachindex(ir.det_names)]
-    all_vals = vcat([:( $(name) ) for name in ir.det_names], obs_exprs)
+    det_assigns = [:($(ir.det_names[i]) = $(det_exprs[i])) for i in eachindex(ir.det_names)]
+    all_vals = vcat([:($(name)) for name in ir.det_names], obs_exprs)
 
     all_nt = Expr(:call,
-        Expr(:curly, :NamedTuple, Expr(:tuple, QuoteNode.(vcat(ir.det_names, ir.obs_names))...)),
+        Expr(:curly, :NamedTuple,
+            Expr(:tuple, QuoteNode.(vcat(ir.det_names, ir.obs_names))...)),
         Expr(:tuple, all_vals...))
 
     obs_nt = Expr(:call,
@@ -537,17 +559,17 @@ together with lists of required DE states and signals.
 - `index_sym::Symbol = :t`: the varying-covariates key used to extract the current time.
 """
 function get_formulas_builders(f::Formulas;
-                               fixed_names::Vector{Symbol} = Symbol[],
-                               collect_fixed_names::Vector{Symbol} = Symbol[],
-                               random_names::Vector{Symbol} = Symbol[],
-                               prede_names::Vector{Symbol} = Symbol[],
-                               const_cov_names::Vector{Symbol} = Symbol[],
-                               varying_cov_names::Vector{Symbol} = Symbol[],
-                               helper_names::Vector{Symbol} = Symbol[],
-                               model_fun_names::Vector{Symbol} = Symbol[],
-                               state_names::Vector{Symbol} = Symbol[],
-                               signal_names::Vector{Symbol} = Symbol[],
-                               index_sym::Symbol = :t)
+        fixed_names::Vector{Symbol} = Symbol[],
+        collect_fixed_names::Vector{Symbol} = Symbol[],
+        random_names::Vector{Symbol} = Symbol[],
+        prede_names::Vector{Symbol} = Symbol[],
+        const_cov_names::Vector{Symbol} = Symbol[],
+        varying_cov_names::Vector{Symbol} = Symbol[],
+        helper_names::Vector{Symbol} = Symbol[],
+        model_fun_names::Vector{Symbol} = Symbol[],
+        state_names::Vector{Symbol} = Symbol[],
+        signal_names::Vector{Symbol} = Symbol[],
+        index_sym::Symbol = :t)
     (form_all_expr, form_obs_expr, req_states, req_signals) = _formulas_build_formulas_expr(
         f.ir,
         fixed_names, random_names, prede_names,
@@ -572,7 +594,8 @@ mapping every defined name to its value.
 
 `kwargs` are forwarded to [`get_formulas_builders`](@ref) to supply namespace context.
 """
-function get_formulas_all(f::Formulas, ctx, sol_accessors, constant_covariates_i, varying_covariates; kwargs...)
+function get_formulas_all(f::Formulas, ctx, sol_accessors,
+        constant_covariates_i, varying_covariates; kwargs...)
     (form_all_rgf, _, _, _) = get_formulas_builders(f; kwargs...)
     return form_all_rgf(ctx, sol_accessors, constant_covariates_i, varying_covariates)
 end
@@ -585,7 +608,8 @@ each observation name to its distribution.
 
 `kwargs` are forwarded to [`get_formulas_builders`](@ref) to supply namespace context.
 """
-function get_formulas_obs(f::Formulas, ctx, sol_accessors, constant_covariates_i, varying_covariates; kwargs...)
+function get_formulas_obs(f::Formulas, ctx, sol_accessors,
+        constant_covariates_i, varying_covariates; kwargs...)
     (_, form_obs_rgf, _, _) = get_formulas_builders(f; kwargs...)
     return form_obs_rgf(ctx, sol_accessors, constant_covariates_i, varying_covariates)
 end
@@ -638,7 +662,10 @@ macro formulas(block)
         delete!(var_syms, name)
     end
 
-    fun_syms = Set([s for s in call_heads if !(isdefined(Base, s) || isdefined(Distributions, s) || isdefined(@__MODULE__, s))])
+    fun_syms = Set([s
+                    for s in call_heads
+                    if !(isdefined(Base, s) || isdefined(Distributions, s) ||
+                         isdefined(@__MODULE__, s))])
     var_syms = Set([s for s in var_syms if Base.isidentifier(s)])
     skip_vars = Set([:Inf, :NaN, :nothing, :missing, :true, :false])
     var_syms = Set([s for s in var_syms if !(s in skip_vars)])
@@ -648,12 +675,14 @@ macro formulas(block)
     state_syms = Set{Symbol}()
     for s in state_syms
         for ex in all_exprs
-            _formulas_state_used_bare(ex, s) && error("State $(s) must be called as $(s)(t) in @formulas.")
+            _formulas_state_used_bare(ex, s) &&
+                error("State $(s) must be called as $(s)(t) in @formulas.")
         end
     end
 
     return quote
-        meta = FormulasMeta($(Expr(:vect, QuoteNode.(all_names)...)), $(Expr(:vect, QuoteNode.(obs_names)...)))
+        meta = FormulasMeta($(Expr(:vect, QuoteNode.(all_names)...)),
+            $(Expr(:vect, QuoteNode.(obs_names)...)))
         ir = FormulasIR(
             $(Expr(:vect, QuoteNode.(det_names)...)),
             $(Expr(:vect, QuoteNode.(det_exprs)...)),

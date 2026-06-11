@@ -35,7 +35,8 @@ end
 function _resolve_observables(dm::DataModel, observables)
     obs = get_formulas_meta(dm.model.formulas.formulas).obs_names
     if observables === nothing
-        length(obs) > 1 && @warn "Multiple observables found; using the first." observable=obs[1]
+        length(obs) > 1 &&
+            @warn "Multiple observables found; using the first." observable=obs[1]
         return [obs[1]]
     end
     obs_list = observables isa AbstractVector ? collect(observables) : [observables]
@@ -85,27 +86,27 @@ curves overlaid on the observed data, providing a detailed look at model calibra
 - `kwargs_subplot`, `kwargs_layout`: extra keyword arguments.
 """
 function plot_observation_distributions(res::FitResult;
-                                        dm::Union{Nothing, DataModel}=nothing,
-                                        individuals_idx=nothing,
-                                        obs_rows=nothing,
-                                        observables=nothing,
-                                        x_axis_feature::Union{Nothing, Symbol}=nothing,
-                                        shared_x_axis::Bool=true,
-                                        shared_y_axis::Bool=true,
-                                        ncols::Int=DEFAULT_PLOT_COLS,
-                                        style::PlotStyle=PlotStyle(),
-                                        cache::Union{Nothing, PlotCache}=nothing,
-                                        cache_obs_dists::Bool=false,
-                                        constants_re::NamedTuple=NamedTuple(),
-                                        mcmc_quantiles::Vector{<:Real}=[5, 95],
-                                        mcmc_quantiles_alpha::Float64=0.8,
-                                        mcmc_draws::Int=1000,
-                                        mcmc_warmup::Union{Nothing, Int}=nothing,
-                                        rng::AbstractRNG=Random.default_rng(),
-                                        save_path::Union{Nothing, String}=nothing,
-                                        plot_path::Union{Nothing, String}=nothing,
-                                        kwargs_subplot=NamedTuple(),
-                                        kwargs_layout=NamedTuple())
+        dm::Union{Nothing, DataModel} = nothing,
+        individuals_idx = nothing,
+        obs_rows = nothing,
+        observables = nothing,
+        x_axis_feature::Union{Nothing, Symbol} = nothing,
+        shared_x_axis::Bool = true,
+        shared_y_axis::Bool = true,
+        ncols::Int = DEFAULT_PLOT_COLS,
+        style::PlotStyle = PlotStyle(),
+        cache::Union{Nothing, PlotCache} = nothing,
+        cache_obs_dists::Bool = false,
+        constants_re::NamedTuple = NamedTuple(),
+        mcmc_quantiles::Vector{<:Real} = [5, 95],
+        mcmc_quantiles_alpha::Float64 = 0.8,
+        mcmc_draws::Int = 1000,
+        mcmc_warmup::Union{Nothing, Int} = nothing,
+        rng::AbstractRNG = Random.default_rng(),
+        save_path::Union{Nothing, String} = nothing,
+        plot_path::Union{Nothing, String} = nothing,
+        kwargs_subplot = NamedTuple(),
+        kwargs_layout = NamedTuple())
     dm = _get_dm(res, dm)
     save_path = _resolve_plot_path(save_path, plot_path)
     constants_re_use = _res_constants_re(res, constants_re)
@@ -117,7 +118,8 @@ function plot_observation_distributions(res::FitResult;
 
     is_mcmc = _is_posterior_draw_fit(res)
     if !is_mcmc && cache === nothing
-        cache = build_plot_cache(res; dm=dm, constants_re=constants_re_use, cache_obs_dists=cache_obs_dists, rng=rng)
+        cache = build_plot_cache(res; dm = dm, constants_re = constants_re_use,
+            cache_obs_dists = cache_obs_dists, rng = rng)
     end
 
     plots = Vector{Any}()
@@ -129,16 +131,18 @@ function plot_observation_distributions(res::FitResult;
     η_draws = nothing
     if is_mcmc
         res = _with_posterior_warmup(res, mcmc_warmup)
-        θ_draws, η_draws, _ = _posterior_drawn_params(res, dm, constants_re_use, NamedTuple(), mcmc_draws, rng)
+        θ_draws, η_draws, _ = _posterior_drawn_params(
+            res, dm, constants_re_use, NamedTuple(), mcmc_draws, rng)
         mcmc_quantiles = sort(Float64.(collect(mcmc_quantiles)))
-        (length(mcmc_quantiles) >= 2 && all(0 .<= mcmc_quantiles .<= 100)) || error("mcmc_quantiles must be in [0,100] with length >= 2.")
+        (length(mcmc_quantiles) >= 2 && all(0 .<= mcmc_quantiles .<= 100)) ||
+            error("mcmc_quantiles must be in [0,100] with length >= 2.")
     end
 
     for i in inds
         ind = dm.individuals[i]
         obs_rows_all = dm.row_groups.obs_rows[i]
         obs_idx = _resolve_obs_rows(obs_rows, obs_rows_all)
-        rowwise_re = _needs_rowwise_random_effects(dm, i; obs_only=true)
+        rowwise_re = _needs_rowwise_random_effects(dm, i; obs_only = true)
 
         for obs_name in obs_list
             for j in obs_idx
@@ -146,12 +150,14 @@ function plot_observation_distributions(res::FitResult;
                 y_obs = getfield(ind.series.obs, obs_name)[j]
                 has_obs_val = y_obs isa Number && isfinite(float(y_obs))
                 tval = dm.df[row, dm.config.time_col]
-                p = create_styled_plot(title=string(dm.config.primary_id, ": ", dm.df[row, dm.config.primary_id], ", ",
-                                                    dm.config.time_col, ": ", tval),
-                                       xlabel=_axis_label(obs_name),
-                                       ylabel="Probability Density",
-                                       style=style,
-                                       kwargs_subplot...)
+                p = create_styled_plot(
+                    title = string(
+                        dm.config.primary_id, ": ", dm.df[row, dm.config.primary_id], ", ",
+                        dm.config.time_col, ": ", tval),
+                    xlabel = _axis_label(obs_name),
+                    ylabel = "Probability Density",
+                    style = style,
+                    kwargs_subplot...)
 
                 if is_mcmc
                     n_draws = length(θ_draws)
@@ -163,19 +169,24 @@ function plot_observation_distributions(res::FitResult;
                         compiled = nothing
                         if dm.model.de.de !== nothing
                             sol, compiled = _solve_dense_individual(dm, ind, θ, η_ind)
-                            sol_accessors = get_de_accessors_builder(dm.model.de.de)(sol, compiled)
+                            sol_accessors = get_de_accessors_builder(dm.model.de.de)(
+                                sol, compiled)
                         end
                         vary = _varying_at_plot(dm, ind, j, row)
-                        η_row = _row_random_effects_at(dm, i, j, η_ind, rowwise_re; obs_only=true)
+                        η_row = _row_random_effects_at(
+                            dm, i, j, η_ind, rowwise_re; obs_only = true)
                         obs = sol_accessors === nothing ?
-                              calculate_formulas_obs(dm.model, θ, η_row, ind.const_cov, vary) :
-                              calculate_formulas_obs(dm.model, θ, η_row, ind.const_cov, vary, sol_accessors)
+                              calculate_formulas_obs(
+                            dm.model, θ, η_row, ind.const_cov, vary) :
+                              calculate_formulas_obs(
+                            dm.model, θ, η_row, ind.const_cov, vary, sol_accessors)
                         dists[d] = getproperty(obs, obs_name)
                     end
 
                     if dists[1] isa DiscreteDistribution
                         vals = _mean_pmf_support(dists, 0.995)
-                        isempty(vals) && error("Unable to build PMF support for $(obs_name).")
+                        isempty(vals) &&
+                            error("Unable to build PMF support for $(obs_name).")
                         probs = zeros(Float64, length(vals))
                         probs_all = zeros(Float64, n_draws, length(vals))
                         for d in 1:n_draws
@@ -184,45 +195,70 @@ function plot_observation_distributions(res::FitResult;
                             probs .+= pvec
                         end
                         probs ./= n_draws
-                        qlo = mapslices(x -> quantile(vec(x), mcmc_quantiles[1] / 100), probs_all; dims=1)
-                        qhi = mapslices(x -> quantile(vec(x), mcmc_quantiles[end] / 100), probs_all; dims=1)
-                        qlo = vec(qlo); qhi = vec(qhi)
-                        bar!(p, vals, probs; color=style.color_secondary, label="posterior mean PMF")
-                        plot!(p, vals, qlo; color=style.color_secondary, alpha=mcmc_quantiles_alpha, linestyle=:dash, label="$(mcmc_quantiles[1])%")
-                        plot!(p, vals, qhi; color=style.color_secondary, alpha=mcmc_quantiles_alpha, linestyle=:dash, label="$(mcmc_quantiles[end])%")
+                        qlo = mapslices(x -> quantile(vec(x), mcmc_quantiles[1] / 100),
+                            probs_all; dims = 1)
+                        qhi = mapslices(x -> quantile(vec(x), mcmc_quantiles[end] / 100),
+                            probs_all; dims = 1)
+                        qlo = vec(qlo)
+                        qhi = vec(qhi)
+                        bar!(p, vals, probs; color = style.color_secondary,
+                            label = "posterior mean PMF")
+                        plot!(p, vals, qlo; color = style.color_secondary,
+                            alpha = mcmc_quantiles_alpha, linestyle = :dash,
+                            label = "$(mcmc_quantiles[1])%")
+                        plot!(p, vals, qhi; color = style.color_secondary,
+                            alpha = mcmc_quantiles_alpha, linestyle = :dash,
+                            label = "$(mcmc_quantiles[end])%")
                         ylabel!(p, "Probability Mass")
                         if has_obs_val
-                            vline!(p, [y_obs]; color=style.color_primary, label="observed")
+                            vline!(
+                                p, [y_obs]; color = style.color_primary, label = "observed")
                         end
                         xlim = (minimum(vals), maximum(vals))
                         if has_obs_val
                             xlim = (min(xlim[1], float(y_obs)), max(xlim[2], float(y_obs)))
                         end
-                        xlims_by_group[(i, obs_name)] = haskey(xlims_by_group, (i, obs_name)) ?
-                            (min(xlims_by_group[(i, obs_name)][1], xlim[1]), max(xlims_by_group[(i, obs_name)][2], xlim[2])) :
-                            xlim
+                        xlims_by_group[(i, obs_name)] = haskey(
+                            xlims_by_group, (i, obs_name)) ?
+                                                        (
+                            min(xlims_by_group[(i, obs_name)][1], xlim[1]),
+                            max(xlims_by_group[(i, obs_name)][2], xlim[2])) :
+                                                        xlim
                         ylims = ylims === nothing ? (minimum(qlo), maximum(qhi)) :
                                 (min(ylims[1], minimum(qlo)), max(ylims[2], maximum(qhi)))
                     else
                         grid = _density_grid_continuous(dists, 0.99, 200)
-                        grid === nothing && error("Unable to build PDF grid for $(obs_name).")
-                        pdf_mean = vec(mean(grid.z, dims=2))
-                        qlo = mapslices(x -> quantile(vec(x), mcmc_quantiles[1] / 100), grid.z; dims=2)
-                        qhi = mapslices(x -> quantile(vec(x), mcmc_quantiles[end] / 100), grid.z; dims=2)
-                        qlo = vec(qlo); qhi = vec(qhi)
-                        plot!(p, grid.y, pdf_mean; color=style.color_secondary, label="posterior mean PDF")
-                        plot!(p, grid.y, qlo; color=style.color_secondary, alpha=mcmc_quantiles_alpha, linestyle=:dash, label="$(mcmc_quantiles[1])%")
-                        plot!(p, grid.y, qhi; color=style.color_secondary, alpha=mcmc_quantiles_alpha, linestyle=:dash, label="$(mcmc_quantiles[end])%")
+                        grid === nothing &&
+                            error("Unable to build PDF grid for $(obs_name).")
+                        pdf_mean = vec(mean(grid.z, dims = 2))
+                        qlo = mapslices(x -> quantile(vec(x), mcmc_quantiles[1] / 100),
+                            grid.z; dims = 2)
+                        qhi = mapslices(x -> quantile(vec(x), mcmc_quantiles[end] / 100),
+                            grid.z; dims = 2)
+                        qlo = vec(qlo)
+                        qhi = vec(qhi)
+                        plot!(p, grid.y, pdf_mean; color = style.color_secondary,
+                            label = "posterior mean PDF")
+                        plot!(p, grid.y, qlo; color = style.color_secondary,
+                            alpha = mcmc_quantiles_alpha, linestyle = :dash,
+                            label = "$(mcmc_quantiles[1])%")
+                        plot!(p, grid.y, qhi; color = style.color_secondary,
+                            alpha = mcmc_quantiles_alpha, linestyle = :dash,
+                            label = "$(mcmc_quantiles[end])%")
                         if has_obs_val
-                            vline!(p, [y_obs]; color=style.color_primary, label="observed")
+                            vline!(
+                                p, [y_obs]; color = style.color_primary, label = "observed")
                         end
                         xlim = (minimum(grid.y), maximum(grid.y))
                         if has_obs_val
                             xlim = (min(xlim[1], float(y_obs)), max(xlim[2], float(y_obs)))
                         end
-                        xlims_by_group[(i, obs_name)] = haskey(xlims_by_group, (i, obs_name)) ?
-                            (min(xlims_by_group[(i, obs_name)][1], xlim[1]), max(xlims_by_group[(i, obs_name)][2], xlim[2])) :
-                            xlim
+                        xlims_by_group[(i, obs_name)] = haskey(
+                            xlims_by_group, (i, obs_name)) ?
+                                                        (
+                            min(xlims_by_group[(i, obs_name)][1], xlim[1]),
+                            max(xlims_by_group[(i, obs_name)][2], xlim[2])) :
+                                                        xlim
                         ylims = ylims === nothing ? (minimum(qlo), maximum(qhi)) :
                                 (min(ylims[1], minimum(qlo)), max(ylims[2], maximum(qhi)))
                     end
@@ -236,21 +272,26 @@ function plot_observation_distributions(res::FitResult;
                             fixed_effects = θ,
                             random_effects = η_ind,
                             constant_covariates = ind.const_cov,
-                            varying_covariates = merge((t = ind.series.vary.t[1],), ind.series.dyn),
+                            varying_covariates = merge(
+                                (t = ind.series.vary.t[1],), ind.series.dyn),
                             helpers = get_helper_funs(dm.model),
                             model_funs = get_model_funs(dm.model),
                             preDE = calculate_prede(dm.model, θ, η_ind, ind.const_cov)
                         ))
-                        sol_accessors = get_de_accessors_builder(dm.model.de.de)(sol, compiled)
+                        sol_accessors = get_de_accessors_builder(dm.model.de.de)(
+                            sol, compiled)
                     end
                     dist = if cache_obs_dists && cache.obs_dists !== nothing
                         getproperty(cache.obs_dists[i][j], obs_name)
                     else
                         vary = _varying_at_plot(dm, ind, j, row)
-                        η_row = _row_random_effects_at(dm, i, j, η_ind, rowwise_re; obs_only=true)
+                        η_row = _row_random_effects_at(
+                            dm, i, j, η_ind, rowwise_re; obs_only = true)
                         obs = sol_accessors === nothing ?
-                              calculate_formulas_obs(dm.model, θ, η_row, ind.const_cov, vary) :
-                              calculate_formulas_obs(dm.model, θ, η_row, ind.const_cov, vary, sol_accessors)
+                              calculate_formulas_obs(
+                            dm.model, θ, η_row, ind.const_cov, vary) :
+                              calculate_formulas_obs(
+                            dm.model, θ, η_row, ind.const_cov, vary, sol_accessors)
                         getproperty(obs, obs_name)
                     end
 
@@ -259,41 +300,54 @@ function plot_observation_distributions(res::FitResult;
                             vals = [0, 1]
                         else
                             grid = _density_grid_discrete(dist, 0.995)
-                            grid === nothing && error("Unable to build PMF grid for $(obs_name).")
+                            grid === nothing &&
+                                error("Unable to build PMF grid for $(obs_name).")
                             vals = grid.vals
                         end
                         probs = pdf.(Ref(dist), vals)
-                        bar!(p, vals, probs; color=style.color_secondary, label="PMF")
+                        bar!(p, vals, probs; color = style.color_secondary, label = "PMF")
                         ylabel!(p, "Probability Mass")
                         if has_obs_val
-                            vline!(p, [y_obs]; color=style.color_primary, label="observed")
+                            vline!(
+                                p, [y_obs]; color = style.color_primary, label = "observed")
                         end
                         xlim = (minimum(vals), maximum(vals))
                         if has_obs_val
                             xlim = (min(xlim[1], float(y_obs)), max(xlim[2], float(y_obs)))
                         end
-                        xlims_by_group[(i, obs_name)] = haskey(xlims_by_group, (i, obs_name)) ?
-                            (min(xlims_by_group[(i, obs_name)][1], xlim[1]), max(xlims_by_group[(i, obs_name)][2], xlim[2])) :
-                            xlim
+                        xlims_by_group[(i, obs_name)] = haskey(
+                            xlims_by_group, (i, obs_name)) ?
+                                                        (
+                            min(xlims_by_group[(i, obs_name)][1], xlim[1]),
+                            max(xlims_by_group[(i, obs_name)][2], xlim[2])) :
+                                                        xlim
                         ylims = ylims === nothing ? (minimum(probs), maximum(probs)) :
-                                (min(ylims[1], minimum(probs)), max(ylims[2], maximum(probs)))
+                                (
+                            min(ylims[1], minimum(probs)), max(ylims[2], maximum(probs)))
                     else
                         grid = _density_grid_continuous([dist], 0.99, 200)
-                        grid === nothing && error("Unable to build PDF grid for $(obs_name).")
+                        grid === nothing &&
+                            error("Unable to build PDF grid for $(obs_name).")
                         pdf_vals = vec(grid.z[:, 1])
-                        plot!(p, grid.y, pdf_vals; color=style.color_secondary, label="PDF")
+                        plot!(p, grid.y, pdf_vals;
+                            color = style.color_secondary, label = "PDF")
                         if has_obs_val
-                            vline!(p, [y_obs]; color=style.color_primary, label="observed")
+                            vline!(
+                                p, [y_obs]; color = style.color_primary, label = "observed")
                         end
                         xlim = (minimum(grid.y), maximum(grid.y))
                         if has_obs_val
                             xlim = (min(xlim[1], float(y_obs)), max(xlim[2], float(y_obs)))
                         end
-                        xlims_by_group[(i, obs_name)] = haskey(xlims_by_group, (i, obs_name)) ?
-                            (min(xlims_by_group[(i, obs_name)][1], xlim[1]), max(xlims_by_group[(i, obs_name)][2], xlim[2])) :
-                            xlim
+                        xlims_by_group[(i, obs_name)] = haskey(
+                            xlims_by_group, (i, obs_name)) ?
+                                                        (
+                            min(xlims_by_group[(i, obs_name)][1], xlim[1]),
+                            max(xlims_by_group[(i, obs_name)][2], xlim[2])) :
+                                                        xlim
                         ylims = ylims === nothing ? (minimum(pdf_vals), maximum(pdf_vals)) :
-                                (min(ylims[1], minimum(pdf_vals)), max(ylims[2], maximum(pdf_vals)))
+                                (min(ylims[1], minimum(pdf_vals)),
+                            max(ylims[2], maximum(pdf_vals)))
                     end
                 end
 
@@ -306,24 +360,25 @@ function plot_observation_distributions(res::FitResult;
     if shared_x_axis
         for (p, key) in zip(plots, plot_groups)
             lims = xlims_by_group[key]
-            plot!(p; xlims=_pad_limits(lims[1], lims[2]))
+            plot!(p; xlims = _pad_limits(lims[1], lims[2]))
         end
     end
     if shared_y_axis && ylims !== nothing
         for p in plots
-            plot!(p; ylims=_pad_limits(ylims[1], ylims[2]))
+            plot!(p; ylims = _pad_limits(ylims[1], ylims[2]))
         end
     end
 
-    p = combine_plots(plots; ncols=ncols, kwargs_layout...)
+    p = combine_plots(plots; ncols = ncols, kwargs_layout...)
     return _save_plot!(p, save_path)
 end
 
 function plot_observation_distributions(dm::DataModel; kwargs...)
     constants_re = haskey(kwargs, :constants_re) ? kwargs[:constants_re] : NamedTuple()
-    cache = build_plot_cache(dm; constants_re=constants_re, cache_obs_dists=false)
+    cache = build_plot_cache(dm; constants_re = constants_re, cache_obs_dists = false)
     res = FitResult(MLE(), MLEResult(NamedTuple(), 0.0, 0, NamedTuple(), NamedTuple()),
-                    FitSummary(0.0, true, FitParameters(ComponentArray(), ComponentArray()), NamedTuple()),
-                    FitDiagnostics((;), (;), (;), (;)), dm, (), NamedTuple())
-    return plot_observation_distributions(res; dm=dm, cache=cache, kwargs...)
+        FitSummary(
+            0.0, true, FitParameters(ComponentArray(), ComponentArray()), NamedTuple()),
+        FitDiagnostics((;), (;), (;), (;)), dm, (), NamedTuple())
+    return plot_observation_distributions(res; dm = dm, cache = cache, kwargs...)
 end

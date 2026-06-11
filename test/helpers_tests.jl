@@ -17,13 +17,12 @@ using ForwardDiff
     @test helpers.clamp01(-1.0) == 0.0
     @test helpers.clamp01(0.5) == 0.5
     @test helpers.clamp01(2.0) == 1.0
-    @test isapprox(helpers.softplus(0.0), log1p(exp(0.0)); rtol=1e-6, atol=1e-8)
+    @test isapprox(helpers.softplus(0.0), log1p(exp(0.0)); rtol = 1e-6, atol = 1e-8)
     @test helpers.dotp([1.0, 2.0], [3.0, 4.0]) == 11.0
 end
 
 @testset "Helpers edge cases" begin
-    empty_helpers = @helpers begin
-    end
+    empty_helpers = @helpers begin end
     @test empty_helpers == NamedTuple()
 
     @test_throws LoadError @eval @helpers begin
@@ -42,9 +41,9 @@ end
 end
 
 @testset "rowsoftmax" begin
-    L = [1.0  2.0  0.5;
-         0.0 -1.0  3.0;
-         2.0  2.0  2.0]
+    L = [1.0 2.0 0.5;
+         0.0 -1.0 3.0;
+         2.0 2.0 2.0]
     P = rowsoftmax(L)
 
     # every row is a probability distribution

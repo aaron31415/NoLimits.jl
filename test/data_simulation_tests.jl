@@ -20,11 +20,11 @@ using SciMLBase
 
         @covariates begin
             t = Covariate()
-            x = ConstantCovariateVector([:Age]; constant_on=:ID)
+            x = ConstantCovariateVector([:Age]; constant_on = :ID)
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:SITE)
+            η = RandomEffect(Normal(0.0, 1.0); column = :SITE)
         end
 
         @formulas begin
@@ -41,8 +41,8 @@ using SciMLBase
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    sim = simulate_data(dm; rng=MersenneTwister(1))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    sim = simulate_data(dm; rng = MersenneTwister(1))
 
     @test nrow(sim) == nrow(df)
     @test :η in propertynames(sim)
@@ -50,8 +50,6 @@ using SciMLBase
     @test length(unique(sim.η[sim.SITE .== :B])) == 1
     @test any(sim.y .!= df.y)
 end
-
-
 
 @testset "simulate_data does not simulate events" begin
     model = @Model begin
@@ -65,7 +63,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -84,13 +82,13 @@ end
     )
 
     dm = DataModel(model, df;
-                   primary_id=:ID,
-                   time_col=:t,
-                   evid_col=:EVID,
-                   amt_col=:AMT,
-                   rate_col=:RATE,
-                   cmt_col=:CMT)
-    sim = simulate_data(dm; rng=MersenneTwister(3))
+        primary_id = :ID,
+        time_col = :t,
+        evid_col = :EVID,
+        amt_col = :AMT,
+        rate_col = :RATE,
+        cmt_col = :CMT)
+    sim = simulate_data(dm; rng = MersenneTwister(3))
 
     @test nrow(sim) == nrow(df)
     @test :η in propertynames(sim)
@@ -114,7 +112,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:ID)
+            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
         end
 
         @formulas begin
@@ -128,8 +126,8 @@ end
         y = [1.0, 1.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    dm_sim = simulate_data_model(dm; rng=MersenneTwister(4))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    dm_sim = simulate_data_model(dm; rng = MersenneTwister(4))
 
     @test dm_sim isa DataModel
     @test length(get_individuals(dm_sim)) == length(get_individuals(dm))
@@ -147,27 +145,28 @@ end
         @fixedEffects begin
             a = RealNumber(0.2)
             σ = RealNumber(0.4)
-            ζ = NNParameters(chain; function_name=:NN1, calculate_se=false)
-            Γ = SoftTreeParameters(2, 2; function_name=:ST1, calculate_se=false)
-            ψ = NPFParameter(1, 3, seed=1, calculate_se=false)
+            ζ = NNParameters(chain; function_name = :NN1, calculate_se = false)
+            Γ = SoftTreeParameters(2, 2; function_name = :ST1, calculate_se = false)
+            ψ = NPFParameter(1, 3, seed = 1, calculate_se = false)
         end
 
         @covariates begin
             t = Covariate()
-            x = ConstantCovariateVector([:Age, :BMI]; constant_on=[:SITE, :ID])
+            x = ConstantCovariateVector([:Age, :BMI]; constant_on = [:SITE, :ID])
             z = Covariate()
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(0.0, 1.0); column=:ID)
-            η_site = RandomEffect(Normal(0.0, 1.0); column=:SITE)
-            η_flow = RandomEffect(NormalizingPlanarFlow(ψ); column=:SITE)
-            η_nn = RandomEffect(LogNormal(NN1([x.Age, x.BMI], ζ)[1], 0.2); column=:ID)
-            η_st = RandomEffect(Gumbel(ST1([x.Age, x.BMI], Γ)[1], 0.3); column=:SITE)
+            η_id = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            η_site = RandomEffect(Normal(0.0, 1.0); column = :SITE)
+            η_flow = RandomEffect(NormalizingPlanarFlow(ψ); column = :SITE)
+            η_nn = RandomEffect(LogNormal(NN1([x.Age, x.BMI], ζ)[1], 0.2); column = :ID)
+            η_st = RandomEffect(Gumbel(ST1([x.Age, x.BMI], Γ)[1], 0.3); column = :SITE)
         end
 
         @formulas begin
-            μ = η_flow[1] + η_st + + sat(η_nn) + η_flow[1] + η_st + softplus(a + z + η_id + η_site) + x.Age
+            μ = η_flow[1] + η_st + +sat(η_nn) + η_flow[1] + η_st +
+                softplus(a + z + η_id + η_site) + x.Age
             y ~ Normal(μ, σ)
         end
     end
@@ -182,8 +181,8 @@ end
         y = [1.0, 1.1, 0.9, 1.0, 1.2, 1.1]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    sim = simulate_data(dm; rng=MersenneTwister(10))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    sim = simulate_data(dm; rng = MersenneTwister(10))
 
     @test :η_id in propertynames(sim)
     @test :η_site in propertynames(sim)
@@ -209,12 +208,12 @@ end
 
         @covariates begin
             t = Covariate()
-            x = ConstantCovariateVector([:Age]; constant_on=[:ID, :SITE])
+            x = ConstantCovariateVector([:Age]; constant_on = [:ID, :SITE])
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(0.0, 1.0); column=:ID)
-            η_site = RandomEffect(Normal(0.0, 1.0); column=:SITE)
+            η_id = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            η_site = RandomEffect(Normal(0.0, 1.0); column = :SITE)
         end
 
         @preDifferentialEquation begin
@@ -242,9 +241,9 @@ end
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    model_saveat = set_solver_config(model; saveat_mode=:saveat)
-    dm = DataModel(model_saveat, df; primary_id=:ID, time_col=:t)
-    sim = simulate_data(dm; rng=MersenneTwister(11))
+    model_saveat = set_solver_config(model; saveat_mode = :saveat)
+    dm = DataModel(model_saveat, df; primary_id = :ID, time_col = :t)
+    sim = simulate_data(dm; rng = MersenneTwister(11))
 
     @test :η_id in propertynames(sim)
     @test :η_site in propertynames(sim)
@@ -255,7 +254,7 @@ end
 
 @testset "simulate_data ODE (NN/SoftTree/Spline, multi-RE)" begin
     chain = Chain(Dense(2, 3, tanh), Dense(3, 1))
-    knots = collect(range(0.0, 1.0; length=6))
+    knots = collect(range(0.0, 1.0; length = 6))
 
     model = @Model begin
         @helpers begin
@@ -265,24 +264,26 @@ end
         @fixedEffects begin
             a = RealNumber(0.15)
             σ = RealNumber(0.35)
-            ζ = NNParameters(chain; function_name=:NN1, calculate_se=false)
-            Γ = SoftTreeParameters(2, 2; function_name=:ST1, calculate_se=false)
-            sp = SplineParameters(knots; function_name=:SP1, degree=2, calculate_se=false)
+            ζ = NNParameters(chain; function_name = :NN1, calculate_se = false)
+            Γ = SoftTreeParameters(2, 2; function_name = :ST1, calculate_se = false)
+            sp = SplineParameters(
+                knots; function_name = :SP1, degree = 2, calculate_se = false)
         end
 
         @covariates begin
             t = Covariate()
-            x = ConstantCovariateVector([:Age, :BMI]; constant_on=[:ID, :SITE])
-            w = DynamicCovariate(; interpolation=LinearInterpolation)
+            x = ConstantCovariateVector([:Age, :BMI]; constant_on = [:ID, :SITE])
+            w = DynamicCovariate(; interpolation = LinearInterpolation)
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(0.0, 1.0); column=:ID)
-            η_site = RandomEffect(Normal(0.0, 1.0); column=:SITE)
+            η_id = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            η_site = RandomEffect(Normal(0.0, 1.0); column = :SITE)
         end
 
         @preDifferentialEquation begin
-            pre = sat(NN1([x.Age, x.BMI], ζ)[1] + ST1([x.Age, x.BMI], Γ)[1]) + SP1(x.Age / 100, sp) + η_id
+            pre = sat(NN1([x.Age, x.BMI], ζ)[1] + ST1([x.Age, x.BMI], Γ)[1]) +
+                  SP1(x.Age / 100, sp) + η_id
         end
 
         @DifferentialEquation begin
@@ -308,9 +309,9 @@ end
         y = [1.0, 1.05, 1.1, 0.9, 0.95, 1.0]
     )
 
-    model_saveat = set_solver_config(model; saveat_mode=:saveat)
-    dm = DataModel(model_saveat, df; primary_id=:ID, time_col=:t)
-    sim = simulate_data(dm; rng=MersenneTwister(12))
+    model_saveat = set_solver_config(model; saveat_mode = :saveat)
+    dm = DataModel(model_saveat, df; primary_id = :ID, time_col = :t)
+    sim = simulate_data(dm; rng = MersenneTwister(12))
 
     @test :η_id in propertynames(sim)
     @test :η_site in propertynames(sim)
@@ -330,18 +331,18 @@ end
         @fixedEffects begin
             σ1 = RealNumber(0.3)
             σ2 = RealNumber(0.4)
-            ζ = NNParameters(chain; function_name=:NN2, calculate_se=false)
+            ζ = NNParameters(chain; function_name = :NN2, calculate_se = false)
         end
 
         @covariates begin
             t = Covariate()
-            x = ConstantCovariateVector([:Age, :BMI]; constant_on=[:ID, :SITE])
+            x = ConstantCovariateVector([:Age, :BMI]; constant_on = [:ID, :SITE])
             z = Covariate()
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(0.0, 1.0); column=:ID)
-            η_site = RandomEffect(Normal(0.0, 1.0); column=:SITE)
+            η_id = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            η_site = RandomEffect(Normal(0.0, 1.0); column = :SITE)
         end
 
         @formulas begin
@@ -362,8 +363,8 @@ end
         y2 = [0.5, 0.6, 0.4, 0.55]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    sim = simulate_data(dm; rng=MersenneTwister(13))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    sim = simulate_data(dm; rng = MersenneTwister(13))
 
     @test :η_id in propertynames(sim)
     @test :η_site in propertynames(sim)
@@ -385,12 +386,12 @@ end
 
         @covariates begin
             t = Covariate()
-            x = ConstantCovariateVector([:Age]; constant_on=[:ID, :SITE])
+            x = ConstantCovariateVector([:Age]; constant_on = [:ID, :SITE])
         end
 
         @randomEffects begin
-            η_id = RandomEffect(Normal(0.0, 1.0); column=:ID)
-            η_site = RandomEffect(Normal(0.0, 1.0); column=:SITE)
+            η_id = RandomEffect(Normal(0.0, 1.0); column = :ID)
+            η_site = RandomEffect(Normal(0.0, 1.0); column = :SITE)
         end
 
         @preDifferentialEquation begin
@@ -420,9 +421,9 @@ end
         y2 = [0.6, 0.7, 0.5, 0.65]
     )
 
-    model_saveat = set_solver_config(model; saveat_mode=:saveat)
-    dm = DataModel(model_saveat, df; primary_id=:ID, time_col=:t)
-    sim = simulate_data(dm; rng=MersenneTwister(14))
+    model_saveat = set_solver_config(model; saveat_mode = :saveat)
+    dm = DataModel(model_saveat, df; primary_id = :ID, time_col = :t)
+    sim = simulate_data(dm; rng = MersenneTwister(14))
 
     @test :η_id in propertynames(sim)
     @test :η_site in propertynames(sim)
@@ -442,7 +443,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column=:SITE)
+            η = RandomEffect(Normal(0.0, 1.0); column = :SITE)
         end
 
         @formulas begin
@@ -457,8 +458,8 @@ end
         y = [1.0, 1.1, 0.9, 1.0]
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    sim = simulate_data(dm; rng=MersenneTwister(20), serialization=EnsembleThreads())
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    sim = simulate_data(dm; rng = MersenneTwister(20), serialization = EnsembleThreads())
 
     @test :η in propertynames(sim)
     @test any(sim.y .!= df.y)
@@ -467,7 +468,7 @@ end
 @testset "simulate_data uses row-specific random effects for varying non-ODE groups" begin
     model = @Model begin
         @fixedEffects begin
-            σ = RealNumber(1.0e-6, scale=:log)
+            σ = RealNumber(1.0e-6, scale = :log)
         end
 
         @covariates begin
@@ -475,7 +476,7 @@ end
         end
 
         @randomEffects begin
-            η_year = RandomEffect(Normal(0.0, 1.0); column=:YEAR)
+            η_year = RandomEffect(Normal(0.0, 1.0); column = :YEAR)
         end
 
         @formulas begin
@@ -490,16 +491,16 @@ end
         y = zeros(5)
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    sim = simulate_data(dm; rng=MersenneTwister(21))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    sim = simulate_data(dm; rng = MersenneTwister(21))
 
     @test sim.η_year[1] == sim.η_year[4]
     @test sim.η_year[2] == sim.η_year[3]
-    @test isapprox(sim.y[1], sim.η_year[1]; atol=1.0e-3)
-    @test isapprox(sim.y[2], sim.η_year[2]; atol=1.0e-3)
-    @test isapprox(sim.y[3], sim.η_year[3]; atol=1.0e-3)
-    @test isapprox(sim.y[4], sim.η_year[4]; atol=1.0e-3)
-    @test isapprox(sim.y[5], sim.η_year[5]; atol=1.0e-3)
+    @test isapprox(sim.y[1], sim.η_year[1]; atol = 1.0e-3)
+    @test isapprox(sim.y[2], sim.η_year[2]; atol = 1.0e-3)
+    @test isapprox(sim.y[3], sim.η_year[3]; atol = 1.0e-3)
+    @test isapprox(sim.y[4], sim.η_year[4]; atol = 1.0e-3)
+    @test isapprox(sim.y[5], sim.η_year[5]; atol = 1.0e-3)
 end
 
 @testset "simulate_data propagates discrete HMM hidden states forward" begin
@@ -521,9 +522,9 @@ end
                 (
                     Categorical([1.0, 0.0, 0.0]),
                     Categorical([0.0, 1.0, 0.0]),
-                    Categorical([0.0, 0.0, 1.0]),
+                    Categorical([0.0, 0.0, 1.0])
                 ),
-                Categorical([1.0, 0.0, 0.0]),
+                Categorical([1.0, 0.0, 0.0])
             )
         end
     end
@@ -531,13 +532,13 @@ end
     n_id = 200
     n_t = 6
     df = DataFrame(
-        ID = repeat(1:n_id; inner=n_t),
-        t = repeat(collect(0.0:(n_t - 1)); outer=n_id),
-        y = ones(Int, n_id * n_t),
+        ID = repeat(1:n_id; inner = n_t),
+        t = repeat(collect(0.0:(n_t - 1)); outer = n_id),
+        y = ones(Int, n_id * n_t)
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    sim = simulate_data(dm; rng=MersenneTwister(123))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    sim = simulate_data(dm; rng = MersenneTwister(123))
     paths = [Vector{Int}(sim.y[sim.ID .== id]) for id in 1:n_id]
 
     @test all(path -> all(diff(path) .>= 0), paths)
@@ -557,17 +558,17 @@ end
 
         @formulas begin
             Q = [-1.2 1.2 0.0;
-                  0.0 -1.0 1.0;
-                  0.0 0.0 0.0]
+                 0.0 -1.0 1.0;
+                 0.0 0.0 0.0]
             y ~ ContinuousTimeDiscreteStatesHMM(
                 Q,
                 (
                     Categorical([1.0, 0.0, 0.0]),
                     Categorical([0.0, 1.0, 0.0]),
-                    Categorical([0.0, 0.0, 1.0]),
+                    Categorical([0.0, 0.0, 1.0])
                 ),
                 Categorical([1.0, 0.0, 0.0]),
-                dt,
+                dt
             )
         end
     end
@@ -575,14 +576,14 @@ end
     n_id = 200
     n_t = 6
     df = DataFrame(
-        ID = repeat(1:n_id; inner=n_t),
-        t = repeat(collect(0.0:(n_t - 1)); outer=n_id),
+        ID = repeat(1:n_id; inner = n_t),
+        t = repeat(collect(0.0:(n_t - 1)); outer = n_id),
         dt = ones(n_id * n_t),
-        y = ones(Int, n_id * n_t),
+        y = ones(Int, n_id * n_t)
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
-    sim = simulate_data(dm; rng=MersenneTwister(123))
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    sim = simulate_data(dm; rng = MersenneTwister(123))
     paths = [Vector{Int}(sim.y[sim.ID .== id]) for id in 1:n_id]
 
     @test all(path -> all(diff(path) .>= 0), paths)
@@ -592,9 +593,9 @@ end
 @testset "simulate_data uses theta_untransformed for random effect distributions" begin
     model = @Model begin
         @fixedEffects begin
-            a   = RealNumber(0.0)
+            a = RealNumber(0.0)
             σ_y = RealNumber(0.01)
-            σ_η = RealNumber(1.0, scale=:log)   # θ0: σ_η = 1
+            σ_η = RealNumber(1.0, scale = :log)   # θ0: σ_η = 1
         end
 
         @covariates begin
@@ -602,7 +603,7 @@ end
         end
 
         @randomEffects begin
-            η = RandomEffect(Normal(0.0, σ_η); column=:ID)
+            η = RandomEffect(Normal(0.0, σ_η); column = :ID)
         end
 
         @formulas begin
@@ -612,23 +613,24 @@ end
 
     n_ind = 100
     df = DataFrame(
-        ID = repeat(1:n_ind, inner=2),
-        t  = repeat([0.0, 1.0], n_ind),
-        y  = zeros(2 * n_ind),
+        ID = repeat(1:n_ind, inner = 2),
+        t = repeat([0.0, 1.0], n_ind),
+        y = zeros(2 * n_ind)
     )
 
-    dm = DataModel(model, df; primary_id=:ID, time_col=:t)
+    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
 
-    fitted_theta = (a=0.0, σ_y=0.01, σ_η=20.0)
+    fitted_theta = (a = 0.0, σ_y = 0.01, σ_η = 20.0)
 
-    sim_θ0     = simulate_data(dm; rng=MersenneTwister(42))
-    sim_fitted = simulate_data(dm; rng=MersenneTwister(42), theta_untransformed=fitted_theta)
+    sim_θ0 = simulate_data(dm; rng = MersenneTwister(42))
+    sim_fitted = simulate_data(
+        dm; rng = MersenneTwister(42), theta_untransformed = fitted_theta)
 
     # One η per individual (constant within ID)
-    η_θ0     = [sim_θ0.η[findfirst(==(id), sim_θ0.ID)]        for id in 1:n_ind]
+    η_θ0 = [sim_θ0.η[findfirst(==(id), sim_θ0.ID)] for id in 1:n_ind]
     η_fitted = [sim_fitted.η[findfirst(==(id), sim_fitted.ID)] for id in 1:n_ind]
 
     # σ_η = 1 (θ0) → std ≈ 1; σ_η = 20 (fitted) → std ≈ 20
-    @test std(η_θ0)     < 5.0
+    @test std(η_θ0) < 5.0
     @test std(η_fitted) > 5.0
 end

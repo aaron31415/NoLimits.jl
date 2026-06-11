@@ -106,7 +106,7 @@ In `@covariates`, the LHS name provides both the accessor name and the data-fram
 """
 struct DynamicCovariate <: AbstractCovariate
     column::Symbol
-    interpolation
+    interpolation::Any
 end
 
 """
@@ -140,26 +140,28 @@ const ALLOWED_INTERPOLATIONS = Set([
     LagrangeInterpolation,
     QuadraticSpline,
     CubicSpline,
-    AkimaInterpolation,
+    AkimaInterpolation
 ])
 
-function DynamicCovariate(column::Symbol; interpolation=LinearInterpolation)
+function DynamicCovariate(column::Symbol; interpolation = LinearInterpolation)
     _check_interpolation(interpolation, :dynamic_covariate)
     return DynamicCovariate(column, interpolation)
 end
 
-function ConstantCovariate(column::Symbol; constant_on=Symbol[])
+function ConstantCovariate(column::Symbol; constant_on = Symbol[])
     constant_on = constant_on isa Symbol ? [constant_on] : collect(constant_on)
     return ConstantCovariate(column, constant_on)
 end
 
-function ConstantCovariateVector(columns::Vector{Symbol}; constant_on=Symbol[])
+function ConstantCovariateVector(columns::Vector{Symbol}; constant_on = Symbol[])
     constant_on = constant_on isa Symbol ? [constant_on] : collect(constant_on)
     return ConstantCovariateVector(columns, constant_on)
 end
 
-function DynamicCovariateVector(columns::Vector{Symbol}; interpolations=fill(LinearInterpolation, length(columns)))
-    length(columns) == length(interpolations) || error("Interpolation length mismatch: expected $(length(columns)); got $(length(interpolations)).")
+function DynamicCovariateVector(columns::Vector{Symbol};
+        interpolations = fill(LinearInterpolation, length(columns)))
+    length(columns) == length(interpolations) ||
+        error("Interpolation length mismatch: expected $(length(columns)); got $(length(interpolations)).")
     for itp in interpolations
         _check_interpolation(itp, :dynamic_covariate_vector)
     end
@@ -172,11 +174,11 @@ function _normalize_constant_on(val)
 end
 
 function _set_constant_on(p::ConstantCovariate, constant_on::Vector{Symbol})
-    return ConstantCovariate(p.column; constant_on=constant_on)
+    return ConstantCovariate(p.column; constant_on = constant_on)
 end
 
 function _set_constant_on(p::ConstantCovariateVector, constant_on::Vector{Symbol})
-    return ConstantCovariateVector(p.columns; constant_on=constant_on)
+    return ConstantCovariateVector(p.columns; constant_on = constant_on)
 end
 
 """
@@ -209,7 +211,8 @@ function _parse_covariates(block::Expr)
         stmt.head == :(=) || error("Only assignments are allowed in @covariates block.")
         lhs, rhs = stmt.args
         lhs isa Symbol || error("Left-hand side must be a symbol in @covariates block.")
-        rhs isa Expr && rhs.head == :call || error("Right-hand side must be a constructor call in @covariates block.")
+        rhs isa Expr && rhs.head == :call ||
+            error("Right-hand side must be a constructor call in @covariates block.")
         _validate_covariate_ctor(rhs)
         rhs = _rewrite_univariate_covariate(lhs, rhs)
         push!(names, lhs)
@@ -222,7 +225,8 @@ function _covariate_ctor_name(fn)
     if fn === :Covariate || fn === :ConstantCovariate || fn === :DynamicCovariate
         return fn
     end
-    if fn isa GlobalRef && (fn.name === :Covariate || fn.name === :ConstantCovariate || fn.name === :DynamicCovariate)
+    if fn isa GlobalRef && (fn.name === :Covariate || fn.name === :ConstantCovariate ||
+        fn.name === :DynamicCovariate)
         return fn.name
     end
     if fn isa Expr && fn.head == :.
@@ -236,16 +240,20 @@ function _covariate_ctor_name(fn)
 end
 
 function _covariate_vector_ctor_name(fn)
-    if fn === :CovariateVector || fn === :ConstantCovariateVector || fn === :DynamicCovariateVector
+    if fn === :CovariateVector || fn === :ConstantCovariateVector ||
+       fn === :DynamicCovariateVector
         return fn
     end
-    if fn isa GlobalRef && (fn.name === :CovariateVector || fn.name === :ConstantCovariateVector || fn.name === :DynamicCovariateVector)
+    if fn isa GlobalRef &&
+       (fn.name === :CovariateVector || fn.name === :ConstantCovariateVector ||
+        fn.name === :DynamicCovariateVector)
         return fn.name
     end
     if fn isa Expr && fn.head == :.
         last = fn.args[end]
         last isa QuoteNode && (last = last.value)
-        if last === :CovariateVector || last === :ConstantCovariateVector || last === :DynamicCovariateVector
+        if last === :CovariateVector || last === :ConstantCovariateVector ||
+           last === :DynamicCovariateVector
             return last
         end
     end
@@ -253,7 +261,8 @@ function _covariate_vector_ctor_name(fn)
 end
 
 function _covariate_has_kwargs(rhs::Expr)
-    return any(arg -> arg isa Expr && (arg.head == :kw || arg.head == :parameters), rhs.args)
+    return any(
+        arg -> arg isa Expr && (arg.head == :kw || arg.head == :parameters), rhs.args)
 end
 
 function _covariate_collect_kwargs(rhs::Expr)
@@ -273,12 +282,14 @@ function _validate_covariate_ctor(rhs::Expr)
     ctor = _covariate_ctor_name(fn)
     if ctor === :Covariate
         has_kwargs = _covariate_has_kwargs(rhs)
-        has_kwargs && error("Covariate does not accept keyword arguments; use DynamicCovariate(...; interpolation=...).")
+        has_kwargs &&
+            error("Covariate does not accept keyword arguments; use DynamicCovariate(...; interpolation=...).")
     end
     vctor = _covariate_vector_ctor_name(fn)
     if vctor === :CovariateVector
         has_kwargs = _covariate_has_kwargs(rhs)
-        has_kwargs && error("CovariateVector does not accept keyword arguments; use DynamicCovariateVector(...; interpolations=...).")
+        has_kwargs &&
+            error("CovariateVector does not accept keyword arguments; use DynamicCovariateVector(...; interpolations=...).")
     end
     return nothing
 end
@@ -290,23 +301,29 @@ function _rewrite_univariate_covariate(lhs::Symbol, rhs::Expr)
         # Disallow explicit column naming; LHS provides the column.
         has_kwargs = _covariate_has_kwargs(rhs)
         if ctor === :Covariate
-            has_kwargs && error("Covariate does not accept keyword arguments; use DynamicCovariate(...; interpolation=...).")
+            has_kwargs &&
+                error("Covariate does not accept keyword arguments; use DynamicCovariate(...; interpolation=...).")
         end
         # No positional args allowed (the macro injects the column).
-        positional = [arg for arg in rhs.args[2:end] if !(arg isa Expr && (arg.head == :kw || arg.head == :parameters))]
-        isempty(positional) || error("Do not pass a name to $(ctor); the LHS provides the name.")
+        positional = [arg
+                      for arg in rhs.args[2:end]
+                      if !(arg isa Expr && (arg.head == :kw || arg.head == :parameters))]
+        isempty(positional) ||
+            error("Do not pass a name to $(ctor); the LHS provides the name.")
         col = QuoteNode(lhs)
         if has_kwargs && ctor === :DynamicCovariate
             kwargs = _covariate_collect_kwargs(rhs)
             for kw in kwargs
-                kw.args[1] == :column && error("Do not pass name=... to DynamicCovariate; the LHS provides the name.")
+                kw.args[1] == :column &&
+                    error("Do not pass name=... to DynamicCovariate; the LHS provides the name.")
             end
             return Expr(:call, fn, col, kwargs...)
         end
         if has_kwargs && ctor === :ConstantCovariate
             kwargs = _covariate_collect_kwargs(rhs)
             for kw in kwargs
-                kw.args[1] == :column && error("Do not pass name=... to ConstantCovariate; the LHS provides the name.")
+                kw.args[1] == :column &&
+                    error("Do not pass name=... to ConstantCovariate; the LHS provides the name.")
             end
             return Expr(:call, fn, col, kwargs...)
         end
@@ -337,7 +354,7 @@ standalone to construct a `Covariates` object directly.
 macro covariates(block)
     names, exprs = _parse_covariates(block)
     isempty(names) && return :(build_covariates(NamedTuple()))
-    assigns = [:( $(names[i]) = $(esc(exprs[i])) ) for i in eachindex(names)]
+    assigns = [:($(names[i]) = $(esc(exprs[i]))) for i in eachindex(names)]
     nt = Expr(:tuple, (Expr(:(=), names[i], names[i]) for i in eachindex(names))...)
     return quote
         $(assigns...)
@@ -392,11 +409,13 @@ function build_covariates(params::NamedTuple)
         end
     end
 
-    return Covariates(names, flat_names, constants, varying, dynamic, interpolations, params)
+    return Covariates(
+        names, flat_names, constants, varying, dynamic, interpolations, params)
 end
 
 function _ensure_no_interpolation(p::AbstractCovariate, name::Symbol)
-    if p isa ConstantCovariate || p isa ConstantCovariateVector || p isa Covariate || p isa CovariateVector
+    if p isa ConstantCovariate || p isa ConstantCovariateVector || p isa Covariate ||
+       p isa CovariateVector
         return nothing
     end
     return nothing
@@ -407,13 +426,15 @@ function _ensure_interpolation(p::AbstractCovariate, name::Symbol)
         error("DynamicCovariate $(name) must declare interpolation.")
     end
     if p isa DynamicCovariateVector
-        length(p.columns) == length(p.interpolations) || error("DynamicCovariateVector $(name) interpolation length mismatch.")
+        length(p.columns) == length(p.interpolations) ||
+            error("DynamicCovariateVector $(name) interpolation length mismatch.")
     end
     return nothing
 end
 
 function _check_interpolation(itp, ctx)
-    itp isa Type || error("Interpolation must be a type from DataInterpolations.jl; got $(typeof(itp)).")
+    itp isa Type ||
+        error("Interpolation must be a type from DataInterpolations.jl; got $(typeof(itp)).")
     if !(itp in ALLOWED_INTERPOLATIONS)
         allowed = join(string.(collect(ALLOWED_INTERPOLATIONS)), ", ")
         error("Invalid interpolation $(itp). Allowed: $(allowed).")

@@ -61,14 +61,16 @@ end
 function _parse_helper(stmt::Expr)::HelperDef
     if stmt.head == :(=)
         lhs, rhs = stmt.args
-        lhs isa Expr && lhs.head == :call || error("Helper definitions must be function-like: f(x)=... or function f(x) ... end")
+        lhs isa Expr && lhs.head == :call ||
+            error("Helper definitions must be function-like: f(x)=... or function f(x) ... end")
         name = lhs.args[1]
         name isa Symbol || error("Helper name must be a Symbol.")
         args = [_helper_arg_name(a) for a in lhs.args[2:end]]
         return HelperDef(name, args, rhs, stmt)
     elseif stmt.head == :function
         sig, body = stmt.args
-        sig isa Expr && sig.head == :call || error("Helper definitions must be function-like: f(x)=... or function f(x) ... end")
+        sig isa Expr && sig.head == :call ||
+            error("Helper definitions must be function-like: f(x)=... or function f(x) ... end")
         name = sig.args[1]
         name isa Symbol || error("Helper name must be a Symbol.")
         args = [_helper_arg_name(a) for a in sig.args[2:end]]
@@ -120,10 +122,8 @@ macro helpers(block)
     if isempty(defs)
         return esc(:(NamedTuple()))
     end
-    func_vals = [
-        Expr(:(=), def.name, Expr(:->, Expr(:tuple, def.args...), def.body))
-        for def in defs
-    ]
+    func_vals = [Expr(:(=), def.name, Expr(:->, Expr(:tuple, def.args...), def.body))
+                 for def in defs]
     nt_expr = Expr(:tuple, func_vals...)
     return esc(nt_expr)
 end

@@ -116,7 +116,7 @@ const TEST_FILES = [
     # ForwardDiff-only structural/numeric invariants; smoke = opt-in real Enzyme
     # gradients, no-op unless NOLIMITS_TEST_ENZYME=true (+ Julia>=1.12.5 + Enzyme).
     "enzyme_compat_proxy_tests.jl",
-    "enzyme_smoke_tests.jl",
+    "enzyme_smoke_tests.jl"
 ]
 
 # --- Orchestrate sequential subprocess batches -----------------------------
@@ -191,7 +191,7 @@ let failed = String[]
     for (i, batch) in enumerate(_BATCHES)
         @info "=== Test batch $i/$(length(_BATCHES)) ($(length(batch)) files) ===" files=batch
         cmd = `$(Base.julia_cmd()) $(_child_flags()) --project=$(_PROJECT) $(_BATCH_SCRIPT) $(batch)`
-        ok = success(pipeline(cmd; stdout=stdout, stderr=stderr))
+        ok = success(pipeline(cmd; stdout = stdout, stderr = stderr))
         ok || push!(failed, "batch $i: " * join(batch, ", "))
     end
     if !isempty(failed)

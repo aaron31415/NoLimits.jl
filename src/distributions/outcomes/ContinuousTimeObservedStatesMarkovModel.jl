@@ -32,25 +32,25 @@ struct ContinuousTimeObservedStatesMarkovModel{
     M <: AbstractMatrix{<:Real},
     D <: Distributions.Categorical,
     T,
-    Δ <: Real,
+    Δ <: Real
 } <: Distribution{Univariate, Discrete}
-    n_states          :: Int
-    transition_matrix :: M
-    initial_dist      :: D
-    Δt                :: Δ
-    state_labels      :: Vector{T}
-    propagation_mode  :: Symbol
+    n_states::Int
+    transition_matrix::M
+    initial_dist::D
+    Δt::Δ
+    state_labels::Vector{T}
+    propagation_mode::Symbol
 end
 
 # --- Constructors ---
 
 function ContinuousTimeObservedStatesMarkovModel(
-    transition_matrix :: AbstractMatrix{<:Real},
-    initial_dist      :: Distributions.Categorical,
-    Δt                :: Real,
-    state_labels      :: Vector{T};
-    propagation_mode  :: Symbol = :auto
-) where T
+        transition_matrix::AbstractMatrix{<:Real},
+        initial_dist::Distributions.Categorical,
+        Δt::Real,
+        state_labels::Vector{T};
+        propagation_mode::Symbol = :auto
+) where {T}
     _ct_hmm_validate_mode(propagation_mode)
     n_states = size(transition_matrix, 1)
     size(transition_matrix, 2) == n_states ||
@@ -67,15 +67,15 @@ end
 
 # Default constructor: integer labels 1..n_states
 function ContinuousTimeObservedStatesMarkovModel(
-    transition_matrix :: AbstractMatrix{<:Real},
-    initial_dist      :: Distributions.Categorical,
-    Δt                :: Real;
-    propagation_mode  :: Symbol = :auto
+        transition_matrix::AbstractMatrix{<:Real},
+        initial_dist::Distributions.Categorical,
+        Δt::Real;
+        propagation_mode::Symbol = :auto
 )
     n_states = size(transition_matrix, 1)
     return ContinuousTimeObservedStatesMarkovModel(
         transition_matrix, initial_dist, Δt, collect(1:n_states);
-        propagation_mode=propagation_mode)
+        propagation_mode = propagation_mode)
 end
 
 @inline _omm_is_observed_markov_dist(::ContinuousTimeObservedStatesMarkovModel) = true
@@ -91,7 +91,7 @@ Marginal prior probabilities of the state at the current observation time, propa
 function probabilities_hidden_states(dist::ContinuousTimeObservedStatesMarkovModel)
     return _ct_hmm_probabilities_hidden_states(
         dist.transition_matrix, dist.initial_dist.p, dist.Δt;
-        mode=dist.propagation_mode)
+        mode = dist.propagation_mode)
 end
 
 """
@@ -111,7 +111,8 @@ function posterior_hidden_states(dist::ContinuousTimeObservedStatesMarkovModel, 
     return post
 end
 
-function posterior_hidden_states(dist::ContinuousTimeObservedStatesMarkovModel, y::AbstractVector)
+function posterior_hidden_states(
+        dist::ContinuousTimeObservedStatesMarkovModel, y::AbstractVector)
     _omm_scalar_observation_index(dist.state_labels, y)
     return zeros(eltype(probabilities_hidden_states(dist)), dist.n_states)
 end
@@ -125,7 +126,8 @@ function Distributions.logpdf(dist::ContinuousTimeObservedStatesMarkovModel, y)
     return log(p[idx])
 end
 
-function Distributions.logpdf(dist::ContinuousTimeObservedStatesMarkovModel, y::AbstractVector)
+function Distributions.logpdf(
+        dist::ContinuousTimeObservedStatesMarkovModel, y::AbstractVector)
     _omm_scalar_observation_index(dist.state_labels, y)
     return -Inf
 end
@@ -140,57 +142,75 @@ Distributions.pdf(dist::ContinuousTimeObservedStatesMarkovModel, y) = exp(logpdf
 # already dispatch to the methods above; these forward the remaining array
 # shapes to the untyped handler (via `invoke`, to avoid self-recursion) so
 # behaviour is identical — the observation pipeline never constructs them.
-Distributions.logpdf(dist::ContinuousTimeObservedStatesMarkovModel,
-                     y::AbstractArray{<:Real, 0}) = invoke(
-    Distributions.logpdf, Tuple{ContinuousTimeObservedStatesMarkovModel, Any}, dist, y)
-Distributions.logpdf(dist::ContinuousTimeObservedStatesMarkovModel,
-                     y::AbstractArray{<:Real}) = invoke(
-    Distributions.logpdf, Tuple{ContinuousTimeObservedStatesMarkovModel, Any}, dist, y)
-Distributions.logpdf(dist::ContinuousTimeObservedStatesMarkovModel,
-                     y::AbstractArray{<:AbstractArray{<:Real, 0}}) = invoke(
-    Distributions.logpdf, Tuple{ContinuousTimeObservedStatesMarkovModel, Any}, dist, y)
-Distributions.pdf(dist::ContinuousTimeObservedStatesMarkovModel, y::Real) =
+function Distributions.logpdf(dist::ContinuousTimeObservedStatesMarkovModel,
+        y::AbstractArray{<:Real, 0})
+    invoke(
+        Distributions.logpdf, Tuple{ContinuousTimeObservedStatesMarkovModel, Any}, dist, y)
+end
+function Distributions.logpdf(dist::ContinuousTimeObservedStatesMarkovModel,
+        y::AbstractArray{<:Real})
+    invoke(
+        Distributions.logpdf, Tuple{ContinuousTimeObservedStatesMarkovModel, Any}, dist, y)
+end
+function Distributions.logpdf(dist::ContinuousTimeObservedStatesMarkovModel,
+        y::AbstractArray{<:AbstractArray{<:Real, 0}})
+    invoke(
+        Distributions.logpdf, Tuple{ContinuousTimeObservedStatesMarkovModel, Any}, dist, y)
+end
+function Distributions.pdf(dist::ContinuousTimeObservedStatesMarkovModel, y::Real)
     exp(logpdf(dist, y))
-Distributions.pdf(dist::ContinuousTimeObservedStatesMarkovModel,
-                  y::AbstractArray{<:Real, 0}) = exp(logpdf(dist, y))
-Distributions.pdf(dist::ContinuousTimeObservedStatesMarkovModel,
-                  y::AbstractArray{<:Real}) = exp(logpdf(dist, y))
-Distributions.pdf(dist::ContinuousTimeObservedStatesMarkovModel,
-                  y::AbstractArray{<:AbstractArray{<:Real, 0}}) = exp(logpdf(dist, y))
+end
+function Distributions.pdf(dist::ContinuousTimeObservedStatesMarkovModel,
+        y::AbstractArray{<:Real, 0})
+    exp(logpdf(dist, y))
+end
+function Distributions.pdf(dist::ContinuousTimeObservedStatesMarkovModel,
+        y::AbstractArray{<:Real})
+    exp(logpdf(dist, y))
+end
+function Distributions.pdf(dist::ContinuousTimeObservedStatesMarkovModel,
+        y::AbstractArray{<:AbstractArray{<:Real, 0}})
+    exp(logpdf(dist, y))
+end
 
 function Distributions.rand(rng::AbstractRNG, dist::ContinuousTimeObservedStatesMarkovModel)
-    p   = probabilities_hidden_states(dist)
+    p = probabilities_hidden_states(dist)
     idx = rand(rng, Categorical(p))
     return dist.state_labels[idx]
 end
 
 # mean/var/cdf only defined for numeric (Real) label types
-function Distributions.mean(dist::ContinuousTimeObservedStatesMarkovModel{M, D, T}) where {M, D, T}
+function Distributions.mean(dist::ContinuousTimeObservedStatesMarkovModel{
+        M, D, T}) where {M, D, T}
     T <: Real || throw(ArgumentError(
         "mean is not defined for ContinuousTimeObservedStatesMarkovModel with label type $T. " *
         "Only Real-valued labels are supported."))
     p = probabilities_hidden_states(dist)
-    return sum(p[k] * dist.state_labels[k] for k in 1:dist.n_states)
+    return sum(p[k] * dist.state_labels[k] for k in 1:(dist.n_states))
 end
 
-function Distributions.var(dist::ContinuousTimeObservedStatesMarkovModel{M, D, T}) where {M, D, T}
+function Distributions.var(dist::ContinuousTimeObservedStatesMarkovModel{
+        M, D, T}) where {M, D, T}
     T <: Real || throw(ArgumentError(
         "var is not defined for ContinuousTimeObservedStatesMarkovModel with label type $T. " *
         "Only Real-valued labels are supported."))
     p = probabilities_hidden_states(dist)
-    μ = sum(p[k] * dist.state_labels[k] for k in 1:dist.n_states)
-    return sum(p[k] * (dist.state_labels[k] - μ)^2 for k in 1:dist.n_states)
+    μ = sum(p[k] * dist.state_labels[k] for k in 1:(dist.n_states))
+    return sum(p[k] * (dist.state_labels[k] - μ)^2 for k in 1:(dist.n_states))
 end
 
-function Distributions.cdf(dist::ContinuousTimeObservedStatesMarkovModel{M, D, T}, y::Real) where {M, D, T}
+function Distributions.cdf(
+        dist::ContinuousTimeObservedStatesMarkovModel{M, D, T}, y::Real) where {M, D, T}
     T <: Real || throw(ArgumentError(
         "cdf is not defined for ContinuousTimeObservedStatesMarkovModel with label type $T. " *
         "Only Real-valued labels are supported."))
     p = probabilities_hidden_states(dist)
-    return sum((p[k] for k in 1:dist.n_states if dist.state_labels[k] <= y); init=zero(eltype(p)))
+    return sum((p[k] for k in 1:(dist.n_states) if dist.state_labels[k] <= y);
+        init = zero(eltype(p)))
 end
 
-Distributions.params(dist::ContinuousTimeObservedStatesMarkovModel) =
+function Distributions.params(dist::ContinuousTimeObservedStatesMarkovModel)
     (dist.transition_matrix, dist.initial_dist, dist.Δt, dist.state_labels)
+end
 
 Base.length(dist::ContinuousTimeObservedStatesMarkovModel) = 1

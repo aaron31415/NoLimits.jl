@@ -10,7 +10,8 @@ using Random
 using DynamicPPL
 
 const _MCMC_MODEL_CACHE = Dict{Tuple{Tuple{Vararg{Symbol}}, Tuple{Vararg{Symbol}}}, Symbol}()
-const _MCMC_MODEL_CACHE_RE = Dict{Tuple{Tuple{Vararg{Symbol}}, Tuple{Vararg{Symbol}}, Tuple{Vararg{Symbol}}}, Symbol}()
+const _MCMC_MODEL_CACHE_RE = Dict{
+    Tuple{Tuple{Vararg{Symbol}}, Tuple{Vararg{Symbol}}, Tuple{Vararg{Symbol}}}, Symbol}()
 
 struct _MCMCReMeta{L, M, R}
     levels::L
@@ -20,7 +21,7 @@ struct _MCMCReMeta{L, M, R}
     is_scalar::Bool
 end
 
-function _warn_if_scaled_params(fe::FixedEffects; method_name::AbstractString="MCMC")
+function _warn_if_scaled_params(fe::FixedEffects; method_name::AbstractString = "MCMC")
     specs = get_transforms(fe).forward.specs
     ignored = Symbol[]
     for spec in specs
@@ -28,7 +29,8 @@ function _warn_if_scaled_params(fe::FixedEffects; method_name::AbstractString="M
             push!(ignored, spec.name)
         end
     end
-    isempty(ignored) || @debug "$(method_name) uses priors on the natural scale; parameter scale settings are ignored during sampling." ignored_parameters=ignored
+    isempty(ignored) ||
+        @debug "$(method_name) uses priors on the natural scale; parameter scale settings are ignored during sampling." ignored_parameters=ignored
     return nothing
 end
 
@@ -52,10 +54,12 @@ struct MCMC{S, K, A, P} <: FittingMethod
     progress::P
 end
 
-MCMC(; sampler=Turing.NUTS(0.75),
-     turing_kwargs=NamedTuple(),
-     adtype=Turing.AutoForwardDiff(),
-     progress=false) = MCMC(sampler, turing_kwargs, adtype, progress)
+function MCMC(; sampler = Turing.NUTS(0.75),
+        turing_kwargs = NamedTuple(),
+        adtype = Turing.AutoForwardDiff(),
+        progress = false)
+    MCMC(sampler, turing_kwargs, adtype, progress)
+end
 
 """
     MCMCResult{C, S, A, N, O} <: MethodResult
@@ -83,11 +87,11 @@ end
 @inline function _mcmc_sampler_defaults(sampler)
     kind = _mcmc_sampler_kind(sampler)
     if kind == :mh
-        return (n_samples=2500, n_adapt=0)
+        return (n_samples = 2500, n_adapt = 0)
     elseif kind == :hmc
-        return (n_samples=1500, n_adapt=750)
+        return (n_samples = 1500, n_adapt = 750)
     else
-        return (n_samples=1000, n_adapt=500)
+        return (n_samples = 1000, n_adapt = 500)
     end
 end
 
@@ -97,22 +101,23 @@ function _build_turing_model(fixed_names::Vector{Symbol}, free_names::Vector{Sym
         return _MCMC_MODEL_CACHE[key]
     end
     fname = gensym(:_mcmc_model)
-    assigns = [:( $(n) ~ getfield(priors, $(QuoteNode(n))) ) for n in free_names]
+    assigns = [:($(n) ~ getfield(priors, $(QuoteNode(n)))) for n in free_names]
     free_nt = Expr(:call,
-                   Expr(:curly, :NamedTuple, Expr(:tuple, QuoteNode.(free_names)...)),
-                   Expr(:tuple, free_names...))
+        Expr(:curly, :NamedTuple, Expr(:tuple, QuoteNode.(free_names)...)),
+        Expr(:tuple, free_names...))
     θ_nt = :(merge($free_nt, constants))
     val_exprs = [:(getfield($θ_nt, $(QuoteNode(n)))) for n in fixed_names]
     nt_expr = Expr(:call,
-                   Expr(:curly, :NamedTuple, Expr(:tuple, QuoteNode.(fixed_names)...)),
-                   Expr(:tuple, val_exprs...))
+        Expr(:curly, :NamedTuple, Expr(:tuple, QuoteNode.(fixed_names)...)),
+        Expr(:tuple, val_exprs...))
     θ_expr = :(ComponentArray($nt_expr))
     ex = quote
         @model function $(fname)(dm, cache, serialization, priors, constants)
             $(assigns...)
             θ = $θ_expr
             θ_re = _symmetrize_psd_params(θ, dm.model.fixed.fixed)
-            ll = loglikelihood(dm, θ_re, ComponentArray(); cache=cache, serialization=serialization)
+            ll = loglikelihood(
+                dm, θ_re, ComponentArray(); cache = cache, serialization = serialization)
             Turing.@addlogprob! ll
         end
     end
@@ -124,7 +129,7 @@ end
 # Evaluates log p(η_const | θ) for all constant RE levels passed via const_re_info.
 # const_re_info: NamedTuple mapping RE name → (vals::Vector, reps::Vector{Int})
 function _mcmc_const_re_prior(dm::DataModel, θ_re::ComponentArray, const_re_info,
-                               model_funs, helpers)
+        model_funs, helpers)
     T = eltype(θ_re)
     ll = zero(T)
     dists_builder = get_create_random_effect_distribution(dm.model.random.random)
@@ -142,21 +147,22 @@ function _mcmc_const_re_prior(dm::DataModel, θ_re::ComponentArray, const_re_inf
     return ll
 end
 
-function _build_turing_model_re(fixed_names::Vector{Symbol}, free_names::Vector{Symbol}, re_names::Vector{Symbol})
+function _build_turing_model_re(
+        fixed_names::Vector{Symbol}, free_names::Vector{Symbol}, re_names::Vector{Symbol})
     key = (Tuple(fixed_names), Tuple(free_names), Tuple(re_names))
     if haskey(_MCMC_MODEL_CACHE_RE, key)
         return _MCMC_MODEL_CACHE_RE[key]
     end
     fname = gensym(:_mcmc_model_re)
-    assigns = [:( $(n) ~ getfield(priors, $(QuoteNode(n))) ) for n in free_names]
+    assigns = [:($(n) ~ getfield(priors, $(QuoteNode(n)))) for n in free_names]
     free_nt = Expr(:call,
-                   Expr(:curly, :NamedTuple, Expr(:tuple, QuoteNode.(free_names)...)),
-                   Expr(:tuple, free_names...))
+        Expr(:curly, :NamedTuple, Expr(:tuple, QuoteNode.(free_names)...)),
+        Expr(:tuple, free_names...))
     θ_nt = :(merge($free_nt, constants))
     val_exprs = [:(getfield($θ_nt, $(QuoteNode(n)))) for n in fixed_names]
     nt_expr = Expr(:call,
-                   Expr(:curly, :NamedTuple, Expr(:tuple, QuoteNode.(fixed_names)...)),
-                   Expr(:tuple, val_exprs...))
+        Expr(:curly, :NamedTuple, Expr(:tuple, QuoteNode.(fixed_names)...)),
+        Expr(:tuple, val_exprs...))
     θ_expr = :(ComponentArray($nt_expr))
     sample_blocks = Expr(:block)
     re_val_syms = Symbol[]
@@ -194,18 +200,19 @@ function _build_turing_model_re(fixed_names::Vector{Symbol}, free_names::Vector{
         push!(sample_blocks.args, :(local $levels_sym = $levels_get))
         push!(sample_blocks.args, :(local $reps_sym = $reps_get))
         push!(sample_blocks.args, :(if $is_scalar || $dim == 1
-                                         $scalar_block
-                                     else
-                                         $vector_block
-                                     end))
+            $scalar_block
+        else
+            $vector_block
+        end))
     end
 
     re_samples_expr = Expr(:call,
-                           Expr(:curly, :NamedTuple, Expr(:tuple, QuoteNode.(re_names)...)),
-                           Expr(:tuple, re_val_syms...))
+        Expr(:curly, :NamedTuple, Expr(:tuple, QuoteNode.(re_names)...)),
+        Expr(:tuple, re_val_syms...))
 
     ex = quote
-        @model function $(fname)(dm, cache, serialization, priors, constants, re_names, re_meta, fixed_maps, const_covs, const_re_info)
+        @model function $(fname)(dm, cache, serialization, priors, constants, re_names,
+                re_meta, fixed_maps, const_covs, const_re_info)
             $(assigns...)
             θ = $θ_expr
             θ_re = _symmetrize_psd_params(θ, dm.model.fixed.fixed)
@@ -215,7 +222,8 @@ function _build_turing_model_re(fixed_names::Vector{Symbol}, free_names::Vector{
             helpers = get_helper_funs(dm.model)
 
             $sample_blocks
-            Turing.@addlogprob! _mcmc_const_re_prior(dm, θ_re, const_re_info, model_funs, helpers)
+            Turing.@addlogprob! _mcmc_const_re_prior(
+                dm, θ_re, const_re_info, model_funs, helpers)
             re_samples = $re_samples_expr
 
             η_vec = Vector{ComponentArray}(undef, length(dm.individuals))
@@ -237,36 +245,42 @@ function _build_turing_model_re(fixed_names::Vector{Symbol}, free_names::Vector{
                                 v = fixed[gv]
                             else
                                 idx = get(lvl_to_idx, gv, 0)
-                                idx == 0 && error("Missing random effect value for $(re) level $(gv).")
+                                idx == 0 &&
+                                    error("Missing random effect value for $(re) level $(gv).")
                                 v = samples[idx]
                             end
                             if scalar_like
                                 push!(nt_pairs, re => v)
                             else
-                                push!(nt_pairs, re => (v isa AbstractVector ? collect(v) : [v]))
+                                push!(nt_pairs,
+                                    re => (v isa AbstractVector ? collect(v) : [v]))
                             end
                         else
                             if scalar_like
                                 vals = [begin
-                                    if fixed !== nothing && haskey(fixed, gv)
-                                        fixed[gv]
-                                    else
-                                        idx = get(lvl_to_idx, gv, 0)
-                                        idx == 0 && error("Missing random effect value for $(re) level $(gv).")
-                                        samples[idx]
-                                    end
-                                end for gv in g]
+                                            if fixed !== nothing && haskey(fixed, gv)
+                                                fixed[gv]
+                                            else
+                                                idx = get(lvl_to_idx, gv, 0)
+                                                idx == 0 &&
+                                                    error("Missing random effect value for $(re) level $(gv).")
+                                                samples[idx]
+                                            end
+                                        end
+                                        for gv in g]
                             else
                                 vals = [begin
-                                    if fixed !== nothing && haskey(fixed, gv)
-                                        v = fixed[gv]
-                                    else
-                                        idx = get(lvl_to_idx, gv, 0)
-                                        idx == 0 && error("Missing random effect value for $(re) level $(gv).")
-                                        v = samples[idx]
-                                    end
-                                    v isa AbstractVector ? collect(v) : [v]
-                                end for gv in g]
+                                            if fixed !== nothing && haskey(fixed, gv)
+                                                v = fixed[gv]
+                                            else
+                                                idx = get(lvl_to_idx, gv, 0)
+                                                idx == 0 &&
+                                                    error("Missing random effect value for $(re) level $(gv).")
+                                                v = samples[idx]
+                                            end
+                                            v isa AbstractVector ? collect(v) : [v]
+                                        end
+                                        for gv in g]
                             end
                             push!(nt_pairs, re => vals)
                         end
@@ -275,7 +289,8 @@ function _build_turing_model_re(fixed_names::Vector{Symbol}, free_names::Vector{
                             v = fixed[g]
                         else
                             idx = get(lvl_to_idx, g, 0)
-                            idx == 0 && error("Missing random effect value for $(re) level $(g).")
+                            idx == 0 &&
+                                error("Missing random effect value for $(re) level $(g).")
                             v = samples[idx]
                         end
                         if scalar_like
@@ -288,7 +303,8 @@ function _build_turing_model_re(fixed_names::Vector{Symbol}, free_names::Vector{
                 η_vec[i] = ComponentArray(NamedTuple(nt_pairs))
             end
 
-            ll = loglikelihood(dm, θ_re, η_vec; cache=cache, serialization=serialization)
+            ll = loglikelihood(
+                dm, θ_re, η_vec; cache = cache, serialization = serialization)
             Turing.@addlogprob! ll
         end
     end
@@ -306,31 +322,31 @@ function _set_turing_adbackend!(adtype)
     return nothing
 end
 
-
 function _fit_model(dm::DataModel, method::MCMC, args...;
-                    constants::NamedTuple=NamedTuple(),
-                    constants_re::NamedTuple=NamedTuple(),
-                    penalty::NamedTuple=NamedTuple(),
-                    ode_args::Tuple=(),
-                    ode_kwargs::NamedTuple=NamedTuple(),
-                    serialization::SciMLBase.EnsembleAlgorithm=EnsembleThreads(),
-                    rng::AbstractRNG=Xoshiro(0),
-                    theta_0_untransformed::Union{Nothing, ComponentArray}=nothing,
-                    store_data_model::Bool=true)
-    fit_kwargs = (constants=constants,
-                  constants_re=constants_re,
-                  penalty=penalty,
-                  ode_args=ode_args,
-                  ode_kwargs=ode_kwargs,
-                  serialization=serialization,
-                  rng=rng,
-                  theta_0_untransformed=theta_0_untransformed,
-                  store_data_model=store_data_model)
+        constants::NamedTuple = NamedTuple(),
+        constants_re::NamedTuple = NamedTuple(),
+        penalty::NamedTuple = NamedTuple(),
+        ode_args::Tuple = (),
+        ode_kwargs::NamedTuple = NamedTuple(),
+        serialization::SciMLBase.EnsembleAlgorithm = EnsembleThreads(),
+        rng::AbstractRNG = Xoshiro(0),
+        theta_0_untransformed::Union{Nothing, ComponentArray} = nothing,
+        store_data_model::Bool = true)
+    fit_kwargs = (constants = constants,
+        constants_re = constants_re,
+        penalty = penalty,
+        ode_args = ode_args,
+        ode_kwargs = ode_kwargs,
+        serialization = serialization,
+        rng = rng,
+        theta_0_untransformed = theta_0_untransformed,
+        store_data_model = store_data_model)
     re_names = get_re_names(dm.model.random.random)
-    isempty(keys(penalty)) || error("MCMC does not support penalty terms. Use priors and MAP instead.")
+    isempty(keys(penalty)) ||
+        error("MCMC does not support penalty terms. Use priors and MAP instead.")
 
     fe = dm.model.fixed.fixed
-    _warn_if_scaled_params(fe; method_name="MCMC")
+    _warn_if_scaled_params(fe; method_name = "MCMC")
     priors = get_priors(fe)
     fixed_names = get_names(fe)
     fixed_set = Set(fixed_names)
@@ -342,18 +358,23 @@ function _fit_model(dm::DataModel, method::MCMC, args...;
         error("MCMC requires at least one sampled parameter. For fixed-effects-only models, leave at least one fixed effect free.")
     end
     for name in free_names
-        haskey(priors, name) || error("MCMC requires priors on all free fixed effects. Missing prior for $(name).")
-        getfield(priors, name) isa Priorless && error("MCMC requires priors on all free fixed effects. Priorless for $(name).")
+        haskey(priors, name) ||
+            error("MCMC requires priors on all free fixed effects. Missing prior for $(name).")
+        getfield(priors, name) isa Priorless &&
+            error("MCMC requires priors on all free fixed effects. Priorless for $(name).")
     end
     if theta_0_untransformed !== nothing
         for n in fixed_names
-            hasproperty(theta_0_untransformed, n) || error("theta_0_untransformed is missing parameter $(n).")
+            hasproperty(theta_0_untransformed, n) ||
+                error("theta_0_untransformed is missing parameter $(n).")
         end
     end
 
     cache = serialization isa SciMLBase.EnsembleThreads ?
-            build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs, nthreads=Threads.maxthreadid(), force_saveat=true) :
-            build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs, force_saveat=true)
+            build_ll_cache(dm; ode_args = ode_args, ode_kwargs = ode_kwargs,
+        nthreads = Threads.maxthreadid(), force_saveat = true) :
+            build_ll_cache(
+        dm; ode_args = ode_args, ode_kwargs = ode_kwargs, force_saveat = true)
 
     free_names_t = Tuple(free_names)
     θ_template = get_θ0_untransformed(fe)
@@ -409,7 +430,8 @@ function _fit_model(dm::DataModel, method::MCMC, args...;
                 dim = is_scalar ? 1 : length(dist)
                 dim == 0 && error("Random effect $(re) has zero dimension.")
             end
-            push!(re_pairs, re => _MCMCReMeta(levels_free, level_to_index, reps, dim, is_scalar))
+            push!(re_pairs,
+                re => _MCMCReMeta(levels_free, level_to_index, reps, dim, is_scalar))
             # Collect constant-level (val, rep_idx) pairs for this RE.
             const_vals = Any[]
             const_reps = Int[]
@@ -418,29 +440,35 @@ function _fit_model(dm::DataModel, method::MCMC, args...;
                 push!(const_vals, val)
                 push!(const_reps, reps_map[lvl])
             end
-            push!(const_re_info_pairs, re => (vals=const_vals, reps=const_reps))
+            push!(const_re_info_pairs, re => (vals = const_vals, reps = const_reps))
         end
         re_meta = NamedTuple(re_pairs)
         const_re_info = NamedTuple(const_re_info_pairs)
         fname = _build_turing_model_re(fixed_names, free_names, re_names)
         model_fn = Base.invokelatest(getfield, @__MODULE__, fname)
-        model = Base.invokelatest(model_fn, dm, cache, serialization, priors_nt, constants, re_names, re_meta, fixed_maps, const_covs, const_re_info)
+        model = Base.invokelatest(model_fn, dm, cache, serialization, priors_nt, constants,
+            re_names, re_meta, fixed_maps, const_covs, const_re_info)
     end
     f_old = model.f
-    f_wrap = (args...)->Base.invokelatest(f_old, args...)
+    f_wrap = (args...) -> Base.invokelatest(f_old, args...)
     miss = typeof(model).parameters[4]
     threaded = typeof(model).parameters[8]
-    model = DynamicPPL.Model{threaded,miss}(f_wrap, model.args, model.defaults, model.context)
+    model = DynamicPPL.Model{threaded, miss}(
+        f_wrap, model.args, model.defaults, model.context)
     sampler = method.sampler
     sampler_defaults = _mcmc_sampler_defaults(sampler)
     n_samples = get(method.turing_kwargs, :n_samples, sampler_defaults.n_samples)
     n_adapt = get(method.turing_kwargs, :n_adapt, sampler_defaults.n_adapt)
-    turing_kwargs = Base.structdiff(method.turing_kwargs, (n_samples=0, n_adapt=0))
-    haskey(turing_kwargs, :progress) || (turing_kwargs = merge(turing_kwargs, (progress=method.progress,)))
-    haskey(turing_kwargs, :verbose) || (turing_kwargs = merge(turing_kwargs, (verbose=false,)))
+    turing_kwargs = Base.structdiff(method.turing_kwargs, (n_samples = 0, n_adapt = 0))
+    haskey(turing_kwargs, :progress) ||
+        (turing_kwargs = merge(turing_kwargs, (progress = method.progress,)))
+    haskey(turing_kwargs, :verbose) ||
+        (turing_kwargs = merge(turing_kwargs, (verbose = false,)))
     if theta_0_untransformed !== nothing && !haskey(turing_kwargs, :initial_params)
-        init_nt = NamedTuple{free_names_t}(Tuple(getproperty(theta_0_untransformed, n) for n in free_names))
-        turing_kwargs = merge(turing_kwargs, (initial_params=DynamicPPL.InitFromParams(init_nt),))
+        init_nt = NamedTuple{free_names_t}(Tuple(getproperty(theta_0_untransformed, n)
+        for n in free_names))
+        turing_kwargs = merge(
+            turing_kwargs, (initial_params = DynamicPPL.InitFromParams(init_nt),))
     elseif theta_0_untransformed !== nothing && haskey(turing_kwargs, :initial_params)
         @debug "theta_0_untransformed ignored because turing_kwargs already specifies initial_params."
     end
@@ -449,14 +477,17 @@ function _fit_model(dm::DataModel, method::MCMC, args...;
     # Turing >=0.45 defaults to FlexiChains; keep the historical MCMCChains.Chains return
     # type (consumed by get_chain, UQ, summaries, serialization, plotting). A user can still
     # opt into a different chain type via turing_kwargs.
-    haskey(turing_kwargs, :chain_type) || (turing_kwargs = merge(turing_kwargs, (chain_type=MCMCChains.Chains,)))
-    chain = Turing.sample(rng, model, sampler, n_samples; adapt=n_adapt, turing_kwargs...)
+    haskey(turing_kwargs, :chain_type) ||
+        (turing_kwargs = merge(turing_kwargs, (chain_type = MCMCChains.Chains,)))
+    chain = Turing.sample(rng, model, sampler, n_samples; adapt = n_adapt, turing_kwargs...)
 
     obs = dm.df[:, dm.config.obs_cols]
     summary = FitSummary(NaN, missing,
-                         FitParameters(ComponentArray(), ComponentArray()),
-                         NamedTuple())
-    diagnostics = FitDiagnostics((;), (sampler=sampler,), (n_samples=n_samples, n_adapt=n_adapt), NamedTuple())
+        FitParameters(ComponentArray(), ComponentArray()),
+        NamedTuple())
+    diagnostics = FitDiagnostics(
+        (;), (sampler = sampler,), (n_samples = n_samples, n_adapt = n_adapt), NamedTuple())
     result = MCMCResult(chain, sampler, n_samples, NamedTuple(), obs)
-    return FitResult(method, result, summary, diagnostics, store_data_model ? dm : nothing, args, fit_kwargs)
+    return FitResult(method, result, summary, diagnostics,
+        store_data_model ? dm : nothing, args, fit_kwargs)
 end

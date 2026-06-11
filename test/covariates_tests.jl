@@ -6,10 +6,11 @@ using DataInterpolations
     # Basic macro expansion builds names, groups, and interpolations.
     cov = @covariates begin
         x = ConstantCovariateVector([:Age, :gender])
-        w1 = DynamicCovariate(interpolation=CubicSpline)
+        w1 = DynamicCovariate(interpolation = CubicSpline)
         w2 = ConstantCovariate()
         z = DynamicCovariateVector([:z1, :z2, :z3],
-                                   interpolations=[LinearInterpolation, LinearInterpolation, LinearInterpolation])
+            interpolations = [
+                LinearInterpolation, LinearInterpolation, LinearInterpolation])
         delta_t = Covariate()
     end
 
@@ -38,14 +39,14 @@ end
 @testset "Covariates interpolation types" begin
     # All allowed interpolation types are accepted and recorded.
     cov = @covariates begin
-        c = DynamicCovariate(interpolation=ConstantInterpolation)
-        sc = DynamicCovariate(interpolation=SmoothedConstantInterpolation)
-        lin = DynamicCovariate(interpolation=LinearInterpolation)
-        quad = DynamicCovariate(interpolation=QuadraticInterpolation)
-        lag = DynamicCovariate(interpolation=LagrangeInterpolation)
-        qs = DynamicCovariate(interpolation=QuadraticSpline)
-        cs = DynamicCovariate(interpolation=CubicSpline)
-        ak = DynamicCovariate(interpolation=AkimaInterpolation)
+        c = DynamicCovariate(interpolation = ConstantInterpolation)
+        sc = DynamicCovariate(interpolation = SmoothedConstantInterpolation)
+        lin = DynamicCovariate(interpolation = LinearInterpolation)
+        quad = DynamicCovariate(interpolation = QuadraticInterpolation)
+        lag = DynamicCovariate(interpolation = LagrangeInterpolation)
+        qs = DynamicCovariate(interpolation = QuadraticSpline)
+        cs = DynamicCovariate(interpolation = CubicSpline)
+        ak = DynamicCovariate(interpolation = AkimaInterpolation)
     end
 
     @test cov.interpolations[:c] == ConstantInterpolation
@@ -59,24 +60,25 @@ end
 end
 
 @testset "Covariates interpolation types (invalid)" begin
-    @test_throws ErrorException DynamicCovariate(:a, interpolation=BSplineInterpolation)
-    @test_throws ErrorException DynamicCovariate(:a, interpolation=BSplineApprox)
-    @test_throws ErrorException DynamicCovariate(:a, interpolation=CubicHermiteSpline)
-    @test_throws ErrorException DynamicCovariate(:a, interpolation=QuinticHermiteSpline)
+    @test_throws ErrorException DynamicCovariate(:a, interpolation = BSplineInterpolation)
+    @test_throws ErrorException DynamicCovariate(:a, interpolation = BSplineApprox)
+    @test_throws ErrorException DynamicCovariate(:a, interpolation = CubicHermiteSpline)
+    @test_throws ErrorException DynamicCovariate(:a, interpolation = QuinticHermiteSpline)
 end
 
 @testset "Covariates validation" begin
     # Invalid inputs and shapes are rejected with clear errors.
-    @test_throws ErrorException DynamicCovariateVector([:a, :b]; interpolations=[LinearInterpolation])
+    @test_throws ErrorException DynamicCovariateVector(
+        [:a, :b]; interpolations = [LinearInterpolation])
 
-    @test_throws ErrorException DynamicCovariate(:x, interpolation=Symbol)
+    @test_throws ErrorException DynamicCovariate(:x, interpolation = Symbol)
 
     @test_throws LoadError @eval @covariates begin
         x = Covariate(:x)
     end
 
     @test_throws LoadError @eval @covariates begin
-        x = Covariate(column=:x)
+        x = Covariate(column = :x)
     end
 
     @test_throws LoadError @eval @covariates begin
@@ -96,7 +98,7 @@ end
     end
 
     @test_throws ErrorException @eval @covariates begin
-        x = DynamicCovariateVector([:a, :b], interpolations=[LinearInterpolation])
+        x = DynamicCovariateVector([:a, :b], interpolations = [LinearInterpolation])
     end
 
     cov2 = @covariates begin
@@ -113,21 +115,21 @@ end
 @testset "Covariates macro rewriting" begin
     # LHS-driven column naming and qualified constructors rewrite correctly.
     cov = @covariates begin
-        w = DynamicCovariate(interpolation=CubicSpline)
+        w = DynamicCovariate(interpolation = CubicSpline)
         c = ConstantCovariate()
     end
     @test cov.interpolations[:w] == CubicSpline
     @test :c in cov.constants
 
     covq = @covariates begin
-        q = DynamicCovariate(interpolation=AkimaInterpolation)
+        q = DynamicCovariate(interpolation = AkimaInterpolation)
         s = ConstantCovariate()
     end
     @test covq.interpolations[:q] == AkimaInterpolation
     @test :s in covq.constants
 
     @test_throws LoadError @eval @covariates begin
-        bad = ConstantCovariate(:a, interpolation=CubicSpline)
+        bad = ConstantCovariate(:a, interpolation = CubicSpline)
     end
 
     covn = @covariates begin
@@ -140,15 +142,15 @@ end
 
 @testset "Covariates keyword parsing (Dynamic)" begin
     cov = @covariates begin
-        w1 = DynamicCovariate(; interpolation=LinearInterpolation)
+        w1 = DynamicCovariate(; interpolation = LinearInterpolation)
     end
     @test cov.interpolations[:w1] == LinearInterpolation
 end
 
 @testset "Covariates constant_on parsing" begin
     cov = @covariates begin
-        c = ConstantCovariate(; constant_on=:ID)
-        v = ConstantCovariateVector([:Age, :Weight]; constant_on=[:ID, :SITE])
+        c = ConstantCovariate(; constant_on = :ID)
+        v = ConstantCovariateVector([:Age, :Weight]; constant_on = [:ID, :SITE])
     end
 
     @test cov.params.c.constant_on == [:ID]

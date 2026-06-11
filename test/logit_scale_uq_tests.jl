@@ -7,7 +7,7 @@ using Distributions
 
 @testset "_flat_transform_kinds_for_free — :logit uniform" begin
     fe = @fixedEffects begin
-        p = RealNumber(0.3; scale=:logit, calculate_se=true)
+        p = RealNumber(0.3; scale = :logit, calculate_se = true)
     end
     kinds = NoLimits._flat_transform_kinds_for_free(fe, [:p])
     @test kinds == [:logit]
@@ -15,7 +15,8 @@ end
 
 @testset "_flat_transform_kinds_for_free — :logit vector" begin
     fe = @fixedEffects begin
-        v = RealVector([0.2, 0.5, 0.8]; scale=[:logit, :logit, :logit], calculate_se=true)
+        v = RealVector(
+            [0.2, 0.5, 0.8]; scale = [:logit, :logit, :logit], calculate_se = true)
     end
     kinds = NoLimits._flat_transform_kinds_for_free(fe, [:v])
     @test kinds == [:logit, :logit, :logit]
@@ -23,7 +24,8 @@ end
 
 @testset "_flat_transform_kinds_for_free — :elementwise mixed" begin
     fe = @fixedEffects begin
-        v = RealVector([0.4, 2.0, -1.0]; scale=[:logit, :log, :identity], calculate_se=true)
+        v = RealVector(
+            [0.4, 2.0, -1.0]; scale = [:logit, :log, :identity], calculate_se = true)
     end
     kinds = NoLimits._flat_transform_kinds_for_free(fe, [:v])
     @test kinds == [:logit, :log, :identity]
@@ -31,9 +33,9 @@ end
 
 @testset "_flat_transform_kinds_for_free — mixed params" begin
     fe = @fixedEffects begin
-        p = RealNumber(0.3; scale=:logit, calculate_se=true)
-        σ = RealNumber(1.0; scale=:log, calculate_se=true)
-        a = RealNumber(0.5; scale=:identity, calculate_se=true)
+        p = RealNumber(0.3; scale = :logit, calculate_se = true)
+        σ = RealNumber(1.0; scale = :log, calculate_se = true)
+        a = RealNumber(0.5; scale = :identity, calculate_se = true)
     end
     kinds = NoLimits._flat_transform_kinds_for_free(fe, [:p, :σ, :a])
     @test kinds == [:logit, :log, :identity]
@@ -41,8 +43,9 @@ end
 
 @testset "_flat_transform_kinds_for_free — :elementwise two params" begin
     fe = @fixedEffects begin
-        v = RealVector([0.3, 2.0, -1.0]; scale=[:logit, :log, :identity], calculate_se=true)
-        σ = RealNumber(0.5; scale=:log, calculate_se=true)
+        v = RealVector(
+            [0.3, 2.0, -1.0]; scale = [:logit, :log, :identity], calculate_se = true)
+        σ = RealNumber(0.5; scale = :log, calculate_se = true)
     end
     kinds = NoLimits._flat_transform_kinds_for_free(fe, [:v, :σ])
     @test kinds == [:logit, :log, :identity, :log]
@@ -112,8 +115,8 @@ end
     # All density values non-negative
     @test all(y .>= 0.0)
     # Density integrates close to 1 (trapezoid rule check)
-    area = sum((x[2:end] .- x[1:end-1]) .* (y[2:end] .+ y[1:end-1]) ./ 2)
-    @test isapprox(area, 1.0; atol=0.01)
+    area = sum((x[2:end] .- x[1:(end - 1)]) .* (y[2:end] .+ y[1:(end - 1)]) ./ 2)
+    @test isapprox(area, 1.0; atol = 0.01)
 end
 
 @testset "_wald_density_xy — :logitnormal matches Distributions.LogitNormal" begin
@@ -125,8 +128,8 @@ end
     x, y = result
     dist = LogitNormal(μ, σ)  # σ = sqrt(v)
     # Check density at a few interior points
-    for (xi, yi) in zip(x[50:10:end-50], y[50:10:end-50])
-        @test isapprox(yi, pdf(dist, xi); rtol=1e-8)
+    for (xi, yi) in zip(x[50:10:(end - 50)], y[50:10:(end - 50)])
+        @test isapprox(yi, pdf(dist, xi); rtol = 1e-8)
     end
 end
 

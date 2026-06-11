@@ -52,40 +52,40 @@ Four backends are supported:
 A [`UQResult`](@ref) with point estimates, intervals, covariance matrices, and draws.
 """
 function compute_uq(res::FitResult;
-                    method::Symbol=:auto,
-                    interval::Symbol=:auto,
-                    vcov::Symbol=:hessian,
-                    re_approx::Symbol=:auto,
-                    re_approx_method::Union{Nothing, FittingMethod}=nothing,
-                    level::Real=0.95,
-                    pseudo_inverse::Bool=false,
-                    hessian_backend::Symbol=:auto,
-                    fd_abs_step::Real=1e-4,
-                    fd_rel_step::Real=1e-3,
-                    fd_max_tries::Int=8,
-                    n_draws::Int=2000,
-                    mcmc_warmup::Union{Nothing, Int}=nothing,
-                    mcmc_draws::Union{Nothing, Int}=nothing,
-                    constants::Union{Nothing, NamedTuple}=nothing,
-                    constants_re::Union{Nothing, NamedTuple}=nothing,
-                    penalty::Union{Nothing, NamedTuple}=nothing,
-                    ode_args::Union{Nothing, Tuple}=nothing,
-                    ode_kwargs::Union{Nothing, NamedTuple}=nothing,
-                    serialization::Union{Nothing, SciMLBase.EnsembleAlgorithm}=nothing,
-                    profile_method::Symbol=:LIN_EXTRAPOL,
-                    profile_scan_width::Real=3.0,
-                    profile_scan_tol::Real=1e-3,
-                    profile_loss_tol::Real=1e-3,
-                    profile_local_alg::Symbol=:LN_NELDERMEAD,
-                    profile_max_iter::Int=10_000,
-                    profile_ftol_abs::Real=1e-3,
-                    profile_kwargs::NamedTuple=NamedTuple(),
-                    mcmc_method::Union{Nothing, MCMC}=nothing,
-                    mcmc_sampler=Turing.NUTS(0.75),
-                    mcmc_turing_kwargs::NamedTuple=NamedTuple(),
-                    mcmc_adtype=Turing.AutoForwardDiff(),
-                    mcmc_fit_kwargs::NamedTuple=NamedTuple(),
-                    rng::AbstractRNG=Random.default_rng())
+        method::Symbol = :auto,
+        interval::Symbol = :auto,
+        vcov::Symbol = :hessian,
+        re_approx::Symbol = :auto,
+        re_approx_method::Union{Nothing, FittingMethod} = nothing,
+        level::Real = 0.95,
+        pseudo_inverse::Bool = false,
+        hessian_backend::Symbol = :auto,
+        fd_abs_step::Real = 1e-4,
+        fd_rel_step::Real = 1e-3,
+        fd_max_tries::Int = 8,
+        n_draws::Int = 2000,
+        mcmc_warmup::Union{Nothing, Int} = nothing,
+        mcmc_draws::Union{Nothing, Int} = nothing,
+        constants::Union{Nothing, NamedTuple} = nothing,
+        constants_re::Union{Nothing, NamedTuple} = nothing,
+        penalty::Union{Nothing, NamedTuple} = nothing,
+        ode_args::Union{Nothing, Tuple} = nothing,
+        ode_kwargs::Union{Nothing, NamedTuple} = nothing,
+        serialization::Union{Nothing, SciMLBase.EnsembleAlgorithm} = nothing,
+        profile_method::Symbol = :LIN_EXTRAPOL,
+        profile_scan_width::Real = 3.0,
+        profile_scan_tol::Real = 1e-3,
+        profile_loss_tol::Real = 1e-3,
+        profile_local_alg::Symbol = :LN_NELDERMEAD,
+        profile_max_iter::Int = 10_000,
+        profile_ftol_abs::Real = 1e-3,
+        profile_kwargs::NamedTuple = NamedTuple(),
+        mcmc_method::Union{Nothing, MCMC} = nothing,
+        mcmc_sampler = Turing.NUTS(0.75),
+        mcmc_turing_kwargs::NamedTuple = NamedTuple(),
+        mcmc_adtype = Turing.AutoForwardDiff(),
+        mcmc_fit_kwargs::NamedTuple = NamedTuple(),
+        rng::AbstractRNG = Random.default_rng())
     level_use = _validate_level(level)
     n_draws >= 1 || error("n_draws must be >= 1.")
 
@@ -109,95 +109,96 @@ function compute_uq(res::FitResult;
         end
     end
     if backend == :wald
-        vcov in (:hessian, :sandwich) || error("For Wald UQ, vcov must be :hessian or :sandwich.")
+        vcov in (:hessian, :sandwich) ||
+            error("For Wald UQ, vcov must be :hessian or :sandwich.")
     end
 
     if backend == :chain
         return _compute_uq_chain(res;
-                                 level=level_use,
-                                 constants=constants,
-                                 mcmc_warmup=mcmc_warmup,
-                                 mcmc_draws=mcmc_draws,
-                                 default_draws=n_draws,
-                                 rng=rng)
+            level = level_use,
+            constants = constants,
+            mcmc_warmup = mcmc_warmup,
+            mcmc_draws = mcmc_draws,
+            default_draws = n_draws,
+            rng = rng)
     elseif backend == :wald
         src_method = get_method(res)
         if src_method isa MLE || src_method isa MAP ||
            src_method isa Pooled || src_method isa PooledMap
             return _compute_uq_wald_no_re(res;
-                                          level=level_use,
-                                          vcov=vcov,
-                                          pseudo_inverse=pseudo_inverse,
-                                          hessian_backend=hessian_backend,
-                                          fd_abs_step=fd_abs_step,
-                                          fd_rel_step=fd_rel_step,
-                                          fd_max_tries=fd_max_tries,
-                                          n_draws=n_draws,
-                                          constants=constants,
-                                          penalty=penalty,
-                                          ode_args=ode_args,
-                                          ode_kwargs=ode_kwargs,
-                                          serialization=serialization,
-                                          rng=rng)
+                level = level_use,
+                vcov = vcov,
+                pseudo_inverse = pseudo_inverse,
+                hessian_backend = hessian_backend,
+                fd_abs_step = fd_abs_step,
+                fd_rel_step = fd_rel_step,
+                fd_max_tries = fd_max_tries,
+                n_draws = n_draws,
+                constants = constants,
+                penalty = penalty,
+                ode_args = ode_args,
+                ode_kwargs = ode_kwargs,
+                serialization = serialization,
+                rng = rng)
         elseif src_method isa Laplace || src_method isa LaplaceMAP ||
                src_method isa FOCEI || src_method isa FOCEIMAP ||
                src_method isa MCEM || src_method isa SAEM ||
                src_method isa GHQuadrature || src_method isa GHQuadratureMAP
             return _compute_uq_wald_re(res;
-                                       level=level_use,
-                                       vcov=vcov,
-                                       re_approx=re_approx,
-                                       re_approx_method=re_approx_method,
-                                       pseudo_inverse=pseudo_inverse,
-                                       hessian_backend=hessian_backend,
-                                       fd_abs_step=fd_abs_step,
-                                       fd_rel_step=fd_rel_step,
-                                       fd_max_tries=fd_max_tries,
-                                       n_draws=n_draws,
-                                       constants=constants,
-                                       constants_re=constants_re,
-                                       penalty=penalty,
-                                       ode_args=ode_args,
-                                       ode_kwargs=ode_kwargs,
-                                       serialization=serialization,
-                                       rng=rng)
+                level = level_use,
+                vcov = vcov,
+                re_approx = re_approx,
+                re_approx_method = re_approx_method,
+                pseudo_inverse = pseudo_inverse,
+                hessian_backend = hessian_backend,
+                fd_abs_step = fd_abs_step,
+                fd_rel_step = fd_rel_step,
+                fd_max_tries = fd_max_tries,
+                n_draws = n_draws,
+                constants = constants,
+                constants_re = constants_re,
+                penalty = penalty,
+                ode_args = ode_args,
+                ode_kwargs = ode_kwargs,
+                serialization = serialization,
+                rng = rng)
         else
             error("Wald UQ is currently supported for MLE, MAP, Pooled, PooledMap, Laplace, LaplaceMAP, FOCEI, FOCEIMAP, MCEM, SAEM, GHQuadrature, and GHQuadratureMAP fit results.")
         end
     elseif backend == :profile
         return _compute_uq_profile(res;
-                                   level=level_use,
-                                   constants=constants,
-                                   constants_re=constants_re,
-                                   penalty=penalty,
-                                   ode_args=ode_args,
-                                   ode_kwargs=ode_kwargs,
-                                   serialization=serialization,
-                                   profile_method=profile_method,
-                                   profile_scan_width=profile_scan_width,
-                                   profile_scan_tol=profile_scan_tol,
-                                   profile_loss_tol=profile_loss_tol,
-                                   profile_local_alg=profile_local_alg,
-                                   profile_max_iter=profile_max_iter,
-                                   profile_ftol_abs=profile_ftol_abs,
-                                   profile_kwargs=profile_kwargs,
-                                   rng=rng)
+            level = level_use,
+            constants = constants,
+            constants_re = constants_re,
+            penalty = penalty,
+            ode_args = ode_args,
+            ode_kwargs = ode_kwargs,
+            serialization = serialization,
+            profile_method = profile_method,
+            profile_scan_width = profile_scan_width,
+            profile_scan_tol = profile_scan_tol,
+            profile_loss_tol = profile_loss_tol,
+            profile_local_alg = profile_local_alg,
+            profile_max_iter = profile_max_iter,
+            profile_ftol_abs = profile_ftol_abs,
+            profile_kwargs = profile_kwargs,
+            rng = rng)
     elseif backend == :mcmc_refit
         return _compute_uq_mcmc_refit(res;
-                                      level=level_use,
-                                      constants=constants,
-                                      constants_re=constants_re,
-                                      ode_args=ode_args,
-                                      ode_kwargs=ode_kwargs,
-                                      serialization=serialization,
-                                      mcmc_warmup=mcmc_warmup,
-                                      mcmc_draws=mcmc_draws,
-                                      mcmc_method=mcmc_method,
-                                      mcmc_sampler=mcmc_sampler,
-                                      mcmc_turing_kwargs=mcmc_turing_kwargs,
-                                      mcmc_adtype=mcmc_adtype,
-                                      mcmc_fit_kwargs=mcmc_fit_kwargs,
-                                      rng=rng)
+            level = level_use,
+            constants = constants,
+            constants_re = constants_re,
+            ode_args = ode_args,
+            ode_kwargs = ode_kwargs,
+            serialization = serialization,
+            mcmc_warmup = mcmc_warmup,
+            mcmc_draws = mcmc_draws,
+            mcmc_method = mcmc_method,
+            mcmc_sampler = mcmc_sampler,
+            mcmc_turing_kwargs = mcmc_turing_kwargs,
+            mcmc_adtype = mcmc_adtype,
+            mcmc_fit_kwargs = mcmc_fit_kwargs,
+            rng = rng)
     else
         error("Unsupported UQ method $(backend). Use :auto, :wald, :chain, :profile, or :mcmc_refit.")
     end

@@ -32,7 +32,7 @@ struct VI{K} <: FittingMethod
     turing_kwargs::K
 end
 
-VI(; turing_kwargs=NamedTuple()) = VI(turing_kwargs)
+VI(; turing_kwargs = NamedTuple()) = VI(turing_kwargs)
 
 """
     VIResult{Q, T, S, N, O, V, C, M} <: MethodResult
@@ -53,7 +53,7 @@ struct VIResult{Q, T, S, N, O, V, C, M} <: MethodResult
     varinfo::V
     coord_names::C
     model::M       # DynamicPPL model used for VI; needed to unlink posterior draws to
-                   # natural space. `nothing` after deserialization (draws stay linked).
+    # natural space. `nothing` after deserialization (draws stay linked).
 end
 
 get_variational_posterior(res::VIResult) = res.posterior
@@ -72,7 +72,8 @@ function _vi_unpack_output(out)
             error("Unexpected VI output type $(typeof(out)); expected a VIResult struct or a 3-tuple from Turing.vi.")
         return (getproperty(out, :q), getproperty(out, :info), getproperty(out, :state))
     end
-    length(out) == 3 || error("Unexpected VI output tuple length $(length(out)); expected 3.")
+    length(out) == 3 ||
+        error("Unexpected VI output tuple length $(length(out)); expected 3.")
     q, b, c = out
     b_is_info = b isa AbstractVector && (isempty(b) || first(b) isa NamedTuple)
     c_is_info = c isa AbstractVector && (isempty(c) || first(c) isa NamedTuple)
@@ -101,7 +102,8 @@ function _vi_info_elbos(info)
     return out
 end
 
-function _vi_converged(info, max_iter::Int; window::Int=20, rtol::Float64=1e-3, atol::Float64=1e-6)
+function _vi_converged(
+        info, max_iter::Int; window::Int = 20, rtol::Float64 = 1e-3, atol::Float64 = 1e-6)
     isempty(info) && return false
     if length(info) < max_iter
         return true
@@ -146,10 +148,10 @@ function _vi_unlink_draws(res::VIResult, linked::AbstractMatrix)
     res.model === nothing && return linked
     model = res.model
     vil = DynamicPPL.link(DynamicPPL.VarInfo(model), model)
-    ks  = collect(keys(vil))
+    ks = collect(keys(vil))
     out = similar(linked)
     @inbounds for r in axes(linked, 1)
-        z  = collect(@view linked[r, :])
+        z = collect(@view linked[r, :])
         vn = DynamicPPL.invlink!!(DynamicPPL.unflatten!!(deepcopy(vil), z), model)
         pos = 1
         for k in ks
@@ -162,37 +164,38 @@ function _vi_unlink_draws(res::VIResult, linked::AbstractMatrix)
     return out
 end
 
-function sample_posterior(res::VIResult; n_draws::Int=1000, rng::AbstractRNG=Xoshiro(0), return_names::Bool=false)
+function sample_posterior(res::VIResult; n_draws::Int = 1000,
+        rng::AbstractRNG = Xoshiro(0), return_names::Bool = false)
     n_draws >= 1 || error("n_draws must be >= 1.")
     raw = rand(rng, res.posterior, n_draws)
     mat = raw isa AbstractVector ? reshape(raw, :, 1) : Matrix(raw)
     linked = Matrix(permutedims(mat))
     draws = _vi_unlink_draws(res, linked)
     if return_names
-        return (draws=draws, names=res.coord_names)
+        return (draws = draws, names = res.coord_names)
     end
     return draws
 end
 
 function _fit_model(dm::DataModel, method::VI, args...;
-                    constants::NamedTuple=NamedTuple(),
-                    constants_re::NamedTuple=NamedTuple(),
-                    penalty::NamedTuple=NamedTuple(),
-                    ode_args::Tuple=(),
-                    ode_kwargs::NamedTuple=NamedTuple(),
-                    serialization::SciMLBase.EnsembleAlgorithm=EnsembleThreads(),
-                    rng::AbstractRNG=Xoshiro(0),
-                    theta_0_untransformed::Union{Nothing, ComponentArray}=nothing,
-                    store_data_model::Bool=true)
-    fit_kwargs = (constants=constants,
-                  constants_re=constants_re,
-                  penalty=penalty,
-                  ode_args=ode_args,
-                  ode_kwargs=ode_kwargs,
-                  serialization=serialization,
-                  rng=rng,
-                  theta_0_untransformed=theta_0_untransformed,
-                  store_data_model=store_data_model)
+        constants::NamedTuple = NamedTuple(),
+        constants_re::NamedTuple = NamedTuple(),
+        penalty::NamedTuple = NamedTuple(),
+        ode_args::Tuple = (),
+        ode_kwargs::NamedTuple = NamedTuple(),
+        serialization::SciMLBase.EnsembleAlgorithm = EnsembleThreads(),
+        rng::AbstractRNG = Xoshiro(0),
+        theta_0_untransformed::Union{Nothing, ComponentArray} = nothing,
+        store_data_model::Bool = true)
+    fit_kwargs = (constants = constants,
+        constants_re = constants_re,
+        penalty = penalty,
+        ode_args = ode_args,
+        ode_kwargs = ode_kwargs,
+        serialization = serialization,
+        rng = rng,
+        theta_0_untransformed = theta_0_untransformed,
+        store_data_model = store_data_model)
     re_names = get_re_names(dm.model.random.random)
     if !isempty(re_names)
         error(
@@ -201,10 +204,11 @@ function _fit_model(dm::DataModel, method::VI, args...;
             "use Laplace/LaplaceMAP/MCEM/SAEM for likelihood-based mixed-effects estimation."
         )
     end
-    isempty(keys(penalty)) || error("VI does not support penalty terms. Use priors and MAP instead.")
+    isempty(keys(penalty)) ||
+        error("VI does not support penalty terms. Use priors and MAP instead.")
 
     fe = dm.model.fixed.fixed
-    _warn_if_scaled_params(fe; method_name="VI")
+    _warn_if_scaled_params(fe; method_name = "VI")
     priors = get_priors(fe)
     fixed_names = get_names(fe)
     fixed_set = Set(fixed_names)
@@ -216,19 +220,24 @@ function _fit_model(dm::DataModel, method::VI, args...;
         error("VI requires at least one sampled parameter. Leave at least one fixed effect free.")
     end
     for name in free_names
-        haskey(priors, name) || error("VI requires priors on all free fixed effects. Missing prior for $(name).")
-        getfield(priors, name) isa Priorless && error("VI requires priors on all free fixed effects. Priorless for $(name).")
+        haskey(priors, name) ||
+            error("VI requires priors on all free fixed effects. Missing prior for $(name).")
+        getfield(priors, name) isa Priorless &&
+            error("VI requires priors on all free fixed effects. Priorless for $(name).")
     end
     if theta_0_untransformed !== nothing
         for n in fixed_names
-            hasproperty(theta_0_untransformed, n) || error("theta_0_untransformed is missing parameter $(n).")
+            hasproperty(theta_0_untransformed, n) ||
+                error("theta_0_untransformed is missing parameter $(n).")
         end
         @debug "theta_0_untransformed is currently not used by VI unless turing_kwargs provides q_init."
     end
 
     cache = serialization isa SciMLBase.EnsembleThreads ?
-            build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs, nthreads=Threads.maxthreadid(), force_saveat=true) :
-            build_ll_cache(dm; ode_args=ode_args, ode_kwargs=ode_kwargs, force_saveat=true)
+            build_ll_cache(dm; ode_args = ode_args, ode_kwargs = ode_kwargs,
+        nthreads = Threads.maxthreadid(), force_saveat = true) :
+            build_ll_cache(
+        dm; ode_args = ode_args, ode_kwargs = ode_kwargs, force_saveat = true)
 
     free_names_t = Tuple(free_names)
     priors_nt = NamedTuple{free_names_t}(Tuple(getfield(priors, n) for n in free_names))
@@ -236,10 +245,11 @@ function _fit_model(dm::DataModel, method::VI, args...;
     model_fn = Base.invokelatest(getfield, @__MODULE__, fname)
     model = Base.invokelatest(model_fn, dm, cache, serialization, priors_nt, constants)
     f_old = model.f
-    f_wrap = (fargs...)->Base.invokelatest(f_old, fargs...)
+    f_wrap = (fargs...) -> Base.invokelatest(f_old, fargs...)
     miss = typeof(model).parameters[4]
     threaded = typeof(model).parameters[8]
-    model = DynamicPPL.Model{threaded, miss}(f_wrap, model.args, model.defaults, model.context)
+    model = DynamicPPL.Model{threaded, miss}(
+        f_wrap, model.args, model.defaults, model.context)
 
     max_iter = Int(get(method.turing_kwargs, :max_iter, 1000))
     max_iter >= 1 || error("VI requires max_iter >= 1.")
@@ -247,7 +257,8 @@ function _fit_model(dm::DataModel, method::VI, args...;
     family in (:meanfield, :fullrank) || error("VI family must be :meanfield or :fullrank.")
     q_init = get(method.turing_kwargs, :q_init, nothing)
     adtype = get(method.turing_kwargs, :adtype, Turing.AutoForwardDiff())
-    show_progress = Bool(get(method.turing_kwargs, :show_progress, get(method.turing_kwargs, :progress, false)))
+    show_progress = Bool(get(
+        method.turing_kwargs, :show_progress, get(method.turing_kwargs, :progress, false)))
     algorithm = get(method.turing_kwargs, :algorithm, nothing)
     conv_window = Int(get(method.turing_kwargs, :convergence_window, 20))
     conv_rtol = Float64(get(method.turing_kwargs, :convergence_rtol, 1e-3))
@@ -257,51 +268,57 @@ function _fit_model(dm::DataModel, method::VI, args...;
     conv_atol >= 0 || error("VI convergence_atol must be >= 0.")
 
     vi_kwargs = Base.structdiff(method.turing_kwargs,
-                                (max_iter=0,
-                                 family=:meanfield,
-                                 q_init=nothing,
-                                 adtype=nothing,
-                                 progress=false,
-                                 show_progress=false,
-                                 algorithm=nothing,
-                                 convergence_window=0,
-                                 convergence_rtol=0.0,
-                                 convergence_atol=0.0))
+        (max_iter = 0,
+            family = :meanfield,
+            q_init = nothing,
+            adtype = nothing,
+            progress = false,
+            show_progress = false,
+            algorithm = nothing,
+            convergence_window = 0,
+            convergence_rtol = 0.0,
+            convergence_atol = 0.0))
     # Turing >=0.45: `vi(rng, model, family, max_iter)` takes the variational FAMILY as the
     # third argument — a function `(rng, ldf) -> q` (e.g. `q_meanfield_gaussian`). `vi` builds
     # a correctly linked `LogDensityFunction` internally and calls the family on it; the old
     # API of pre-constructing `q` from the model was removed. Pass the family function (a
     # user-supplied `q_init` is honoured as-is).
     if q_init === nothing
-        q_init = family == :meanfield ? Turing.q_meanfield_gaussian : Turing.q_fullrank_gaussian
+        q_init = family == :meanfield ? Turing.q_meanfield_gaussian :
+                 Turing.q_fullrank_gaussian
     end
 
     _set_turing_adbackend!(adtype)
     out = if algorithm === nothing
-        Turing.vi(rng, model, q_init, max_iter; adtype=adtype, show_progress=show_progress, vi_kwargs...)
+        Turing.vi(rng, model, q_init, max_iter; adtype = adtype,
+            show_progress = show_progress, vi_kwargs...)
     else
-        Turing.vi(rng, model, q_init, max_iter; adtype=adtype, algorithm=algorithm, show_progress=show_progress, vi_kwargs...)
+        Turing.vi(rng, model, q_init, max_iter; adtype = adtype,
+            algorithm = algorithm, show_progress = show_progress, vi_kwargs...)
     end
     posterior, trace, state = _vi_unpack_output(out)
     n_iter = length(trace)
     elbos = _vi_info_elbos(trace)
     final_elbo = isempty(elbos) ? NaN : elbos[end]
-    converged = _vi_converged(trace, max_iter; window=conv_window, rtol=conv_rtol, atol=conv_atol)
+    converged = _vi_converged(
+        trace, max_iter; window = conv_window, rtol = conv_rtol, atol = conv_atol)
 
     varinfo = DynamicPPL.VarInfo(model)
     coord_names = _vi_coord_names(varinfo)
     obs = dm.df[:, dm.config.obs_cols]
     summary = FitSummary(final_elbo, converged,
-                         FitParameters(ComponentArray(), ComponentArray()),
-                         NamedTuple())
+        FitParameters(ComponentArray(), ComponentArray()),
+        NamedTuple())
     diagnostics = FitDiagnostics((;),
-                                 (family=family, algorithm=algorithm === nothing ? :default : algorithm, adtype=adtype),
-                                 (n_iter=n_iter, max_iter=max_iter),
-                                 (final_elbo=final_elbo,
-                                  convergence_window=conv_window,
-                                  convergence_rtol=conv_rtol,
-                                  convergence_atol=conv_atol))
+        (family = family, algorithm = algorithm === nothing ? :default : algorithm,
+            adtype = adtype),
+        (n_iter = n_iter, max_iter = max_iter),
+        (final_elbo = final_elbo,
+            convergence_window = conv_window,
+            convergence_rtol = conv_rtol,
+            convergence_atol = conv_atol))
     result = VIResult(posterior, trace, state, n_iter, max_iter, final_elbo, converged,
-                      NamedTuple(), obs, varinfo, coord_names, model)
-    return FitResult(method, result, summary, diagnostics, store_data_model ? dm : nothing, args, fit_kwargs)
+        NamedTuple(), obs, varinfo, coord_names, model)
+    return FitResult(method, result, summary, diagnostics,
+        store_data_model ? dm : nothing, args, fit_kwargs)
 end
