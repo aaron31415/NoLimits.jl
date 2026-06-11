@@ -240,6 +240,41 @@ function _compute_pooled_etas(dm::DataModel, θ::ComponentArray, strategies)
     θs = _symmetrize_psd_params(θ, model.fixed.fixed)
     T  = eltype(θs)
     n  = length(individuals)
+    template = lp_cache.eta_template
+    # The pooled plug-in yields a SCALAR for every dim-1 RE, while the template
+    # axes keep vector-valued dim-1 REs (e.g. a 1-input planar flow) as
+    # 1-element vector components — formulas written against the scalar shape
+    # (`sat(η)`) would break. Only take the fast path when the shapes agree.
+    template_compatible = template !== nothing &&
+        all(ri -> (lp_cache.dims[ri] == 1) == lp_cache.is_scalar[ri], eachindex(re_names))
+    if template_compatible
+        # Fast path (one RE level per group per individual): fill a flat vector
+        # and wrap it with the precomputed axes — same trick as
+        # `_build_eta_ind_fast`, and the comprehension keeps η_vec's eltype
+        # concrete. This runs once per objective evaluation, per individual.
+        axs = getaxes(template)
+        ηlen = length(template)
+        return [begin
+            ind = individuals[i]
+            dists = dists_builder(θs, ind.const_cov, model_funs, helpers)
+            vals = Vector{T}(undef, ηlen)
+            pos = 1
+            for (ri, re) in enumerate(re_names)
+                dist = getproperty(dists, re)
+                val = _pooled_eta_value(dist, lp_cache.dims[ri], strategies[ri], T)
+                if val isa Number
+                    vals[pos] = val
+                    pos += 1
+                else
+                    for k in eachindex(val)
+                        vals[pos + k - 1] = val[k]
+                    end
+                    pos += length(val)
+                end
+            end
+            ComponentArray(vals, axs)
+        end for i in 1:n]
+    end
     η_vec = Vector{ComponentArray}(undef, n)
     for i in 1:n
         ind   = individuals[i]
@@ -260,9 +295,13 @@ end
 function _pooled_stacked_means(dm::DataModel, θ::ComponentArray, strategies)
     η_vec = _compute_pooled_etas(dm, θ, strategies)
     T   = eltype(θ)
-    out = T[]
+    out = Vector{T}(undef, sum(length, η_vec; init=0))
+    k = 1
     for i in 1:length(η_vec)
-        append!(out, collect(η_vec[i]))
+        for x in η_vec[i]
+            out[k] = x
+            k += 1
+        end
     end
     return out
 end

@@ -464,6 +464,9 @@ function _cv_evaluate_mc(dm_train, dm_test, res_train, θu, ll_cache_test, loss,
 
     # Prior-mean η for unseen individuals under :mean — identical across samples.
     mean_eta_cache = Dict{Int,ComponentArray}()
+    # Unseen-individual RE distributions are θ-fixed — build once per individual
+    # instead of once per (sample, individual). The rand stream is unchanged.
+    unseen_dists_cache = Dict{Int,Any}()
 
     # Collect per-sample DataFrames: all_dfs[s] = vector of DataFrames, one per test individual
     all_dfs = [Vector{DataFrame}(undef, n_test) for _ in 1:n_mc_samples]
@@ -482,7 +485,8 @@ function _cv_evaluate_mc(dm_train, dm_test, res_train, θu, ll_cache_test, loss,
             elseif is_seen   # :ebe — same for every sample
                 η_train_vec[tinfo[2]]
             elseif unseen_re_mode == :montecarlo
-                dists = dists_builder(θu, ind_j.const_cov, model_funs_test, helpers_test)
+                dists = get!(() -> dists_builder(θu, ind_j.const_cov, model_funs_test, helpers_test),
+                             unseen_dists_cache, j)
                 ComponentArray(NamedTuple((re => rand(srng, getproperty(dists, re))
                                            for re in re_names)))
             else             # :mean — RE prior mean, same for every sample

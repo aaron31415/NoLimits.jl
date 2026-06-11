@@ -64,6 +64,7 @@ const TEST_FILES = [
     "estimation_mcmc_tests.jl",
     "estimation_mcmc_re_tests.jl",
     "estimation_laplace_tests.jl",
+    "estimation_newton_inner_tests.jl",
     "estimation_focei_tests.jl",
     "estimation_pooled_tests.jl",
     "estimation_hutchinson_tests.jl",

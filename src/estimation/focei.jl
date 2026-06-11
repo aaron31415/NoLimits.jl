@@ -475,9 +475,11 @@ end
 # a NaN Hessian. That makes the Cholesky/log-det fail and the marginal -Inf, so the outer
 # optimiser backtracks instead of crashing the whole fit — matching Laplace's behaviour.
 function _focei_negH_batch(dm::DataModel, batch_info::_LaplaceBatchInfo, θ, b,
-                           const_cache::LaplaceConstantsCache, cache::_LLCache; interaction::Bool)
+                           const_cache::LaplaceConstantsCache, cache::_LLCache;
+                           interaction::Bool, tctx=nothing)
     try
-        return _focei_negH_batch_impl(dm, batch_info, θ, b, const_cache, cache; interaction=interaction)
+        return _focei_negH_batch_impl(dm, batch_info, θ, b, const_cache, cache;
+                                      interaction=interaction, tctx=tctx)
     catch err
         if err isa LinearAlgebra.PosDefException || err isa LinearAlgebra.SingularException ||
            err isa DomainError || err isa ArgumentError
@@ -489,8 +491,9 @@ function _focei_negH_batch(dm::DataModel, batch_info::_LaplaceBatchInfo, θ, b,
 end
 
 function _focei_negH_batch_impl(dm::DataModel, batch_info::_LaplaceBatchInfo, θ, b,
-                                const_cache::LaplaceConstantsCache, cache::_LLCache; interaction::Bool)
-    θ_re = _symmetrize_psd_params(θ, dm.model.fixed.fixed)
+                                const_cache::LaplaceConstantsCache, cache::_LLCache;
+                                interaction::Bool, tctx=nothing)
+    θ_re = tctx === nothing ? _symmetrize_psd_params(θ, dm.model.fixed.fixed) : tctx.θ_re
     nb = batch_info.n_b
     T = promote_type(eltype(θ_re), eltype(b))
     nb == 0 && return zeros(T, 0, 0)
@@ -514,7 +517,16 @@ function _focei_negH_batch_impl(dm::DataModel, batch_info::_LaplaceBatchInfo, θ
         Hdata = _focei_data_term(J, dists_b, dists_m, interaction, T)
     end
 
-    Λ = -ForwardDiff.hessian(_FOCEIPriorLogf(dm, batch_info, θ_re, const_cache, cache), b)
+    # Prior curvature: for all-Gaussian REs it is constant in b and arrives
+    # precomputed in the θ-context (its ∂/∂b is exactly zero either way, so the
+    # cached Float64 matrix reproduces the per-call dual result bit-for-bit on
+    # the b-differentiated paths). θ-dual callers pass tctx without a cached Λ
+    # (or none at all), keeping ∂Λ/∂θ exact.
+    Λ = if tctx !== nothing && tctx.prior_hess !== nothing
+        tctx.prior_hess
+    else
+        -ForwardDiff.hessian(_FOCEIPriorLogf(dm, batch_info, θ_re, const_cache, cache), b)
+    end
     return Hdata .+ Λ
 end
 
@@ -537,8 +549,9 @@ end
 @inline function _build_hess_b(m::_FOCEIHess, dm::DataModel, batch_info::_LaplaceBatchInfo,
                                θ, b, const_cache::LaplaceConstantsCache, cache::_LLCache,
                                ad_cache::Union{Nothing, LaplaceADCache}, bi::Int;
-                               ctx::AbstractString="")
-    return -_focei_negH_batch(dm, batch_info, θ, b, const_cache, cache; interaction=m.interaction)
+                               ctx::AbstractString="", tctx=nothing)
+    return -_focei_negH_batch(dm, batch_info, θ, b, const_cache, cache;
+                              interaction=m.interaction, tctx=tctx)
 end
 
 # -------------------------------------------------------------------------------------

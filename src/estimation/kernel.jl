@@ -106,15 +106,24 @@ function batch_loglik_ghq(
 
     a_vals = Vector{T}(undef, R)
 
+    # Per-node η construction reuses one buffer when the fast-path template
+    # exists (one RE level per group per individual) — the wrapped η is
+    # consumed inside the node iteration before the buffer is overwritten.
+    re_cache = dm.re_group_info.laplace_cache
+    template = re_cache === nothing ? nothing : re_cache.eta_template
+    η_buf = template === nothing ? nothing : Vector{T}(undef, length(template))
+
     @inbounds for r in 1:R
-        z_r = sgrid.nodes[:, r]                       # Float64 column, no alloc
+        z_r = view(sgrid.nodes, :, r)                 # Float64 column view, no alloc
         b_r = transform(re_measure, z_r)              # T-valued: μ + L * z_r
 
         # Sum conditional log-likelihoods over all individuals in batch
         cond  = zero(T)
         valid = true
         for i in batch_info.inds
-            η_i = _build_eta_ind(dm, i, batch_info, b_r, const_cache, θ_re)
+            η_i = η_buf === nothing ?
+                  _build_eta_ind(dm, i, batch_info, b_r, const_cache, θ_re) :
+                  _build_eta_ind_fast!(η_buf, template, i, batch_info, b_r, const_cache, re_cache)
             lli  = _loglikelihood_individual(dm, i, θ_re, η_i, ll_cache)
             if !isfinite(lli)
                 valid = false

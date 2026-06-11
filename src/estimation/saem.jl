@@ -2358,12 +2358,15 @@ function _saem_Q(dm::DataModel,
             info = batch_infos[bi]
             acc = zero(Tθ)
             h = h_start
+            # θ is fixed for this whole Q evaluation — hoist the θ-only work
+            # (symmetrize + RE-distribution table) out of the sample loop.
+            tctx = _safe_theta_ctx(dm, info, θ, caches[tid])
             @inbounds for _ in 1:active_len
                 w = store.weights[h]
                 snap = store.snaps[h][bi]
                 h = h == cap ? 1 : h + 1
                 logf = _laplace_logf_batch(dm, info, θ, snap, const_cache, caches[tid];
-                                           anneal_sds=anneal_sds)
+                                           anneal_sds=anneal_sds, tctx=tctx)
                 !isfinite(logf) && (bad[] = true; break)
                 acc += w * logf
             end
@@ -2383,12 +2386,13 @@ function _saem_Q(dm::DataModel,
             info.n_b == 0 && continue
             acc = zero(Tθ)
             h = h_start
+            tctx = _safe_theta_ctx(dm, info, θ, ll_cache_local)
             @inbounds for _ in 1:active_len
                 w = store.weights[h]
                 snap = store.snaps[h][bi]
                 h = h == cap ? 1 : h + 1
                 logf = _laplace_logf_batch(dm, info, θ, snap, const_cache, ll_cache_local;
-                                           anneal_sds=anneal_sds)
+                                           anneal_sds=anneal_sds, tctx=tctx)
                 !isfinite(logf) && return Tθ(Inf)
                 acc += w * logf
             end
@@ -2483,12 +2487,13 @@ function _saem_Q2(dm::DataModel,
             info = batch_infos[bi]
             acc = zero(Tθ)
             h = h_start
+            tctx = _safe_theta_ctx(dm, info, θ, caches[tid])
             @inbounds for _ in 1:active_len
                 w = store.weights[h]
                 snap = store.snaps[h][bi]
                 h = h == cap ? 1 : h + 1
                 logf = _re_logpdf_batch(dm, info, θ, snap, const_cache, caches[tid];
-                                        anneal_sds=anneal_sds)
+                                        anneal_sds=anneal_sds, tctx=tctx)
                 !isfinite(logf) && (bad[] = true; break)
                 acc += w * logf
             end
@@ -2508,12 +2513,13 @@ function _saem_Q2(dm::DataModel,
             info.n_b == 0 && continue
             acc = zero(Tθ)
             h = h_start
+            tctx = _safe_theta_ctx(dm, info, θ, ll_cache_local)
             @inbounds for _ in 1:active_len
                 w = store.weights[h]
                 snap = store.snaps[h][bi]
                 h = h == cap ? 1 : h + 1
                 logf = _re_logpdf_batch(dm, info, θ, snap, const_cache, ll_cache_local;
-                                        anneal_sds=anneal_sds)
+                                        anneal_sds=anneal_sds, tctx=tctx)
                 !isfinite(logf) && return Tθ(Inf)
                 acc += w * logf
             end

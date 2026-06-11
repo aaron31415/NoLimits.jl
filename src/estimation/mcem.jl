@@ -862,9 +862,10 @@ function _is_compute_log_weights(dm::DataModel,
         return (Float64[], NaN)
     end
     log_ws_unnorm = Vector{Float64}(undef, n)
+    tctx = _safe_theta_ctx(dm, info, θ, cache)
     for m in 1:n
         b      = view(samples, :, m)
-        log_f  = _laplace_logf_batch(dm, info, θ, b, const_cache, cache)
+        log_f  = _laplace_logf_batch(dm, info, θ, b, const_cache, cache; tctx=tctx)
         log_ws_unnorm[m] = isfinite(log_f) ? log_f - log_qs[m] : -Inf
     end
     # logsumexp normalization
@@ -1034,9 +1035,12 @@ function _mcem_Q_array(dm::DataModel,
             samples = samples_by_batch[bi]
             ws = weights_by_batch === nothing ? nothing : weights_by_batch[bi]
             acc = zero(Tθ)
+            # θ is fixed for this whole Q evaluation — hoist the θ-only work
+            # (symmetrize + RE-distribution table) out of the sample loop.
+            tctx = _safe_theta_ctx(dm, info, θ, caches[tid])
             for s in 1:size(samples, 2)
                 b = view(samples, :, s)
-                logf = _laplace_logf_batch(dm, info, θ, b, const_cache, caches[tid])
+                logf = _laplace_logf_batch(dm, info, θ, b, const_cache, caches[tid]; tctx=tctx)
                 !isfinite(logf) && (bad[] = true; break)
                 w = ws === nothing ? one(Tθ) : Tθ(ws[s])
                 acc += w * logf
@@ -1059,9 +1063,10 @@ function _mcem_Q_array(dm::DataModel,
             samples = samples_by_batch[bi]
             ws = weights_by_batch === nothing ? nothing : weights_by_batch[bi]
             acc = zero(Tθ)
+            tctx = _safe_theta_ctx(dm, info, θ, ll_cache_local)
             for s in 1:size(samples, 2)
                 b = view(samples, :, s)
-                logf = _laplace_logf_batch(dm, info, θ, b, const_cache, ll_cache_local)
+                logf = _laplace_logf_batch(dm, info, θ, b, const_cache, ll_cache_local; tctx=tctx)
                 !isfinite(logf) && return Tθ(Inf)
                 w = ws === nothing ? one(Tθ) : Tθ(ws[s])
                 acc += w * logf
