@@ -5,7 +5,7 @@
 <h1 align="center">NoLimits.jl</h1>
 
 <p align="center">
-  <em>Nonlinear mixed-effects modeling without compromise: mechanistic ODEs, hidden Markov models,<br/>
+  <em>Nonlinear mixed-effects modeling for longitudinal data: mechanistic ODEs, hidden Markov models,<br/>
   neural-network and soft-tree components, and frequentist, Bayesian, and variational estimation,<br/>
   composed in one framework and fit through one interface.</em>
 </p>
@@ -55,15 +55,15 @@ rarely support latent-state outcomes or learned components; general mixed-effect
 not handle ODE systems; and probabilistic programming languages leave the NLME machinery to
 the user.
 
-NoLimits.jl removes these trade-offs through a single, composable modeling language in which
+NoLimits.jl provides a single, composable modeling language in which
 mechanistic structure, learned components, flexible random-effect distributions, and diverse
 outcome types coexist in one coherent specification, and can be estimated with multiple
 inference paradigms without rewriting the model.
 
-> To the best of our knowledge, no other open-source framework combines mechanistic ODE **and**
-> latent-state (hidden Markov) model classes, heavy-tailed **and** flow-based random-effect
-> distributions, native neural-network components, and a unified likelihood-**and**-Bayesian
-> inference interface in a single composable package.
+> NoLimits.jl brings these capabilities together in one composable package: mechanistic ODE and
+> latent-state (hidden Markov) model classes, heavy-tailed and flow-based random-effect
+> distributions, native neural-network components, and a unified likelihood-and-Bayesian
+> inference interface.
 
 ## Key Features
 
@@ -261,6 +261,15 @@ ready-made APA and BibTeX exports; the BibTeX entry is:
   url    = {https://github.com/manuhuth/NoLimits.jl}
 }
 ```
+
+## Development and AI assistance
+
+NoLimits.jl was developed with substantial assistance from large language models,
+primarily Anthropic's Claude (via Claude Code), used for code generation, refactoring,
+test authoring, and documentation. All contributions were reviewed, tested, and are
+understood by the maintainers, who take full responsibility for the correctness and
+behavior of the package. This disclosure follows the Julia General Registry's guidance on
+AI-assisted packages.
 
 ## License
 

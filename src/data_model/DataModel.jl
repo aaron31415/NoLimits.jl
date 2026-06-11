@@ -1326,7 +1326,7 @@ end
 
 Construct a [`DataModel`](@ref) by pairing a [`Model`](@ref) with a `DataFrame`.
 
-Performs comprehensive validation: schema checks, time-column covariate declaration,
+Performs validation: schema checks, time-column covariate declaration,
 constant-covariate constancy, random-effect group uniqueness, dynamic-covariate
 observation counts, and saveat-mode resolution.
 

@@ -4,7 +4,7 @@ layout: home
 
 hero:
   name: "NoLimits.jl"
-  text: "Nonlinear mixed-effects modeling without compromise"
+  text: "Nonlinear mixed-effects modeling for longitudinal data"
   tagline: Mechanistic ODEs, hidden Markov models, neural-network and soft-tree components, and frequentist, Bayesian, and variational estimation - composed in one framework, fit through one interface.
   image:
     src: /logo.png
@@ -41,7 +41,7 @@ individuals. Nonlinear mixed-effects models provide a principled statistical fra
 this, but existing software often forces users to choose between model expressiveness,
 estimation flexibility, and modern machine-learning integration.
 
-NoLimits.jl removes these trade-offs. It supports:
+NoLimits.jl is designed to avoid these trade-offs. It supports:
 
 - **Diverse structural models.** Classical nonlinear functions, mechanistic ODE systems, and
   hidden Markov outcome models can be combined within a single specification.

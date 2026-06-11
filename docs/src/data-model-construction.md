@@ -222,7 +222,7 @@ ensures coarsed-state likelihoods are used only when explicitly requested.
 
 ## Validation Rules
 
-`DataModel` performs comprehensive validation at construction time to catch specification and data inconsistencies early. The checks include:
+`DataModel` validates the model and data at construction time to catch specification and data inconsistencies early. The checks include:
 
 - **Schema validation**: `primary_id`, `time_col`, and outcome columns referenced in `@formulas` must exist in the DataFrame. Neither `primary_id` nor `time_col` may contain missing values.
 - **Time column declaration**: `time_col` must be declared in `@covariates` as `Covariate()` or `DynamicCovariate()`.

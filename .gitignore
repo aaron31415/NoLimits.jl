@@ -5,6 +5,17 @@ Manifest.toml
 docs/build/
 docs/cache/
 
+# Documentation (LaTeX build artifacts; keep .tex and .pdf)
+docs/methods/*.aux
+docs/methods/*.log
+docs/methods/*.out
+docs/methods/*.toc
+docs/methods/*.fls
+docs/methods/*.fdb_latexmk
+docs/methods/*.synctex.gz
+docs/methods/*.bbl
+docs/methods/*.blg
+
 # Documentation (VitePress / npm build artifacts)
 node_modules/
 docs/node_modules/
