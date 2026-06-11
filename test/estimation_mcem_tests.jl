@@ -8,6 +8,50 @@ using SciMLBase
 using OptimizationOptimisers
 using OptimizationBBO
 
+# One scalar-RE model shared by the option/sampler/constants testsets below
+# (they assert fit-option behavior, not model structure). Structure-specific
+# testsets (multivariate, ODE, Poisson, covariate-RE, multi-group) use the
+# shared fx_* fixtures from fixtures.jl.
+const _MCEM_MODEL = @Model begin
+    @covariates begin
+        t = Covariate()
+    end
+
+    @fixedEffects begin
+        a = RealNumber(0.2)
+        σ = RealNumber(0.5, scale = :log)
+    end
+
+    @randomEffects begin
+        η = RandomEffect(Normal(0.0, 1.0); column = :ID)
+    end
+
+    @formulas begin
+        y ~ Normal(a + η, σ)
+    end
+end
+
+const _MCEM_DM2 = DataModel(_MCEM_MODEL,
+    DataFrame(
+        ID = [:A, :A, :B, :B],
+        t = [0.0, 1.0, 0.0, 1.0],
+        y = [0.1, 0.2, 0.0, -0.1]);
+    primary_id = :ID, time_col = :t)
+
+const _MCEM_DM3 = DataModel(_MCEM_MODEL,
+    DataFrame(
+        ID = [:A, :A, :B, :B, :C, :C],
+        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        y = [0.1, 0.2, 0.0, -0.1, 0.05, 0.0]);
+    primary_id = :ID, time_col = :t)
+
+const _MCEM_DM4 = DataModel(_MCEM_MODEL,
+    DataFrame(
+        ID = [:A, :A, :B, :B, :C, :C, :D, :D],
+        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        y = [0.1, 0.2, 0.0, -0.1, 0.05, 0.0, -0.05, 0.1]);
+    primary_id = :ID, time_col = :t)
+
 @testset "MCEM default sampler" begin
     method = NoLimits.MCEM()
     @test method.e_step isa NoLimits.MCEM_MCMC
@@ -19,33 +63,7 @@ using OptimizationBBO
 end
 
 @testset "MCEM basic (random effects)" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(_MCEM_DM2,
         NoLimits.MCEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             maxiters = 2))
@@ -56,73 +74,21 @@ end
 @testset "MCEM serial vs threaded is reproducible" begin
     Threads.nthreads() < 2 && return
 
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     method = NoLimits.MCEM(; sampler = MH(),
         turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false, verbose = false),
         maxiters = 2,
         progress = false)
     res_serial = fit_model(
-        dm, method; serialization = EnsembleSerial(), rng = MersenneTwister(123))
+        _MCEM_DM2, method; serialization = EnsembleSerial(), rng = MersenneTwister(123))
     res_threads = fit_model(
-        dm, method; serialization = EnsembleThreads(), rng = MersenneTwister(123))
+        _MCEM_DM2, method; serialization = EnsembleThreads(), rng = MersenneTwister(123))
     @test res_serial.summary.objective == res_threads.summary.objective
     @test collect(NoLimits.get_params(res_serial, scale = :untransformed)) ==
           collect(NoLimits.get_params(res_threads, scale = :untransformed))
 end
 
 @testset "MCEM basic with NUTS" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(_MCEM_DM2,
         NoLimits.MCEM(; sampler = NUTS(5, 0.3),
             turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             maxiters = 2))
@@ -130,33 +96,7 @@ end
 end
 
 @testset "MCEM convergence requires both parameter and Q stabilization" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(_MCEM_DM2,
         NoLimits.MCEM(;
             sampler = MH(),
             turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
@@ -172,34 +112,7 @@ end
 end
 
 @testset "MCEM multiple RE groups" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            σ = RealNumber(0.4, scale = :log)
-        end
-
-        @randomEffects begin
-            η_id = RandomEffect(Normal(0.0, 1.0); column = :ID)
-            η_site = RandomEffect(Normal(0.0, 1.0); column = :SITE)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η_id + η_site, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B, :C, :C, :D, :D],
-        SITE = [:X, :X, :X, :X, :Y, :Y, :Y, :Y],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1, 0.05, 0.0, -0.05, 0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    dm = fx_mg_dm()
     res = fit_model(dm,
         NoLimits.MCEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
@@ -210,33 +123,7 @@ end
 end
 
 @testset "MCEM constants_re" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B, :C, :C],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1, 0.05, 0.0]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(_MCEM_DM3,
         NoLimits.MCEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             maxiters = 2);
@@ -245,33 +132,7 @@ end
 end
 
 @testset "MCEM constants for fixed effects" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(_MCEM_DM2,
         NoLimits.MCEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             maxiters = 2);
@@ -280,37 +141,7 @@ end
 end
 
 @testset "MCEM RE distribution with constant covariates" begin
-    model = @Model begin
-        @fixedEffects begin
-            μ0 = RealNumber(0.0)
-            β = RealNumber(0.5)
-            σ = RealNumber(0.3, scale = :log)
-            τ = RealNumber(0.4, scale = :log)
-        end
-
-        @covariates begin
-            t = Covariate()
-            x = ConstantCovariate(constant_on = :ID)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(μ0 + β * x, τ); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        x = [1.0, 1.0, 2.0, 2.0],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(fx_recov_dm(),
         NoLimits.MCEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             maxiters = 2))
@@ -318,33 +149,7 @@ end
 end
 
 @testset "MCEM threaded E-step" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            σ = RealNumber(0.4, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B, :C, :C, :D, :D],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1, 0.05, 0.0, -0.05, 0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(_MCEM_DM4,
         NoLimits.MCEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             maxiters = 2);
@@ -353,33 +158,7 @@ end
 end
 
 @testset "MCEM multivariate RE" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            σ = RealNumber(0.4, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(MvNormal([0.0, 0.0], I(2)); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η[1], σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(fx_mvnp_dm(),
         NoLimits.MCEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             maxiters = 2))
@@ -387,33 +166,7 @@ end
 end
 
 @testset "MCEM multivariate RE with NUTS" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            σ = RealNumber(0.4, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(MvNormal([0.0, 0.0], I(2)); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η[1], σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(fx_mvnp_dm(),
         NoLimits.MCEM(; sampler = NUTS(5, 0.3),
             turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             maxiters = 2))
@@ -421,69 +174,17 @@ end
 end
 
 @testset "MCEM optimizer Adam (OptimizationOptimisers)" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     method = NoLimits.MCEM(optimizer = OptimizationOptimisers.Adam(0.05),
         optim_kwargs = (; maxiters = 2),
         sampler = MH(),
         turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
         maxiters = 2)
-    res = fit_model(dm, method)
+    res = fit_model(_MCEM_DM2, method)
     @test res isa FitResult
 end
 
 @testset "MCEM optimizer BlackBoxOptim (OptimizationBBO)" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    lb, ub = default_bounds_from_start(dm; margin = 1.0)
+    lb, ub = default_bounds_from_start(_MCEM_DM2; margin = 1.0)
     method = NoLimits.MCEM(
         optimizer = OptimizationBBO.BBO_adaptive_de_rand_1_bin_radiuslimited(),
         optim_kwargs = (; iterations = 3),
@@ -491,47 +192,12 @@ end
         turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
         maxiters = 2,
         lb = lb, ub = ub)
-    res = fit_model(dm, method)
+    res = fit_model(_MCEM_DM2, method)
     @test res isa FitResult
 end
 
 @testset "MCEM with ODE model" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            k = RealNumber(0.2)
-            σ = RealNumber(0.3, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @initialDE begin
-            x1 = exp(a + η)
-        end
-
-        @DifferentialEquation begin
-            D(x1) ~ -exp(k) * x1
-        end
-
-        @formulas begin
-            y ~ Normal(x1(t), σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [1.0, 0.8, 1.05, 0.85]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(fx_ode_dm(),
         NoLimits.MCEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             maxiters = 2))
@@ -539,41 +205,8 @@ end
 end
 
 @testset "MCEM threaded helper cache preserves ODE options" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.3)
-            σ = RealNumber(0.4, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @DifferentialEquation begin
-            D(x1) ~ -a * x1 + η
-        end
-
-        @initialDE begin
-            x1 = 1.0
-        end
-
-        @formulas begin
-            y ~ Normal(x1(t), σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1],
-        t = [0.0, 1.0],
-        y = [0.9, 0.7]
-    )
-
-    model_saveat = set_solver_config(model; saveat_mode = :saveat)
-    dm = DataModel(model_saveat, df; primary_id = :ID, time_col = :t)
+    # fx_ode_model already has saveat_mode = :saveat in its solver config.
+    dm = fx_ode_dm()
     ll_cache = build_ll_cache(dm; ode_kwargs = (abstol = 1e-8, reltol = 1e-7))
     threaded = NoLimits._mcem_thread_caches(dm, ll_cache, 2)
     @test length(threaded) == 2
@@ -593,36 +226,7 @@ end
 end
 
 @testset "MCEM non-normal Poisson outcome" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-            z = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            b = RealNumber(0.2)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 0.7); column = :ID)
-        end
-
-        @formulas begin
-            λ = exp(a + b * z + η)
-            y ~ Poisson(λ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B, :C, :C],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        z = [0.0, 0.2, 0.4, 0.5, 0.8, 1.0],
-        y = [1, 1, 2, 2, 3, 4]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(fx_pois_dm(),
         NoLimits.MCEM(; sampler = MH(),
             turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             maxiters = 2))
@@ -646,24 +250,6 @@ end
 end
 
 @testset "MCEM get_random_effects recomputes EB modes with rescue options" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.4, scale = :log)
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-    df = DataFrame(
-        ID = [:A, :A, :B, :B], t = [0.0, 1.0, 0.0, 1.0], y = [0.1, 0.2, 0.0, -0.1])
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     method = NoLimits.MCEM(;
         sampler = MH(),
         turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
@@ -674,31 +260,14 @@ end
         ebe_rescue_max_rounds = 2,
         ebe_rescue_grad_tol = 1e-7
     )
-    res = fit_model(dm, method; store_eb_modes = false)
-    re = NoLimits.get_random_effects(dm, res)
+    res = fit_model(_MCEM_DM2, method; store_eb_modes = false)
+    re = NoLimits.get_random_effects(_MCEM_DM2, res)
     @test haskey(re, :η)
-    @test nrow(re.η) == length(unique(df.ID))
+    @test nrow(re.η) == 2
 end
 
 @testset "MCEM constants_re: fixed-RE individuals contribute observations to Q" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-    df = DataFrame(
-        ID = [:A, :A, :B, :B], t = [0.0, 1.0, 0.0, 1.0], y = [0.1, 0.2, 0.0, -0.1])
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    dm = _MCEM_DM2
     method = NoLimits.MCEM(;
         sampler = MH(), turing_kwargs = (n_samples = 3, n_adapt = 2, progress = false), maxiters = 3
     )
@@ -722,29 +291,11 @@ end
 end
 
 @testset "MCEM constants_re: all RE constant — fit runs and objective is finite" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-    df = DataFrame(
-        ID = [:A, :A, :B, :B], t = [0.0, 1.0, 0.0, 1.0], y = [0.1, 0.2, 0.0, -0.1])
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     method = NoLimits.MCEM(;
         sampler = MH(), turing_kwargs = (n_samples = 3, n_adapt = 2, progress = false), maxiters = 3
     )
     res = fit_model(
-        dm, method; constants_re = (; η = (; A = 0.0, B = 0.0)), rng = Xoshiro(8))
+        _MCEM_DM2, method; constants_re = (; η = (; A = 0.0, B = 0.0)), rng = Xoshiro(8))
     @test res isa NoLimits.FitResult
     @test isfinite(NoLimits.get_objective(res))
 end

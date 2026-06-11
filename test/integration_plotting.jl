@@ -8,13 +8,8 @@ using Plots
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Integration file: plotting, caching, VPC, residuals, observation distributions.
-# Absorbed from: plotting_functions_tests.jl, plot_cache_tests.jl,
-#   vpc_tests.jl, residual_plots_tests.jl, plot_observation_distributions_tests.jl
-#
-# Relies on fixtures from integration_no_re.jl and integration_simple_re.jl,
-# which must be included first in runtests.jl:
-#   _NRE_DM, _PLT_DM_P, _NRE_RES_MLE, _PLT_RES_MCMC, _PLT_RES_VI
-#   _PLT_RE_DM, _PLT_RE_RES_LAP
+# Covers the basic plot_data/plot_fits/plot cache/VPC/residual/obs-dist paths on
+# shared in-file fits (_PLT_*), all defined locally so the file runs standalone.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── shared fixtures (all defined locally so this file can run standalone) ─────

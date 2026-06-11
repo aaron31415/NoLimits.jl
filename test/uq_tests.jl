@@ -6,27 +6,94 @@ using ComponentArrays
 using Random
 using LinearAlgebra
 
-@testset "UQ Wald for MLE" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2, calculate_se = true)
-            b = RealNumber(0.1, calculate_se = false)
-            σ = RealNumber(0.3, scale = :log, calculate_se = true)
-        end
-        @formulas begin
-            y ~ Normal(a + b * t, σ)
-        end
-    end
+# ── Shared models (UQ assertions need specific calculate_se flag patterns, so
+# these stay local rather than using the fx_ fixtures; each distinct flag
+# pattern is compiled once and shared across the testsets that use it.) ──────
 
+# No-RE, mixed se flags, no priors (Wald MLE).
+const _UQ_NORE_MODEL = @Model begin
+    @covariates begin
+        t = Covariate()
+    end
+    @fixedEffects begin
+        a = RealNumber(0.2, calculate_se = true)
+        b = RealNumber(0.1, calculate_se = false)
+        σ = RealNumber(0.3, scale = :log, calculate_se = true)
+    end
+    @formulas begin
+        y ~ Normal(a + b * t, σ)
+    end
+end
+
+# Same shape with priors (MAP / MCMC / VI / mcmc_refit).
+const _UQ_NORE_P_MODEL = @Model begin
+    @covariates begin
+        t = Covariate()
+    end
+    @fixedEffects begin
+        a = RealNumber(0.2, prior = Normal(0.0, 1.0), calculate_se = true)
+        b = RealNumber(0.1, prior = Normal(0.0, 1.0), calculate_se = false)
+        σ = RealNumber(0.3, scale = :log, prior = LogNormal(0.0, 0.5), calculate_se = true)
+    end
+    @formulas begin
+        y ~ Normal(a + b * t, σ)
+    end
+end
+const _UQ_NORE_P_DM = DataModel(_UQ_NORE_P_MODEL,
+    DataFrame(
+        ID = [1, 1, 2, 2],
+        t = [0.0, 1.0, 0.0, 1.0],
+        y = [0.2, 0.3, 0.1, 0.2]);
+    primary_id = :ID, time_col = :t)
+
+# Scalar RE with se on (a, ω) but not σ (Wald / sandwich / MCEM testsets).
+const _UQ_RE_MODEL = @Model begin
+    @covariates begin
+        t = Covariate()
+    end
+    @fixedEffects begin
+        a = RealNumber(0.2, calculate_se = true)
+        ω = RealNumber(0.6, scale = :log, calculate_se = true)
+        σ = RealNumber(0.3, scale = :log, calculate_se = false)
+    end
+    @randomEffects begin
+        η = RandomEffect(Normal(0.0, ω); column = :ID)
+    end
+    @formulas begin
+        y ~ Normal(a + η, σ)
+    end
+end
+const _UQ_RE_DM = DataModel(_UQ_RE_MODEL,
+    DataFrame(
+        ID = [1, 1, 2, 2, 3, 3],
+        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        y = [0.2, 0.25, 0.1, 0.15, 0.3, 0.35]);
+    primary_id = :ID, time_col = :t)
+# One Laplace fit shared by the Wald and sandwich testsets.
+const _UQ_RE_RES_LAP = fit_model(
+    _UQ_RE_DM, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
+
+# Single-se no-RE model (profile MLE + mcmc_refit error path).
+const _UQ_SE1_MODEL = @Model begin
+    @covariates begin
+        t = Covariate()
+    end
+    @fixedEffects begin
+        a = RealNumber(0.2, calculate_se = true)
+        σ = RealNumber(0.3, scale = :log, calculate_se = false)
+    end
+    @formulas begin
+        y ~ Normal(a, σ)
+    end
+end
+
+@testset "UQ Wald for MLE" begin
     df = DataFrame(
         ID = [1, 1, 2, 2, 3, 3],
         t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
         y = [0.2, 0.3, 0.1, 0.2, 0.25, 0.35]
     )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    dm = DataModel(_UQ_NORE_MODEL, df; primary_id = :ID, time_col = :t)
     res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
 
     uq = compute_uq(res; method = :wald, n_draws = 30, rng = Random.Xoshiro(1))
@@ -61,28 +128,7 @@ using LinearAlgebra
 end
 
 @testset "UQ Wald for MAP" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2, prior = Normal(0.0, 1.0), calculate_se = true)
-            b = RealNumber(0.1, prior = Normal(0.0, 1.0), calculate_se = false)
-            σ = RealNumber(
-                0.3, scale = :log, prior = LogNormal(0.0, 0.5), calculate_se = true)
-        end
-        @formulas begin
-            y ~ Normal(a + b * t, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 2, 2],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.2, 0.3, 0.1, 0.2]
-    )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm, NoLimits.MAP(; optim_kwargs = (maxiters = 2,)))
+    res = fit_model(_UQ_NORE_P_DM, NoLimits.MAP(; optim_kwargs = (maxiters = 2,)))
 
     uq = compute_uq(res; method = :wald, n_draws = 30, rng = Random.Xoshiro(3))
     @test get_uq_backend(uq) == :wald
@@ -92,28 +138,7 @@ end
 end
 
 @testset "UQ chain for MCMC" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2, prior = Normal(0.0, 1.0), calculate_se = true)
-            b = RealNumber(0.1, prior = Normal(0.0, 1.0), calculate_se = false)
-            σ = RealNumber(
-                0.3, scale = :log, prior = LogNormal(0.0, 0.5), calculate_se = true)
-        end
-        @formulas begin
-            y ~ Normal(a + b * t, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 2, 2],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.2, 0.3, 0.1, 0.2]
-    )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(_UQ_NORE_P_DM,
         NoLimits.MCMC(; turing_kwargs = (n_samples = 18, n_adapt = 2, progress = false)))
 
     uq = compute_uq(res; method = :chain, mcmc_draws = 15, rng = Random.Xoshiro(4))
@@ -128,28 +153,8 @@ end
 end
 
 @testset "UQ chain for VI" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2, prior = Normal(0.0, 1.0), calculate_se = true)
-            b = RealNumber(0.1, prior = Normal(0.0, 1.0), calculate_se = false)
-            σ = RealNumber(
-                0.3, scale = :log, prior = LogNormal(0.0, 0.5), calculate_se = true)
-        end
-        @formulas begin
-            y ~ Normal(a + b * t, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 2, 2],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.2, 0.3, 0.1, 0.2]
-    )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm, NoLimits.VI(; turing_kwargs = (max_iter = 15, progress = false));
+    res = fit_model(
+        _UQ_NORE_P_DM, NoLimits.VI(; turing_kwargs = (max_iter = 15, progress = false));
         rng = Random.Xoshiro(401))
 
     uq = compute_uq(res; method = :chain, mcmc_draws = 35, rng = Random.Xoshiro(402))
@@ -198,30 +203,7 @@ end
 end
 
 @testset "UQ Wald for Laplace" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2, calculate_se = true)
-            ω = RealNumber(0.6, scale = :log, calculate_se = true)
-            σ = RealNumber(0.3, scale = :log, calculate_se = false)
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, ω); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 2, 2, 3, 3],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y = [0.2, 0.25, 0.1, 0.15, 0.3, 0.35]
-    )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
+    res = _UQ_RE_RES_LAP
 
     uq = compute_uq(res; method = :wald, n_draws = 30, rng = Random.Xoshiro(5))
     @test get_uq_backend(uq) == :wald
@@ -320,25 +302,12 @@ end
 end
 
 @testset "UQ profile for MLE" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2, calculate_se = true)
-            σ = RealNumber(0.3, scale = :log, calculate_se = false)
-        end
-        @formulas begin
-            y ~ Normal(a, σ)
-        end
-    end
-
     df = DataFrame(
         ID = [1, 1, 2, 2, 3, 3],
         t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
         y = [0.2, 0.25, 0.1, 0.15, 0.3, 0.35]
     )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    dm = DataModel(_UQ_SE1_MODEL, df; primary_id = :ID, time_col = :t)
     res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
 
     uq = compute_uq(res;
@@ -401,28 +370,7 @@ end
 end
 
 @testset "UQ mcmc_refit for MLE" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2, prior = Normal(0.0, 1.0), calculate_se = true)
-            b = RealNumber(0.1, prior = Normal(0.0, 1.0), calculate_se = false)
-            σ = RealNumber(
-                0.3, scale = :log, prior = LogNormal(0.0, 0.5), calculate_se = true)
-        end
-        @formulas begin
-            y ~ Normal(a + b * t, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 2, 2],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.2, 0.3, 0.1, 0.2]
-    )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
+    res = fit_model(_UQ_NORE_P_DM, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
 
     uq = compute_uq(res;
         method = :mcmc_refit,
@@ -442,25 +390,12 @@ end
 end
 
 @testset "UQ mcmc_refit errors without priors on sampled fixed effects" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2, calculate_se = true)
-            σ = RealNumber(0.3, scale = :log, calculate_se = false)
-        end
-        @formulas begin
-            y ~ Normal(a, σ)
-        end
-    end
-
     df = DataFrame(
         ID = [1, 1],
         t = [0.0, 1.0],
         y = [0.2, 0.3]
     )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    dm = DataModel(_UQ_SE1_MODEL, df; primary_id = :ID, time_col = :t)
     res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
     @test_throws ErrorException compute_uq(res;
         method = :mcmc_refit,
@@ -499,33 +434,8 @@ end
 end
 
 @testset "UQ Wald sandwich for Laplace" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2, calculate_se = true)
-            ω = RealNumber(0.6, scale = :log, calculate_se = true)
-            σ = RealNumber(0.3, scale = :log, calculate_se = false)
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, ω); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 2, 2, 3, 3],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y = [0.2, 0.25, 0.1, 0.15, 0.3, 0.35]
-    )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
-
-    uq = compute_uq(
-        res; method = :wald, vcov = :sandwich, n_draws = 30, rng = Random.Xoshiro(13))
+    uq = compute_uq(_UQ_RE_RES_LAP;
+        method = :wald, vcov = :sandwich, n_draws = 30, rng = Random.Xoshiro(13))
     @test get_uq_backend(uq) == :wald
     @test get_uq_source_method(uq) == :laplace
     @test size(get_uq_vcov(uq)) == (2, 2)
@@ -534,30 +444,7 @@ end
 end
 
 @testset "UQ Wald for MCEM via Laplace approximation" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2, calculate_se = true)
-            ω = RealNumber(0.6, scale = :log, calculate_se = true)
-            σ = RealNumber(0.3, scale = :log, calculate_se = false)
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, ω); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 2, 2, 3, 3],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y = [0.2, 0.25, 0.1, 0.15, 0.3, 0.35]
-    )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(_UQ_RE_DM,
         NoLimits.MCEM(;
             maxiters = 2,
             sample_schedule = 2,

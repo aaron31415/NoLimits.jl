@@ -6,6 +6,33 @@ using ComponentArrays
 using Turing
 using Random
 
+# One scalar-RE model/DataModel shared by all IS-variant testsets below (they
+# assert e-step option behavior and diagnostics, not model structure). The
+# multi-RE testset uses fx_mg_dm(); the LogNormal-RE bijection testset keeps a
+# bespoke model.
+const _MIS_MODEL = @Model begin
+    @covariates begin
+        t = Covariate()
+    end
+    @fixedEffects begin
+        a = RealNumber(0.2)
+        σ = RealNumber(0.5, scale = :log)
+    end
+    @randomEffects begin
+        η = RandomEffect(Normal(0.0, 1.0); column = :ID)
+    end
+    @formulas begin
+        y ~ Normal(a + η, σ)
+    end
+end
+
+const _MIS_DM = DataModel(_MIS_MODEL,
+    DataFrame(
+        ID = ["A", "A", "B", "B"],
+        t = [0.0, 1.0, 0.0, 1.0],
+        y = [1.0, 1.1, 0.9, 1.05]);
+    primary_id = :ID, time_col = :t)
+
 @testset "MCEM_IS struct and MCEM_MCMC struct" begin
     es_mcmc = NoLimits.MCEM_MCMC()
     @test es_mcmc.sampler isa NUTS
@@ -35,30 +62,7 @@ using Random
 end
 
 @testset "IS prior proposal — basic fit" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = ["A", "A", "B", "B"],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [1.0, 1.1, 0.9, 1.05]
-    )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-
-    res = fit_model(dm,
+    res = fit_model(_MIS_DM,
         NoLimits.MCEM(
             e_step = NoLimits.MCEM_IS(n_samples = 2, proposal = :prior, adapt = false),
             maxiters = 2,
@@ -72,30 +76,7 @@ end
 end
 
 @testset "IS gaussian proposal — blocks updated" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = ["A", "A", "B", "B"],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [1.0, 1.1, 0.9, 1.05]
-    )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-
-    res = fit_model(dm,
+    res = fit_model(_MIS_DM,
         NoLimits.MCEM(
             e_step = NoLimits.MCEM_IS(n_samples = 2, proposal = :gaussian, adapt = true),
             maxiters = 2,
@@ -112,29 +93,6 @@ end
 end
 
 @testset "IS user-provided proposal function" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = ["A", "A", "B", "B"],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [1.0, 1.1, 0.9, 1.05]
-    )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-
     # User proposal: sample from N(0, 2) for all entries, return correct shapes
     function my_proposal_is_test(θ, batch_info, re_dists, rng, n_samples)
         nb = batch_info.n_b
@@ -144,7 +102,7 @@ end
         return samples, log_qs
     end
 
-    res = fit_model(dm,
+    res = fit_model(_MIS_DM,
         NoLimits.MCEM(
             e_step = NoLimits.MCEM_IS(n_samples = 2, proposal = my_proposal_is_test),
             maxiters = 2,
@@ -158,29 +116,6 @@ end
 end
 
 @testset "IS warm_start_mcmc_iters — MCMC then IS" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = ["A", "A", "B", "B"],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [1.0, 1.1, 0.9, 1.05]
-    )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-
     es = NoLimits.MCEM_IS(
         n_samples = 2,
         proposal = :gaussian,
@@ -192,7 +127,7 @@ end
             sample_schedule = 10
         )
     )
-    res = fit_model(dm,
+    res = fit_model(_MIS_DM,
         NoLimits.MCEM(
             e_step = es,
             maxiters = 2,
@@ -208,30 +143,7 @@ end
 end
 
 @testset "IS weights are finite and normalized" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.3)
-            σ = RealNumber(0.4, scale = :log)
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = ["A", "A", "B", "B"],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.8, 0.9, 1.1, 1.2]
-    )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-
-    res = fit_model(dm,
+    res = fit_model(_MIS_DM,
         NoLimits.MCEM(
             e_step = NoLimits.MCEM_IS(n_samples = 2, proposal = :prior),
             maxiters = 2,
@@ -249,30 +161,7 @@ end
 end
 
 @testset "IS ESS tracked in diagnostics" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = ["A", "A", "B", "B"],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [1.0, 1.1, 0.9, 1.0]
-    )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-
-    res = fit_model(dm,
+    res = fit_model(_MIS_DM,
         NoLimits.MCEM(
             e_step = NoLimits.MCEM_IS(n_samples = 2, proposal = :prior),
             maxiters = 2,
@@ -285,32 +174,7 @@ end
 end
 
 @testset "IS with multi-RE model" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-        end
-        @randomEffects begin
-            η_id = RandomEffect(Normal(0.0, 1.0); column = :ID)
-            η_site = RandomEffect(Normal(0.0, 0.5); column = :SITE)
-        end
-        @formulas begin
-            y ~ Normal(a + η_id + η_site, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = ["A", "A", "B", "B", "C", "C", "D", "D"],
-        SITE = ["S1", "S1", "S1", "S1", "S2", "S2", "S2", "S2"],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y = [1.0, 1.1, 0.9, 1.0, 1.2, 1.1, 1.0, 0.95]
-    )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-
-    res = fit_model(dm,
+    res = fit_model(fx_mg_dm(),
         NoLimits.MCEM(
             e_step = NoLimits.MCEM_IS(n_samples = 2, proposal = :prior),
             maxiters = 2,
@@ -362,29 +226,6 @@ end
 end
 
 @testset "IS backward compat — MCEM() legacy kwargs still work" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = ["A", "A", "B", "B"],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [1.0, 1.1, 0.9, 1.0]
-    )
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-
     # Old API: sampler= and turing_kwargs= at the top level
     method = NoLimits.MCEM(
         sampler = MH(),
@@ -396,7 +237,7 @@ end
     @test method.e_step isa NoLimits.MCEM_MCMC
     @test method.e_step.sampler isa MH
 
-    res = fit_model(dm, method)
+    res = fit_model(_MIS_DM, method)
     @test res isa NoLimits.FitResult
     @test NoLimits.get_converged(res) isa Bool
 end

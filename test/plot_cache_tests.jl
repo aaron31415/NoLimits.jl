@@ -5,66 +5,19 @@ using Distributions
 using Turing
 
 # Note: "Plot cache (non-ODE)" and "Plot cache (RE non-ODE, Laplace)"
-# have been moved to integration_plotting.jl (shared fixtures).
+# have been moved to integration_plotting.jl (shared fixtures). The testsets
+# below consume the shared fx_* fixture models/fits; only the varying-groups
+# testset keeps a bespoke model (it asserts numeric means under constants_re).
 
 @testset "Plot cache (RE ODE, Laplace)" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            σ = RealNumber(0.01, scale = :log)
-        end
-
-        @covariates begin
-            t = Covariate()
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @DifferentialEquation begin
-            D(x1) ~ -a * x1 + η
-        end
-
-        @initialDE begin
-            x1 = 1.0
-        end
-
-        @formulas begin
-            y ~ Normal(x1(t), σ)
-        end
-    end
-
-    df = DataFrame(ID = [1, 1, 2, 2], t = [0.0, 1.0, 0.0, 1.0], y = [1.0, 0.9, 1.1, 1.0])
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
-        NoLimits.Laplace(;
-            optim_kwargs = (maxiters = 2,), multistart_n = 2, multistart_k = 2))
-
-    cache = build_plot_cache(res; cache_obs_dists = false)
+    dm = fx_ode_dm()
+    cache = build_plot_cache(fx_ode_laplace(); cache_obs_dists = false)
     @test cache isa PlotCache
     @test length(cache.sols) == length(get_individuals(dm))
 end
 
 @testset "Plot cache kwargs" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            b = RealNumber(0.2)
-            σ = RealNumber(0.3, scale = :log)
-        end
-        @covariates begin
-            t = Covariate()
-            z = Covariate()
-        end
-        @formulas begin
-            y ~ Normal(a + b * z, σ)
-        end
-    end
-
-    df = DataFrame(ID = [1, 1], t = [0.0, 1.0], z = [0.1, 0.2], y = [0.15, 0.18])
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
+    res = fx_mle()
 
     cache1 = build_plot_cache(res; cache_obs_dists = false)
     cache2 = build_plot_cache(res; cache_obs_dists = true)
@@ -75,57 +28,16 @@ end
 end
 
 @testset "Plot cache kwargs (MCMC warmup override)" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.3, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-        @covariates begin
-            t = Covariate()
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(ID = [1, 1], t = [0.0, 1.0], y = [0.1, 0.2])
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
-        NoLimits.MCMC(; sampler = MH(),
-            turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false)))
-
-    cache = build_plot_cache(res; mcmc_warmup = 1, mcmc_draws = 5)
+    cache = build_plot_cache(fx_mcmc_re(); mcmc_warmup = 1, mcmc_draws = 5)
     @test cache isa PlotCache
     @test cache.chain !== nothing
 end
 
 @testset "Plot cache inherits constants_re from fit result" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            σ = RealNumber(0.3, scale = :log)
-        end
-        @covariates begin
-            t = Covariate()
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 0.5); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(ID = [:A, :A, :B, :B, :C, :C], t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, 0.1, 0.15, 0.25])
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    dm = fx_recov_dm()
     constants_re = (; η = (; B = 0.0))
     res = fit_model(dm,
-        NoLimits.Laplace(;
-            optim_kwargs = (maxiters = 2,), multistart_n = 2, multistart_k = 2);
+        NoLimits.Laplace(; optim_kwargs = (maxiters = 2,));
         constants_re = constants_re)
 
     cache = build_plot_cache(res)
@@ -134,81 +46,20 @@ end
 end
 
 @testset "Plot cache (MCMC)" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.3, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-        @covariates begin
-            t = Covariate()
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(ID = [1, 1, 2, 2], t = [0.0, 1.0, 0.0, 1.0], y = [0.1, 0.2, 0.0, -0.1])
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
-        NoLimits.MCMC(; sampler = MH(),
-            turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false)))
-
-    cache = build_plot_cache(res; cache_obs_dists = false, mcmc_draws = 5)
+    cache = build_plot_cache(fx_mcmc_re(); cache_obs_dists = false, mcmc_draws = 5)
     @test cache isa PlotCache
     @test cache.chain !== nothing
 end
 
 @testset "Plot cache (VI, fixed-effects only)" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.3, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-        @covariates begin
-            t = Covariate()
-        end
-        @formulas begin
-            y ~ Normal(a, σ)
-        end
-    end
-
-    df = DataFrame(ID = [1, 1, 2, 2], t = [0.0, 1.0, 0.0, 1.0], y = [0.1, 0.2, 0.0, -0.1])
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm, NoLimits.VI(; turing_kwargs = (max_iter = 10, progress = false)))
-
-    cache = build_plot_cache(res; cache_obs_dists = false, mcmc_draws = 5)
+    cache = build_plot_cache(fx_vi(); cache_obs_dists = false, mcmc_draws = 5)
     @test cache isa PlotCache
     @test cache.chain === nothing
 end
 
 @testset "Plot cache (ODE)" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            σ = RealNumber(0.01, scale = :log)
-        end
-        @covariates begin
-            t = Covariate()
-        end
-        @DifferentialEquation begin
-            D(x1) ~ -a * x1
-        end
-        @initialDE begin
-            x1 = 1.0
-        end
-        @formulas begin
-            y ~ Normal(x1(t), σ)
-        end
-    end
-
-    df = DataFrame(ID = [1, 1, 1], t = [0.0, 0.5, 1.0], y = [1.0, 0.95, 0.9])
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
-
-    cache = build_plot_cache(res; cache_obs_dists = true)
+    dm = fx_ode_dm()
+    cache = build_plot_cache(fx_ode_laplace(); cache_obs_dists = true)
     @test cache isa PlotCache
     @test length(cache.sols) == length(get_individuals(dm))
     @test cache.sols[1] !== nothing

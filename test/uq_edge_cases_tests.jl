@@ -198,11 +198,13 @@ end
 end
 
 @testset "UQ edge: Laplace with multivariate + planar-flow REs, vector FE, NN/SoftTree/Spline" begin
+    # Single-start EBE solve: assertions here are structural; the multistart>1
+    # path is covered by "Laplace multistart options" in estimation_laplace_tests.jl.
     res_laplace = fit_model(_UQE_RE_BLOCKS_DM,
         NoLimits.Laplace(;
             optim_kwargs = (maxiters = 2,),
             inner_kwargs = (maxiters = 2,),
-            multistart_n = 2, multistart_k = 2);
+            multistart_n = 1, multistart_k = 1);
         constants = _UQE_BLOCKS_CONSTANTS)
     uq_laplace = compute_uq(res_laplace;
         method = :wald,
@@ -219,7 +221,7 @@ end
         NoLimits.LaplaceMAP(;
             optim_kwargs = (maxiters = 2,),
             inner_kwargs = (maxiters = 2,),
-            multistart_n = 2, multistart_k = 2);
+            multistart_n = 1, multistart_k = 1);
         constants = _UQE_FLOW_MAP_CONSTANTS)
     uq_lmap = compute_uq(res_lmap;
         method = :wald,

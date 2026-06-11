@@ -15,6 +15,177 @@ import Turing
 const _gh_rule = NoLimits._gh_rule
 const build_sparse_grid = NoLimits.build_sparse_grid
 
+# ── Shared models (each @Model source block compiles once; data varies per use) ──
+
+# Scalar Normal RE workhorse: y ~ Normal(a + η, σ), η ~ Normal(0, ω).
+const _GHQ_SCALAR_MODEL = @Model begin
+    @fixedEffects begin
+        a = RealNumber(1.0)
+        σ = RealNumber(0.5, scale = :log)
+        ω = RealNumber(1.0, scale = :log)
+    end
+    @covariates begin
+        t = Covariate()
+    end
+    @randomEffects begin
+        η = RandomEffect(Normal(0.0, ω); column = :ID)
+    end
+    @formulas begin
+        y ~ Normal(a + η, σ)
+    end
+end
+
+# Prior-bearing scalar model for MAP/UQ; prior tightness parameterizable so the
+# "MAP pulls toward prior" testset can reuse the same source block.
+function _ghq_prior_model(; a0 = 1.0, a_prior_sd = 2.0)
+    @Model begin
+        @fixedEffects begin
+            a = RealNumber(a0; prior = Normal(0.0, a_prior_sd))
+            σ = RealNumber(0.5, scale = :log; prior = LogNormal(0.0, 1.0))
+            ω = RealNumber(1.0, scale = :log; prior = LogNormal(0.0, 1.0))
+        end
+        @covariates begin
+            t = Covariate()
+        end
+        @randomEffects begin
+            η = RandomEffect(Normal(0.0, ω); column = :ID)
+        end
+        @formulas begin
+            y ~ Normal(a + η, σ)
+        end
+    end
+end
+
+# 1-d planar-flow RE with a saturating helper link (priorless; distinct from
+# the prior-bearing fx_npf fixture).
+const _GHQ_NPF_MODEL = @Model begin
+    @helpers begin
+        sat(u) = u / (1 + abs(u))
+    end
+    @fixedEffects begin
+        a = RealNumber(1.0)
+        σ = RealNumber(0.5, scale = :log)
+        ψ = NPFParameter(1, 2; seed = 1, calculate_se = false)
+    end
+    @covariates begin
+        t = Covariate()
+    end
+    @randomEffects begin
+        η = RandomEffect(NormalizingPlanarFlow(ψ); column = :ID)
+    end
+    @formulas begin
+        y ~ Normal(a + sat(η[1]), σ)
+    end
+end
+
+# Non-Gaussian RE families (transport-map coverage); one model per family,
+# shared by the fit / get_random_effects / validation testsets.
+const _GHQ_LOGN_MODEL = @Model begin
+    @fixedEffects begin
+        a = RealNumber(1.5)
+        σ = RealNumber(0.5, scale = :log)
+        ω = RealNumber(0.6, scale = :log)
+    end
+    @covariates begin
+        t = Covariate()
+    end
+    @randomEffects begin
+        η = RandomEffect(LogNormal(0.0, ω); column = :ID)
+    end
+    @formulas begin
+        y ~ Normal(a * η, σ)
+    end
+end
+
+const _GHQ_BETA_MODEL = @Model begin
+    @fixedEffects begin
+        a = RealNumber(0.4)
+        b = RealNumber(2.5)
+        σ = RealNumber(0.3, scale = :log)
+        α = RealNumber(2.0, scale = :log)
+        β = RealNumber(5.0, scale = :log)
+    end
+    @covariates begin
+        t = Covariate()
+    end
+    @randomEffects begin
+        η = RandomEffect(Beta(α, β); column = :ID)
+    end
+    @formulas begin
+        y ~ Normal(a + b * η, σ)
+    end
+end
+
+const _GHQ_GAMMA_MODEL = @Model begin
+    @fixedEffects begin
+        a = RealNumber(2.0)
+        σ = RealNumber(0.4, scale = :log)
+        α = RealNumber(2.0, scale = :log)
+        θ = RealNumber(0.5, scale = :log)
+    end
+    @covariates begin
+        t = Covariate()
+    end
+    @randomEffects begin
+        η = RandomEffect(Gamma(α, θ); column = :ID)
+    end
+    @formulas begin
+        y ~ Normal(a * η, σ)
+    end
+end
+
+const _GHQ_EXP_MODEL = @Model begin
+    @fixedEffects begin
+        a = RealNumber(1.5)
+        σ = RealNumber(0.4, scale = :log)
+        θ = RealNumber(0.5, scale = :log)   # scale = 1/rate
+    end
+    @covariates begin
+        t = Covariate()
+    end
+    @randomEffects begin
+        η = RandomEffect(Exponential(θ); column = :ID)
+    end
+    @formulas begin
+        y ~ Normal(a * η, σ)
+    end
+end
+
+const _GHQ_WEIB_MODEL = @Model begin
+    @fixedEffects begin
+        a = RealNumber(1.0)
+        σ = RealNumber(0.3, scale = :log)
+        α = RealNumber(2.0, scale = :log)
+        θ = RealNumber(1.5, scale = :log)
+    end
+    @covariates begin
+        t = Covariate()
+    end
+    @randomEffects begin
+        η = RandomEffect(Weibull(α, θ); column = :ID)
+    end
+    @formulas begin
+        y ~ Normal(a * η, σ)
+    end
+end
+
+const _GHQ_TDIST_MODEL = @Model begin
+    @fixedEffects begin
+        a = RealNumber(1.0)
+        σ = RealNumber(0.3, scale = :log)
+        ν = RealNumber(5.0, scale = :log)
+    end
+    @covariates begin
+        t = Covariate()
+    end
+    @randomEffects begin
+        η = RandomEffect(TDist(ν); column = :ID)
+    end
+    @formulas begin
+        y ~ Normal(a + η, σ)
+    end
+end
+
 # Helper: signed quadrature sum for integration tests
 function sg_integrate(f, sg::NoLimits.GHQuadratureNodes)
     total = 0.0
@@ -459,36 +630,23 @@ end  # @testset "GHQuadrature remeasure.jl + kernel.jl"
 # ---------------------------------------------------------------------------
 
 function _make_simple_ghq_dm(; n_id = 10, n_obs = 5, rng = MersenneTwister(42))
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(1.0)
-            σ = RealNumber(0.5, scale = :log)
-            ω = RealNumber(1.0, scale = :log)
-        end
-        @covariates begin
-            t = Covariate()
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, ω); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
     ids = repeat(1:n_id, inner = n_obs)
     ts = repeat(collect(1.0:n_obs), outer = n_id)
     ηs = repeat(randn(rng, n_id), inner = n_obs)
     ys = 1.0 .+ ηs .+ 0.5 .* randn(rng, n_id * n_obs)
     df = DataFrame(ID = ids, t = ts, y = ys)
-    return DataModel(model, df; primary_id = :ID, time_col = :t)
+    return DataModel(_GHQ_SCALAR_MODEL, df; primary_id = :ID, time_col = :t)
 end
 
 @testset "GHQuadrature ghquadrature.jl" begin
     dm = _make_simple_ghq_dm()
+    # One fit per level, shared by the accessor/level-comparison testsets below.
+    res_l1 = fit_model(dm, GHQuadrature(level = 1; optim_kwargs = (maxiters = 2,)))
+    res_l2 = fit_model(dm, GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
 
     # ── Basic fit at level=1 ─────────────────────────────────────────────────
     @testset "Basic fit level=1 LBFGS" begin
-        res = fit_model(dm, GHQuadrature(level = 1; optim_kwargs = (maxiters = 2,)))
+        res = res_l1
 
         @test res isa NoLimits.FitResult
         @test res.result isa NoLimits.GHQuadratureResult
@@ -512,35 +670,31 @@ end
 
     # ── Convenience accessor without passing dm ───────────────────────────────
     @testset "Stored DataModel accessor" begin
-        res = fit_model(dm, GHQuadrature(level = 1; optim_kwargs = (maxiters = 2,)))
-        re = get_random_effects(res)
+        re = get_random_effects(res_l1)
         @test nrow(re.η) == 10
-        ll = get_loglikelihood(res)
+        ll = get_loglikelihood(res_l1)
         @test ll < 0  # log-likelihood is negative
     end
 
     # ── get_loglikelihood re-evaluates sparse grid ────────────────────────────
     @testset "get_loglikelihood matches -objective" begin
-        res = fit_model(dm, GHQuadrature(level = 1; optim_kwargs = (maxiters = 2,)))
-        ll = get_loglikelihood(dm, res)
+        ll = get_loglikelihood(dm, res_l1)
         # objective = -LL (no penalty), so ll ≈ -objective
-        @test abs(ll - (-get_objective(res))) < 1.0  # within 1 nll unit (EB modes vs quadrature differ slightly)
+        @test abs(ll - (-get_objective(res_l1))) < 1.0  # within 1 nll unit (EB modes vs quadrature differ slightly)
     end
 
     # ── Level comparison: higher level → lower (or equal) -LL ────────────────
     @testset "Level 1 vs 2 objective" begin
-        res1 = fit_model(dm, GHQuadrature(level = 1; optim_kwargs = (maxiters = 2,)))
-        res2 = fit_model(dm, GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
         # Level 2 should get at least as good or better objective in most cases;
         # we check that both converge and give finite objectives.
         # Log-likelihoods should be negative
-        @test get_loglikelihood(res1) < 0
-        @test get_loglikelihood(res2) < 0
+        @test get_loglikelihood(res_l1) < 0
+        @test get_loglikelihood(res_l2) < 0
     end
 
     # ── Parameter agreement with Laplace ─────────────────────────────────────
     @testset "Parameter agreement with Laplace" begin
-        res_sg = fit_model(dm, GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
+        res_sg = res_l2
         res_lap = fit_model(dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
 
         p_sg = NoLimits.get_params(res_sg; scale = :untransformed)
@@ -558,22 +712,7 @@ end
 
         # Build the same objective as _fit_model for gradient testing.
         # We use the internal infrastructure directly.
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(1.0)
-                σ = RealNumber(0.5, scale = :log)
-                ω = RealNumber(1.0, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(Normal(0.0, ω); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a + η, σ)
-            end
-        end
+        model = _GHQ_SCALAR_MODEL
         df_small = DataFrame(ID = repeat(1:4, inner = 3),
             t = repeat([1.0, 2.0, 3.0], outer = 4),
             y = [0.9, 1.1, 1.0, 1.3, 1.2, 1.1, 0.8, 0.9, 1.0, 1.2, 1.0, 0.9])
@@ -670,58 +809,20 @@ end  # @testset "GHQuadrature ghquadrature.jl"
 
     # ── Validation no longer rejects NPF ─────────────────────────────────────
     @testset "_ghq_validate_re_distributions allows NPF" begin
-        model_npf = @Model begin
-            @helpers begin
-                sat(u) = u / (1 + abs(u))
-            end
-            @fixedEffects begin
-                a = RealNumber(1.0)
-                σ = RealNumber(0.5, scale = :log)
-                ψ = NPFParameter(1, 2; seed = 1, calculate_se = false)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(NormalizingPlanarFlow(ψ); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a + sat(η[1]), σ)
-            end
-        end
         df_v = DataFrame(ID = repeat(1:5, inner = 3),
             t = repeat([1.0, 2.0, 3.0], outer = 5),
             y = randn(MersenneTwister(7), 15))
-        dm_npf = DataModel(model_npf, df_v; primary_id = :ID, time_col = :t)
+        dm_npf = DataModel(_GHQ_NPF_MODEL, df_v; primary_id = :ID, time_col = :t)
         # Should NOT throw
         @test_nowarn NoLimits._ghq_validate_re_distributions(dm_npf)
     end
 
     # ── CompositeRE is returned for NPF batches ───────────────────────────────
     @testset "build_re_measure_from_batch returns CompositeRE for NPF" begin
-        model_npf = @Model begin
-            @helpers begin
-                sat(u) = u / (1 + abs(u))
-            end
-            @fixedEffects begin
-                a = RealNumber(1.0)
-                σ = RealNumber(0.5, scale = :log)
-                ψ = NPFParameter(1, 2; seed = 1, calculate_se = false)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(NormalizingPlanarFlow(ψ); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a + sat(η[1]), σ)
-            end
-        end
         df_v = DataFrame(ID = repeat(1:4, inner = 3),
             t = repeat([1.0, 2.0, 3.0], outer = 4),
             y = randn(MersenneTwister(8), 12))
-        dm_npf = DataModel(model_npf, df_v; primary_id = :ID, time_col = :t)
+        dm_npf = DataModel(_GHQ_NPF_MODEL, df_v; primary_id = :ID, time_col = :t)
 
         fe = dm_npf.model.fixed.fixed
         θ0_u = NoLimits.get_θ0_untransformed(fe)
@@ -770,31 +871,12 @@ end  # @testset "GHQuadrature ghquadrature.jl"
 
     # ── End-to-end fit with NPF RE ────────────────────────────────────────────
     @testset "fit_model GHQuadrature level=1 with NPF RE" begin
-        model_npf = @Model begin
-            @helpers begin
-                sat(u) = u / (1 + abs(u))
-            end
-            @fixedEffects begin
-                a = RealNumber(1.0)
-                σ = RealNumber(0.5, scale = :log)
-                ψ = NPFParameter(1, 2; seed = 1, calculate_se = false)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(NormalizingPlanarFlow(ψ); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a + sat(η[1]), σ)
-            end
-        end
         rng = MersenneTwister(99)
         ids = repeat(1:8, inner = 4)
         ts = repeat([1.0, 2.0, 3.0, 4.0], outer = 8)
         ys = 1.0 .+ 0.3 .* randn(rng, 32) .+ 0.5 .* randn(rng, 32)
         df_npf = DataFrame(ID = ids, t = ts, y = ys)
-        dm_npf = DataModel(model_npf, df_npf; primary_id = :ID, time_col = :t)
+        dm_npf = DataModel(_GHQ_NPF_MODEL, df_npf; primary_id = :ID, time_col = :t)
 
         res = fit_model(dm_npf, GHQuadrature(level = 1; optim_kwargs = (maxiters = 2,)))
 
@@ -818,30 +900,21 @@ end  # @testset "GHQuadrature NPF RE support"
 # Model with priors for MAP
 # ---------------------------------------------------------------------------
 
+const _GHQ_MAP_MODEL = _ghq_prior_model()
+
 function _make_map_ghq_dm(; n_id = 8, n_obs = 4, rng = MersenneTwister(7))
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(1.0; prior = Normal(0.0, 2.0))
-            σ = RealNumber(0.5, scale = :log; prior = LogNormal(0.0, 1.0))
-            ω = RealNumber(1.0, scale = :log; prior = LogNormal(0.0, 1.0))
-        end
-        @covariates begin
-            t = Covariate()
-        end
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, ω); column = :ID)
-        end
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
     ids = repeat(1:n_id, inner = n_obs)
     ts = repeat(collect(1.0:n_obs), outer = n_id)
     ηs = repeat(randn(rng, n_id), inner = n_obs)
     ys = 1.0 .+ ηs .+ 0.5 .* randn(rng, n_id * n_obs)
     df = DataFrame(ID = ids, t = ts, y = ys)
-    return DataModel(model, df; primary_id = :ID, time_col = :t)
+    return DataModel(_GHQ_MAP_MODEL, df; primary_id = :ID, time_col = :t)
 end
+
+# Shared by the Wald and Profile UQ testsets (same dm, same level-2 GHQ fit).
+const _GHQ_MAP_DM = _make_map_ghq_dm()
+const _GHQ_MAP_RES_GHQ2 = fit_model(
+    _GHQ_MAP_DM, GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
 
 @testset "GHQuadratureMAP" begin
     dm_map = _make_map_ghq_dm()
@@ -881,24 +954,9 @@ end
 
     # ── GHQuadrature vs GHQuadratureMAP: MAP pulls parameters toward prior ───────
     @testset "MAP regularization pulls toward prior" begin
-        # With a strong Normal(0, 0.5) prior on a, MAP estimate of a should
+        # With a strong Normal(0, 0.3) prior on a, MAP estimate of a should
         # be closer to 0 than MLE estimate on same data.
-        model_tight = @Model begin
-            @fixedEffects begin
-                a = RealNumber(2.0; prior = Normal(0.0, 0.3))  # strong prior toward 0
-                σ = RealNumber(0.5, scale = :log; prior = LogNormal(0.0, 1.0))
-                ω = RealNumber(1.0, scale = :log; prior = LogNormal(0.0, 1.0))
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(Normal(0.0, ω); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a + η, σ)
-            end
-        end
+        model_tight = _ghq_prior_model(; a0 = 2.0, a_prior_sd = 0.3)
         rng_t = MersenneTwister(99)
         ids = repeat(1:6, inner = 4)
         ts = repeat(1.0:4.0, outer = 6)
@@ -919,36 +977,19 @@ end
 
     # ── Error: GHQuadratureMAP with no-prior model ─────────────────────────────
     @testset "Errors without priors" begin
-        model_noprior = @Model begin
-            @fixedEffects begin
-                a = RealNumber(1.0)   # no prior
-                σ = RealNumber(0.5, scale = :log)
-                ω = RealNumber(1.0, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(Normal(0.0, ω); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a + η, σ)
-            end
-        end
         df_n = DataFrame(ID = repeat(1:3, inner = 2), t = [1.0, 2.0, 1.0, 2.0, 1.0, 2.0],
             y = randn(MersenneTwister(1), 6))
-        dm_n = DataModel(model_noprior, df_n; primary_id = :ID, time_col = :t)
+        dm_n = DataModel(_GHQ_SCALAR_MODEL, df_n; primary_id = :ID, time_col = :t)
         @test_throws ErrorException fit_model(dm_n, GHQuadratureMAP(level = 1))
     end
 end  # @testset "GHQuadratureMAP"
 
 @testset "GHQuadrature Wald UQ" begin
-    dm_uq = _make_map_ghq_dm()
+    dm_uq = _GHQ_MAP_DM
 
     # ── GHQuadrature Wald (default ForwardDiff Hessian) ────────────────────────
     @testset "compute_uq GHQuadrature level=2" begin
-        res = fit_model(dm_uq, GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
-        uq = compute_uq(res; method = :wald, pseudo_inverse = true)
+        uq = compute_uq(_GHQ_MAP_RES_GHQ2; method = :wald, pseudo_inverse = true)
 
         @test uq isa NoLimits.UQResult
         cia = get_uq_intervals(uq)
@@ -972,8 +1013,8 @@ end  # @testset "GHQuadratureMAP"
 
     # ── Sandwich vcov ────────────────────────────────────────────────────────
     @testset "compute_uq GHQuadrature sandwich vcov level=2" begin
-        res = fit_model(dm_uq, GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
-        uq = compute_uq(res; method = :wald, vcov = :sandwich, pseudo_inverse = true)
+        uq = compute_uq(
+            _GHQ_MAP_RES_GHQ2; method = :wald, vcov = :sandwich, pseudo_inverse = true)
 
         @test uq isa NoLimits.UQResult
         cia = get_uq_intervals(uq)
@@ -982,9 +1023,8 @@ end  # @testset "GHQuadratureMAP"
 
     # ── hessian_backend :fd_gradient also works ───────────────────────────────
     @testset "compute_uq GHQuadrature fd_gradient backend level=2" begin
-        res = fit_model(dm_uq, GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
-        uq = compute_uq(
-            res; method = :wald, hessian_backend = :fd_gradient, pseudo_inverse = true)
+        uq = compute_uq(_GHQ_MAP_RES_GHQ2; method = :wald,
+            hessian_backend = :fd_gradient, pseudo_inverse = true)
 
         @test uq isa NoLimits.UQResult
         cia = get_uq_intervals(uq)
@@ -993,11 +1033,8 @@ end  # @testset "GHQuadratureMAP"
 end  # @testset "GHQuadrature Wald UQ"
 
 @testset "GHQuadrature Profile UQ" begin
-    dm_uq = _make_map_ghq_dm()
-
     @testset "compute_uq GHQuadrature :profile level=2" begin
-        res = fit_model(dm_uq, GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
-        uq = compute_uq(res; method = :profile)
+        uq = compute_uq(_GHQ_MAP_RES_GHQ2; method = :profile)
 
         @test uq isa NoLimits.UQResult
         cia = get_uq_intervals(uq)
@@ -1006,7 +1043,7 @@ end  # @testset "GHQuadrature Wald UQ"
 end  # @testset "GHQuadrature Profile UQ"
 
 @testset "GHQuadrature mcmc_refit UQ" begin
-    dm_uq = _make_map_ghq_dm()
+    dm_uq = _GHQ_MAP_DM
 
     @testset "compute_uq GHQuadratureMAP :mcmc_refit" begin
         res = fit_model(dm_uq, GHQuadratureMAP(level = 1; optim_kwargs = (maxiters = 2,)))
@@ -1132,25 +1169,8 @@ end  # @testset "GHQuadrature node deduplication"
         yobs = a_true .* η_i[ids] .+ σ_true .* randn(rng, n_id * n_obs)
         tobs = repeat(1:n_obs, n_id) .* 1.0
 
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(1.5)
-                σ = RealNumber(0.5, scale = :log)
-                ω = RealNumber(0.6, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(LogNormal(0.0, ω); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a * η, σ)
-            end
-        end
-
         df = DataFrame(ID = ids, t = tobs, y = yobs)
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_LOGN_MODEL, df; primary_id = :ID, time_col = :t)
 
         # Level 2 should work
         res = fit_model(
@@ -1172,25 +1192,8 @@ end  # @testset "GHQuadrature node deduplication"
         yobs = 1.5 .* η_i[ids] .+ 0.2 .* randn(rng, length(ids))
         tobs = repeat(1:4, n_id) .* 1.0
 
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(1.5)
-                σ = RealNumber(0.3, scale = :log)
-                ω = RealNumber(0.4, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(LogNormal(0.0, ω); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a * η, σ)
-            end
-        end
-
         df = DataFrame(ID = ids, t = tobs, y = yobs)
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_LOGN_MODEL, df; primary_id = :ID, time_col = :t)
         res = fit_model(
             dm, NoLimits.GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
 
@@ -1201,24 +1204,8 @@ end  # @testset "GHQuadrature node deduplication"
     end
 
     @testset "validation allows LogNormal" begin
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(1.0)
-                σ = RealNumber(0.3, scale = :log)
-                ω = RealNumber(0.4, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(LogNormal(0.0, ω); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a * η, σ)
-            end
-        end
         df = DataFrame(ID = [1, 1], t = [1.0, 2.0], y = [1.0, 1.1])
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_LOGN_MODEL, df; primary_id = :ID, time_col = :t)
         # Should not throw
         @test_nowarn NoLimits._ghq_validate_re_distributions(dm)
     end
@@ -1247,27 +1234,8 @@ end  # @testset "GHQuadrature LogNormal RE"
         yobs = a_true .+ b_true .* η_i[ids] .+ σ_true .* randn(rng, n_id * n_obs)
         tobs = repeat(1:n_obs, n_id) .* 1.0
 
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(0.4)
-                b = RealNumber(2.5)
-                σ = RealNumber(0.3, scale = :log)
-                α = RealNumber(2.0, scale = :log)
-                β = RealNumber(5.0, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(Beta(α, β); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a + b * η, σ)
-            end
-        end
-
         df = DataFrame(ID = ids, t = tobs, y = yobs)
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_BETA_MODEL, df; primary_id = :ID, time_col = :t)
 
         res = fit_model(
             dm, NoLimits.GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
@@ -1285,27 +1253,8 @@ end  # @testset "GHQuadrature LogNormal RE"
         yobs = 1.0 .+ 2.0 .* η_i[ids] .+ 0.15 .* randn(rng, length(ids))
         tobs = repeat(1:5, n_id) .* 1.0
 
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(1.0)
-                b = RealNumber(2.0)
-                σ = RealNumber(0.2, scale = :log)
-                α = RealNumber(2.0, scale = :log)
-                β = RealNumber(4.0, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(Beta(α, β); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a + b * η, σ)
-            end
-        end
-
         df = DataFrame(ID = ids, t = tobs, y = yobs)
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_BETA_MODEL, df; primary_id = :ID, time_col = :t)
         res = fit_model(
             dm, NoLimits.GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
 
@@ -1319,25 +1268,8 @@ end  # @testset "GHQuadrature LogNormal RE"
     end
 
     @testset "validation allows Beta" begin
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(0.5)
-                σ = RealNumber(0.3, scale = :log)
-                α = RealNumber(2.0, scale = :log)
-                β = RealNumber(3.0, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(Beta(α, β); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a + η, σ)
-            end
-        end
         df = DataFrame(ID = [1, 1], t = [1.0, 2.0], y = [0.5, 0.6])
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_BETA_MODEL, df; primary_id = :ID, time_col = :t)
         @test_nowarn NoLimits._ghq_validate_re_distributions(dm)
     end
 end  # @testset "GHQuadrature Beta RE"
@@ -1465,25 +1397,8 @@ end  # @testset "Additional 1D quadrature rules"
         yobs = 1.0 .+ η_i[ids] .+ 0.3 .* randn(rng, length(ids))
         tobs = repeat(1:5, n_id) .* 1.0
 
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(1.0)
-                σ = RealNumber(0.3, scale = :log)
-                ω = RealNumber(0.5, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(Normal(0.0, ω); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a + η, σ)
-            end
-        end
-
         df = DataFrame(ID = ids, t = tobs, y = yobs)
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_SCALAR_MODEL, df; primary_id = :ID, time_col = :t)
 
         # Anisotropic level: η at level 2 (isotropic would use same level for all)
         res_iso = fit_model(dm, GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
@@ -1513,24 +1428,8 @@ end  # @testset "Additional 1D quadrature rules"
         yobs = 1.0 .+ 0.3 .* randn(rng, length(ids))
         tobs = repeat(1:4, n_id) .* 1.0
 
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(1.0)
-                σ = RealNumber(0.3, scale = :log)
-                ω = RealNumber(0.5, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(Normal(0.0, ω); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a + η, σ)
-            end
-        end
         df = DataFrame(ID = ids, t = tobs, y = yobs)
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_SCALAR_MODEL, df; primary_id = :ID, time_col = :t)
 
         # (nonexistent=5,) → η defaults to level 1
         res = fit_model(
@@ -1557,26 +1456,8 @@ end  # @testset "Anisotropic sparse grids"
         yobs = a_true .* η_i[ids] .+ σ_true .* randn(rng, n_id * n_obs)
         tobs = repeat(1:n_obs, n_id) .* 1.0
 
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(2.0)
-                σ = RealNumber(0.4, scale = :log)
-                α = RealNumber(2.0, scale = :log)
-                θ = RealNumber(0.5, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(Gamma(α, θ); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a * η, σ)
-            end
-        end
-
         df = DataFrame(ID = ids, t = tobs, y = yobs)
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_GAMMA_MODEL, df; primary_id = :ID, time_col = :t)
         res = fit_model(
             dm, NoLimits.GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
 
@@ -1593,25 +1474,8 @@ end  # @testset "Anisotropic sparse grids"
         yobs = 1.5 .* η_i[ids] .+ 0.2 .* randn(rng, length(ids))
         tobs = repeat(1:4, n_id) .* 1.0
 
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(1.5)
-                σ = RealNumber(0.3, scale = :log)
-                α = RealNumber(2.0, scale = :log)
-                θ = RealNumber(1.0, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(Gamma(α, θ); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a * η, σ)
-            end
-        end
         df = DataFrame(ID = ids, t = tobs, y = yobs)
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_GAMMA_MODEL, df; primary_id = :ID, time_col = :t)
         res = fit_model(
             dm, NoLimits.GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
 
@@ -1622,24 +1486,8 @@ end  # @testset "Anisotropic sparse grids"
     end
 
     @testset "validation allows Gamma" begin
-        model = @Model begin
-            @fixedEffects begin
-                α = RealNumber(2.0, scale = :log)
-                θ = RealNumber(1.0, scale = :log)
-                σ = RealNumber(0.3, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(Gamma(α, θ); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(η, σ)
-            end
-        end
         df = DataFrame(ID = [1, 1], t = [1.0, 2.0], y = [1.0, 1.5])
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_GAMMA_MODEL, df; primary_id = :ID, time_col = :t)
         @test_nowarn NoLimits._ghq_validate_re_distributions(dm)
     end
 end  # @testset "GHQuadrature Gamma RE"
@@ -1657,25 +1505,8 @@ end  # @testset "GHQuadrature Gamma RE"
         yobs = a_true .* η_i[ids] .+ σ_true .* randn(rng, n_id * n_obs)
         tobs = repeat(1:n_obs, n_id) .* 1.0
 
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(1.5)
-                σ = RealNumber(0.4, scale = :log)
-                θ = RealNumber(0.5, scale = :log)   # scale = 1/rate
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(Exponential(θ); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a * η, σ)
-            end
-        end
-
         df = DataFrame(ID = ids, t = tobs, y = yobs)
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_EXP_MODEL, df; primary_id = :ID, time_col = :t)
         res = fit_model(
             dm, NoLimits.GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
 
@@ -1690,24 +1521,8 @@ end  # @testset "GHQuadrature Gamma RE"
         η_i = rand(rng, Exponential(0.5), n_id)
         yobs = 2.0 .* η_i[ids] .+ 0.2 .* randn(rng, length(ids))
         tobs = repeat(1:4, n_id) .* 1.0
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(2.0)
-                σ = RealNumber(0.2, scale = :log)
-                θ = RealNumber(0.5, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(Exponential(θ); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a * η, σ)
-            end
-        end
         df = DataFrame(ID = ids, t = tobs, y = yobs)
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_EXP_MODEL, df; primary_id = :ID, time_col = :t)
         res = fit_model(
             dm, NoLimits.GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
         re = NoLimits.get_random_effects(dm, res)
@@ -1728,26 +1543,8 @@ end  # @testset "GHQuadrature Exponential RE"
         yobs = a_true .* η_i[ids] .+ σ_true .* randn(rng, n_id * n_obs)
         tobs = repeat(1:n_obs, n_id) .* 1.0
 
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(1.0)
-                σ = RealNumber(0.3, scale = :log)
-                α = RealNumber(2.0, scale = :log)
-                θ = RealNumber(1.5, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(Weibull(α, θ); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a * η, σ)
-            end
-        end
-
         df = DataFrame(ID = ids, t = tobs, y = yobs)
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_WEIB_MODEL, df; primary_id = :ID, time_col = :t)
         res = fit_model(
             dm, NoLimits.GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
 
@@ -1763,25 +1560,8 @@ end  # @testset "GHQuadrature Exponential RE"
         η_i = rand(rng, Weibull(2.0, 1.0), n_id)
         yobs = η_i[ids] .+ 0.2 .* randn(rng, length(ids))
         tobs = repeat(1:4, n_id) .* 1.0
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(1.0)
-                σ = RealNumber(0.2, scale = :log)
-                α = RealNumber(2.0, scale = :log)
-                θ = RealNumber(1.0, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(Weibull(α, θ); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a * η, σ)
-            end
-        end
         df = DataFrame(ID = ids, t = tobs, y = yobs)
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_WEIB_MODEL, df; primary_id = :ID, time_col = :t)
         res = fit_model(
             dm, NoLimits.GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
         re = NoLimits.get_random_effects(dm, res)
@@ -1802,25 +1582,8 @@ end  # @testset "GHQuadrature Weibull RE"
         yobs = a_true .+ η_i[ids] .+ σ_true .* randn(rng, n_id * n_obs)
         tobs = repeat(1:n_obs, n_id) .* 1.0
 
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(1.0)
-                σ = RealNumber(0.3, scale = :log)
-                ν = RealNumber(5.0, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(TDist(ν); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a + η, σ)
-            end
-        end
-
         df = DataFrame(ID = ids, t = tobs, y = yobs)
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_TDIST_MODEL, df; primary_id = :ID, time_col = :t)
         res = fit_model(
             dm, NoLimits.GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
 
@@ -1836,24 +1599,8 @@ end  # @testset "GHQuadrature Weibull RE"
         η_i = rand(rng, TDist(4.0), n_id)
         yobs = 0.5 .+ η_i[ids] .+ 0.2 .* randn(rng, length(ids))
         tobs = repeat(1:5, n_id) .* 1.0
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(0.5)
-                σ = RealNumber(0.2, scale = :log)
-                ν = RealNumber(4.0, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(TDist(ν); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a + η, σ)
-            end
-        end
         df = DataFrame(ID = ids, t = tobs, y = yobs)
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_TDIST_MODEL, df; primary_id = :ID, time_col = :t)
         res = fit_model(
             dm, NoLimits.GHQuadrature(level = 2; optim_kwargs = (maxiters = 2,)))
         re = NoLimits.get_random_effects(dm, res)
@@ -1941,24 +1688,8 @@ end  # @testset "GHQuadrature generic ContinuousUnivariateDistribution fallback"
         ids = repeat(1:n_id, inner = n_obs)
         yobs = 1.0 .+ 0.3 .* randn(rng, n_id * n_obs)
         tobs = repeat(1:n_obs, n_id) .* 1.0
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(1.0)
-                σ = RealNumber(0.3, scale = :log)
-                ω = RealNumber(0.3, scale = :log)
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(Normal(0.0, ω); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a + η, σ)
-            end
-        end
         df = DataFrame(ID = ids, t = tobs, y = yobs)
-        DataModel(model, df; primary_id = :ID, time_col = :t)
+        DataModel(_GHQ_SCALAR_MODEL, df; primary_id = :ID, time_col = :t)
     end
 
     @testset "level=[1,2] converges and result is scalar-level" begin
@@ -2003,24 +1734,8 @@ end  # @testset "GHQuadrature generic ContinuousUnivariateDistribution fallback"
         ids = repeat(1:n_id, inner = n_obs)
         yobs = 1.0 .+ 0.3 .* randn(rng, n_id * n_obs)
         tobs = repeat(1:n_obs, n_id) .* 1.0
-        model = @Model begin
-            @fixedEffects begin
-                a = RealNumber(1.0; prior = Normal(0.0, 2.0))
-                σ = RealNumber(0.3, scale = :log; prior = LogNormal(0.0, 1.0))
-                ω = RealNumber(0.3, scale = :log; prior = LogNormal(0.0, 1.0))
-            end
-            @covariates begin
-                t = Covariate()
-            end
-            @randomEffects begin
-                η = RandomEffect(Normal(0.0, ω); column = :ID)
-            end
-            @formulas begin
-                y ~ Normal(a + η, σ)
-            end
-        end
         df = DataFrame(ID = ids, t = tobs, y = yobs)
-        dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+        dm = DataModel(_GHQ_MAP_MODEL, df; primary_id = :ID, time_col = :t)
         res = fit_model(dm, GHQuadratureMAP(level = [1, 2]; optim_kwargs = (maxiters = 2,)))
         @test NoLimits.get_converged(res) isa Bool
         @test NoLimits.get_method(res).level == 2
@@ -2043,7 +1758,9 @@ end  # @testset "GHQuadrature progressive refinement"
 
 @testset "get_loglikelihood_quadrature MC sampling" begin
 
-    # Shared fixture: simple Normal RE model with Laplace fit
+    # Shared fixture: simple Normal RE model with Laplace fit. Keeps its own
+    # model (ω init 0.4): the MC-vs-quadrature ballpark tolerances below are
+    # calibrated to the θ this short Laplace fit reaches from these inits.
     function _mc_test_dm(; n_id = 10, n_obs = 5, rng = MersenneTwister(900))
         ids = repeat(1:n_id, inner = n_obs)
         yobs = 1.0 .+ 0.4 .* randn(rng, n_id * n_obs)

@@ -43,31 +43,13 @@ using Plots
 end
 
 @testset "plot_data/plot_fits skip missing scalar observations (regression)" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            b = RealNumber(-0.2)
-            σ = RealNumber(0.3, scale = :log)
-        end
-
-        @covariates begin
-            t = Covariate()
-            z = Covariate()
-        end
-
-        @formulas begin
-            y ~ Normal(a + b * z, σ)
-        end
-    end
-
     df = DataFrame(
         ID = [1, 1, 2, 2],
         t = [0.0, 1.0, 0.0, 1.0],
-        z = [0.1, 0.2, 0.1, 0.2],
         y = Union{Missing, Float64}[0.15, missing, 0.14, missing]
     )
 
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    dm = DataModel(fx_nore_model(), df; primary_id = :ID, time_col = :t)
     res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
 
     @test plot_data(res) !== nothing
@@ -78,203 +60,40 @@ end
 end
 
 @testset "plot_fits discrete and random effects" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(-0.2)
-        end
-
-        @covariates begin
-            t = Covariate()
-            z = Covariate()
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 0.5); column = :ID)
-        end
-
-        @formulas begin
-            p = logistic(a * z + η)
-            y ~ Bernoulli(p)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 2, 2, 3, 3],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        z = [0.1, 0.2, 0.1, 0.2, 0.1, 0.2],
-        y = [0, 1, 0, 1, 0, 1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
-        NoLimits.Laplace(;
-            optim_kwargs = (maxiters = 2,), multistart_n = 2, multistart_k = 2))
-
-    p_fits = plot_fits(res; plot_density = true)
+    # fx_bern: Bernoulli(logistic(a + η)) with scalar RE.
+    p_fits = plot_fits(fx_bern_lmap(); plot_density = true)
     @test p_fits !== nothing
 end
 
 @testset "plot_fits discrete poisson" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1)
-        end
-
-        @covariates begin
-            t = Covariate()
-            z = Covariate()
-        end
-
-        @formulas begin
-            λ = exp(a * z)
-            y ~ Poisson(λ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 2, 2],
-        t = [0.0, 1.0, 0.0, 1.0],
-        z = [0.1, 0.2, 0.1, 0.2],
-        y = [1, 2, 1, 3]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
-
-    p_fits = plot_fits(res; plot_density = false)
+    p_fits = plot_fits(fx_pois_laplace(); plot_density = false)
     @test p_fits !== nothing
 end
 
 @testset "plot_data discrete" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1)
-        end
-
-        @covariates begin
-            t = Covariate()
-            z = Covariate()
-        end
-
-        @formulas begin
-            λ = exp(a + z)
-            y ~ Poisson(λ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 2, 2],
-        t = [0.0, 1.0, 0.0, 1.0],
-        z = [0.1, 0.2, 0.1, 0.2],
-        y = [1, 2, 1, 3]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    p_data = plot_data(dm)
+    p_data = plot_data(fx_pois_dm())
     @test p_data !== nothing
 end
 
 @testset "plot_data and plot_fits (ODE)" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(1.0, lower = 0.001, upper = 1.1)
-            σ = RealNumber(0.01, scale = :log)
-        end
-
-        @covariates begin
-            t = Covariate()
-        end
-
-        @DifferentialEquation begin
-            D(x1) ~ -a * x1
-        end
-
-        @initialDE begin
-            x1 = 1.0
-        end
-
-        @formulas begin
-            y ~ Normal(x1(t), σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 1],
-        t = [0.0, 0.5, 1.0],
-        y = [1.0, 0.95, 0.9]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
+    res = fx_ode_laplace()
 
     @test plot_data(res) !== nothing
     @test plot_fits(res) !== nothing
     @test plot_fits(res; plot_density = true) !== nothing
-    @test plot_fits(dm) !== nothing
+    @test plot_fits(fx_ode_dm()) !== nothing
 end
 
 @testset "plot_fits inherits constants_re from fit result" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            σ = RealNumber(0.3, scale = :log)
-        end
-
-        @covariates begin
-            t = Covariate()
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 0.5); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B, :C, :C],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, 0.1, 0.15, 0.25]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     constants_re = (; η = (; B = 0.0))
-    res = fit_model(dm,
-        NoLimits.Laplace(;
-            optim_kwargs = (maxiters = 2,), multistart_n = 2, multistart_k = 2);
+    res = fit_model(fx_recov_dm(),
+        NoLimits.Laplace(; optim_kwargs = (maxiters = 2,));
         constants_re = constants_re)
 
     @test plot_fits(res) !== nothing
 end
 
 @testset "plot_multistart_waterfall basic" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            b = RealNumber(-0.2)
-            σ = RealNumber(0.3, scale = :log)
-        end
-
-        @covariates begin
-            t = Covariate()
-            z = Covariate()
-        end
-
-        @formulas begin
-            y ~ Normal(a + b * z + 0.1 * t, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 2, 2, 3, 3],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        z = [0.1, 0.2, 0.0, 0.1, -0.1, 0.1],
-        y = [0.12, 0.18, 0.08, 0.14, 0.04, 0.11]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     ms = NoLimits.Multistart(;
         dists = (; a = Normal(0.0, 0.5), b = Normal(0.0, 0.5)),
         n_draws_requested = 4,
@@ -282,7 +101,7 @@ end
         sampling = :lhs
     )
 
-    res_ms = fit_model(ms, dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
+    res_ms = fit_model(ms, fx_nore_dm(), NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
     @test plot_multistart_waterfall(res_ms) !== nothing
 
     mktempdir() do tmp
@@ -348,32 +167,8 @@ end
 end
 
 @testset "plot_fits_comparison basic" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            b = RealNumber(-0.2)
-            σ = RealNumber(0.25, scale = :log)
-        end
-
-        @covariates begin
-            t = Covariate()
-            z = Covariate()
-        end
-
-        @formulas begin
-            y ~ Normal(a + b * z + 0.1 * t, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 2, 2, 3, 3],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        z = [0.1, 0.2, 0.0, 0.1, -0.1, 0.1],
-        y = [0.12, 0.18, 0.08, 0.14, 0.04, 0.11]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res1 = fit_model(dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
+    dm = fx_nore_dm()
+    res1 = fx_mle()
     res2 = fit_model(
         dm, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)); constants = (; a = 0.2))
 
@@ -421,9 +216,9 @@ end
         @test isfile(p_path)
     end
 
-    df_bad = copy(df)
+    df_bad = copy(fx_nore_df())
     df_bad.y .= df_bad.y .+ 1.0
-    dm_bad = DataModel(model, df_bad; primary_id = :ID, time_col = :t)
+    dm_bad = DataModel(fx_nore_model(), df_bad; primary_id = :ID, time_col = :t)
     res_bad = fit_model(dm_bad, NoLimits.MLE(; optim_kwargs = (maxiters = 2,)))
     @test_throws ErrorException plot_fits_comparison([res1, res_bad])
 end

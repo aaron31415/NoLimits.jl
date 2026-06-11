@@ -4,7 +4,10 @@ using DataFrames
 using Distributions
 using Turing
 
-function _make_df(; n_ids::Int = 10, n_obs_per::Int = 2)
+# One rich multi-RE model (scalar + multivariate on :ID, scalar on :Center)
+# shared by the Laplace and MCMC testsets below. The planar-flow testsets use
+# the shared fx_npf*/fx_npf2* fixtures (models AND fits) from fixtures.jl.
+function _rnp_df(; n_ids::Int = 10, n_obs_per::Int = 2)
     ids = [Symbol("ID", i) for i in 1:n_ids]
     ID = repeat(ids, inner = n_obs_per)
     t = repeat(collect(0.0:(n_obs_per - 1)), n_ids)
@@ -14,34 +17,32 @@ function _make_df(; n_ids::Int = 10, n_obs_per::Int = 2)
     return DataFrame(ID = ID, Center = Center, t = t, y = y)
 end
 
-@testset "random effects new plots Laplace (multi-id, MVN)" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Uniform(0.0, 0.9))
-            σ = RealNumber(0.3, scale = :log, prior = Uniform(0.01, 1.0))
-        end
-
-        @covariates begin
-            t = Covariate()
-        end
-
-        @randomEffects begin
-            eta = RandomEffect(Normal(0.0, 0.5); column = :ID)
-            zeta2 = RandomEffect(MvNormal([0.0, 0.0], [0.3 0.0; 0.0 0.4]); column = :ID)
-            #zeta = RandomEffect(Normal(0.0, 0.4); column=:ID)
-            xi = RandomEffect(Normal(0.0, 0.2); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + eta + zeta2[1], exp(zeta2[2]) + σ)  #
-            #y ~ Normal(a + eta + xi , exp(zeta) + σ) 
-        end
+const _RNP_MODEL = @Model begin
+    @fixedEffects begin
+        a = RealNumber(0.1, prior = Uniform(0.0, 0.9))
+        σ = RealNumber(0.3, scale = :log, prior = Uniform(0.01, 1.0))
     end
 
-    df = _make_df()
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    @time res = fit_model(
-        dm, NoLimits.Laplace(; use_hutchinson = false, optim_kwargs = (maxiters = 2,)))
+    @covariates begin
+        t = Covariate()
+    end
+
+    @randomEffects begin
+        eta = RandomEffect(Normal(0.0, 0.5); column = :ID)
+        zeta = RandomEffect(MvNormal([0.0, 0.0], [0.3 0.0; 0.0 0.4]); column = :ID)
+        xi = RandomEffect(Normal(0.0, 0.2); column = :Center)
+    end
+
+    @formulas begin
+        y ~ Normal(a + eta + zeta[1] + zeta[2] + xi, σ)
+    end
+end
+
+const _RNP_DM = DataModel(_RNP_MODEL, _rnp_df(); primary_id = :ID, time_col = :t)
+
+@testset "random effects new plots Laplace (multi-id, MVN)" begin
+    res = fit_model(_RNP_DM,
+        NoLimits.Laplace(; use_hutchinson = false, optim_kwargs = (maxiters = 2,)))
 
     p_pdf = plot_random_effects_pdf(res)
     @test p_pdf !== nothing
@@ -54,30 +55,7 @@ end
 end
 
 @testset "random effects new plots MCMC (multi-id, MVN)" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Uniform(0.0, 0.9))
-            σ = RealNumber(0.3, scale = :log, prior = Uniform(0.01, 1.0))
-        end
-
-        @covariates begin
-            t = Covariate()
-        end
-
-        @randomEffects begin
-            eta = RandomEffect(Normal(0.0, 0.5); column = :ID)
-            zeta = RandomEffect(MvNormal([0.0, 0.0], [0.3 0.0; 0.0 0.4]); column = :ID)
-            xi = RandomEffect(Normal(0.0, 0.2); column = :Center)
-        end
-
-        @formulas begin
-            y ~ Normal(a + eta + zeta[1] + zeta[2] + xi, σ)
-        end
-    end
-
-    df = _make_df()
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(_RNP_DM,
         NoLimits.MCMC(; sampler = NUTS(5, 0.3),
             turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false)))
 
@@ -92,32 +70,7 @@ end
 end
 
 @testset "random effects new plots Laplace flow dim1" begin
-    npf0 = NPFParameter(1, 2, seed = 1, calculate_se = false)
-    n_npf = length(npf0.value)
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.3, scale = :log, prior = LogNormal(0.0, 0.5))
-            ψ = NPFParameter(1, 2, seed = 1, calculate_se = false,
-                prior = filldist(Normal(0.0, 1.0), n_npf))
-        end
-
-        @randomEffects begin
-            η_flow = RandomEffect(NormalizingPlanarFlow(ψ); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η_flow[1], σ)
-        end
-    end
-
-    df = _make_df()
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
+    res = fx_npf_laplace()
 
     p_pdf = plot_random_effects_pdf(res; flow_samples = 50, flow_plot = :kde)
     @test p_pdf !== nothing
@@ -130,34 +83,7 @@ end
 end
 
 @testset "random effects new plots MCMC flow dim1" begin
-    npf0 = NPFParameter(1, 2, seed = 1, calculate_se = false)
-    n_npf = length(npf0.value)
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.3, scale = :log, prior = LogNormal(0.0, 0.5))
-            ψ = NPFParameter(1, 2, seed = 1, calculate_se = false,
-                prior = filldist(Normal(0.0, 1.0), n_npf))
-        end
-
-        @randomEffects begin
-            η_flow = RandomEffect(NormalizingPlanarFlow(ψ); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η_flow[1], σ)
-        end
-    end
-
-    df = _make_df()
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
-        NoLimits.MCMC(; sampler = NUTS(5, 0.3),
-            turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false)))
+    res = fx_npf_mcmc()
 
     p_pdf = plot_random_effects_pdf(
         res; mcmc_draws = 5, flow_samples = 50, flow_plot = :kde)
@@ -171,32 +97,7 @@ end
 end
 
 @testset "random effects new plots Laplace flow dim2" begin
-    npf0 = NPFParameter(2, 2, seed = 1, calculate_se = false)
-    n_npf = length(npf0.value)
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.3, scale = :log, prior = LogNormal(0.0, 0.5))
-            ψ = NPFParameter(2, 2, seed = 1, calculate_se = false,
-                prior = filldist(Normal(0.0, 1.0), n_npf))
-        end
-
-        @randomEffects begin
-            η_flow = RandomEffect(NormalizingPlanarFlow(ψ); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η_flow[1] + η_flow[2], σ)
-        end
-    end
-
-    df = _make_df()
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
+    res = fx_npf2_laplace()
 
     p_pdf = plot_random_effects_pdf(res; flow_samples = 50, flow_plot = :hist)
     @test p_pdf !== nothing
@@ -209,34 +110,7 @@ end
 end
 
 @testset "random effects new plots MCMC flow dim2" begin
-    npf0 = NPFParameter(2, 2, seed = 1, calculate_se = false)
-    n_npf = length(npf0.value)
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.3, scale = :log, prior = LogNormal(0.0, 0.5))
-            ψ = NPFParameter(2, 2, seed = 1, calculate_se = false,
-                prior = filldist(Normal(0.0, 1.0), n_npf))
-        end
-
-        @randomEffects begin
-            η_flow = RandomEffect(NormalizingPlanarFlow(ψ); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η_flow[1] + η_flow[2], σ)
-        end
-    end
-
-    df = _make_df()
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
-        NoLimits.MCMC(; sampler = NUTS(5, 0.3),
-            turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false)))
+    res = fx_npf2_mcmc()
 
     p_pdf = plot_random_effects_pdf(
         res; mcmc_draws = 5, flow_samples = 50, flow_plot = :hist)

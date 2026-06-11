@@ -9,36 +9,52 @@ using Random
 using Lux
 using SciMLBase
 
-@testset "MCMC RE multivariate (NUTS)" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.4, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-
-        @randomEffects begin
-            η_id = RandomEffect(MvNormal([0.0, 0.0], I(2)); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η_id[1], σ)
-        end
+# One scalar-RE prior-bearing model shared by the option/sampler testsets below
+# (they assert smoke properties of fit options, not model structure). The
+# multivariate and planar-flow testsets use the shared fx_mvnp_*/fx_npf_*
+# fixtures from fixtures.jl.
+const _MRE_MODEL = @Model begin
+    @covariates begin
+        t = Covariate()
     end
 
-    df = DataFrame(
-        ID = [1, 1, 2, 2],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
+    @fixedEffects begin
+        a = RealNumber(0.2, prior = Normal(0.0, 1.0))
+        σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.5))
+    end
 
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
-        NoLimits.MCMC(; sampler = MH(),
-            turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false)))
+    @randomEffects begin
+        η = RandomEffect(Normal(0.0, 1.0); column = :ID)
+    end
+
+    @formulas begin
+        y ~ Normal(a + η, σ)
+    end
+end
+
+const _MRE_DM2 = DataModel(_MRE_MODEL,
+    DataFrame(
+        ID = [:A, :A, :B, :B],
+        t = [0.0, 1.0, 0.0, 1.0],
+        y = [0.1, 0.2, 0.0, -0.1]);
+    primary_id = :ID, time_col = :t)
+
+const _MRE_DM3 = DataModel(_MRE_MODEL,
+    DataFrame(
+        ID = [:A, :A, :B, :B, :C, :C],
+        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        y = [0.1, 0.2, 0.0, -0.1, 0.05, 0.0]);
+    primary_id = :ID, time_col = :t)
+
+const _MRE_DM4 = DataModel(_MRE_MODEL,
+    DataFrame(
+        ID = [:A, :A, :B, :B, :C, :C, :D, :D],
+        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        y = [0.1, 0.2, 0.0, -0.1, 0.05, 0.0, -0.05, 0.1]);
+    primary_id = :ID, time_col = :t)
+
+@testset "MCMC RE multivariate (NUTS)" begin
+    res = fx_mvnp_mcmc()
     @test res isa FitResult
     @test NoLimits.get_chain(res) isa MCMCChains.Chains
 end
@@ -80,33 +96,7 @@ end
 end
 
 @testset "MCMC RE constants_re (NUTS)" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B, :C, :C],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1, 0.05, 0.0]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(_MRE_DM3,
         NoLimits.MCMC(; sampler = NUTS(5, 0.3),
             turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false));
         constants_re = (; η = (; A = 0.0,)))
@@ -115,33 +105,7 @@ end
 end
 
 @testset "MCMC RE-only sampling with fixed constants" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(_MRE_DM2,
         NoLimits.MCMC(; sampler = MH(),
             turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false));
         constants = (a = 0.2, σ = 0.5))
@@ -150,32 +114,7 @@ end
 end
 
 @testset "MCMC constants_re validates scalar shape early" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    dm = _MRE_DM2
     err = try
         fit_model(dm,
             NoLimits.MCMC(; turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false));
@@ -189,32 +128,7 @@ end
 end
 
 @testset "MCMC constants_re validates multivariate length early" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.4, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-
-        @randomEffects begin
-            η = RandomEffect(MvNormal([0.0, 0.0], I(2)); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η[1], σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    dm = fx_mvnp_dm()
     err = try
         fit_model(dm,
             NoLimits.MCMC(; turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false));
@@ -228,67 +142,15 @@ end
 end
 
 @testset "MCMC constants_re accepts valid multivariate constants" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.4, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-
-        @randomEffects begin
-            η = RandomEffect(MvNormal([0.0, 0.0], I(2)); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η[1], σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(
-        dm, NoLimits.MCMC(; turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false));
+    res = fit_model(fx_mvnp_dm(),
+        NoLimits.MCMC(; turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false));
         constants_re = (; η = (; A = [0.0, 0.0],)))
     @test res isa FitResult
     @test NoLimits.get_chain(res) isa MCMCChains.Chains
 end
 
 @testset "MCMC RE MH sampler" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 2, 2],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(_MRE_DM2,
         NoLimits.MCMC(; sampler = MH(),
             turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false)))
     @test res isa FitResult
@@ -330,40 +192,8 @@ end
 end
 
 @testset "MCMC RE NormalizingPlanarFlow" begin
-    npf0 = NPFParameter(1, 2, seed = 1, calculate_se = false)
-    n_npf = length(npf0.value)
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.3, scale = :log, prior = LogNormal(0.0, 0.5))
-            ψ = NPFParameter(1, 2, seed = 1, calculate_se = false,
-                prior = filldist(Normal(0.0, 1.0), n_npf))
-        end
-
-        @randomEffects begin
-            η_flow = RandomEffect(NormalizingPlanarFlow(ψ); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η_flow[1], σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res_nuts = fit_model(dm,
-        NoLimits.MCMC(; sampler = NUTS(5, 0.3),
-            turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false)))
-    res_mh = fit_model(dm,
+    res_nuts = fx_npf_mcmc()
+    res_mh = fit_model(fx_npf_dm(),
         NoLimits.MCMC(; sampler = MH(),
             turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false)))
     @test res_nuts isa FitResult
@@ -474,33 +304,7 @@ end
 end
 
 @testset "MCMC RE with threaded likelihood" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.4, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B, :C, :C, :D, :D],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1, 0.05, 0.0, -0.05, 0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(_MRE_DM4,
         NoLimits.MCMC(; sampler = NUTS(5, 0.3),
             turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false));
         serialization = EnsembleThreads())

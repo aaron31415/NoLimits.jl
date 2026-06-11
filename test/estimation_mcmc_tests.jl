@@ -23,70 +23,20 @@ using SciMLBase
 end
 
 @testset "MCMC basic (no RE)" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @helpers begin
-            softplus(u) = log1p(exp(u))
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-
-        @formulas begin
-            y ~ Normal(softplus(a), σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 1, 1],
-        t = [0.0, 1.0, 2.0, 3.0],
-        y = [1.0, 1.05, 0.98, 1.02]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    dm = fx_nore_prior_dm()
     meth = NoLimits.MCMC(; sampler = NUTS(5, 0.3),
         turing_kwargs = (n_samples = 2, n_adapt = 2, progress = true))
     res = fit_model(dm, meth)
 
     @test res isa FitResult
     @test NoLimits.get_chain(res) isa MCMCChains.Chains
-    @test NoLimits.get_observed(res).y == df.y
+    @test NoLimits.get_observed(res).y == fx_nore_df().y
 end
 
 @testset "MCMC serial vs threaded is reproducible (MH)" begin
     Threads.nthreads() < 2 && return
 
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @helpers begin
-            softplus(u) = log1p(exp(u))
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-
-        @formulas begin
-            y ~ Normal(softplus(a), σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 1, 1],
-        t = [0.0, 1.0, 2.0, 3.0],
-        y = [1.0, 1.05, 0.98, 1.02]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    dm = fx_nore_prior_dm()
     method = NoLimits.MCMC(; sampler = MH(),
         turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false, verbose = false))
     res_serial = fit_model(
@@ -124,63 +74,14 @@ end
 
 #TODO think about we actually wanna reject it or allow for the same naming. estimation kwargs and args should be the same anyway.
 @testset "MCMC supports random effects (basic)" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(exp(a + η), σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1],
-        t = [0.0, 1.0],
-        y = [1.0, 1.05]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(
-        dm, NoLimits.MCMC(; turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false)))
+    res = fx_mcmc_re()
     @test res isa FitResult
     @test NoLimits.get_chain(res) isa MCMCChains.Chains
 end
 
 @testset "MCMC supports constants for fixed effects" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-
-        @formulas begin
-            y ~ Normal(exp(a), σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 1],
-        t = [0.0, 1.0, 2.0],
-        y = [1.0, 1.05, 0.98]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(
-        dm, NoLimits.MCMC(; turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false));
+    res = fit_model(fx_nore_prior_dm(),
+        NoLimits.MCMC(; turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false));
         constants = (a = 0.2,))
 
     @test res isa FitResult
@@ -188,32 +89,10 @@ end
 end
 
 @testset "MCMC fixed-effects-only rejects all constants" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-
-        @formulas begin
-            y ~ Normal(exp(a), σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 1],
-        t = [0.0, 1.0, 2.0],
-        y = [1.0, 1.05, 0.98]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
     err = try
-        fit_model(dm,
+        fit_model(fx_nore_prior_dm(),
             NoLimits.MCMC(; turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false));
-            constants = (a = 0.2, σ = 0.5))
+            constants = (a = 0.2, b = 0.1, σ = 0.5))
         nothing
     catch e
         e
@@ -223,29 +102,8 @@ end
 end
 
 @testset "MCMC rejects penalty terms" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.5, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-
-        @formulas begin
-            y ~ Normal(exp(a), σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 1],
-        t = [0.0, 1.0, 2.0],
-        y = [1.0, 1.05, 0.98]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    @test_throws ErrorException fit_model(dm, NoLimits.MCMC(); penalty = (a = 1.0,))
+    @test_throws ErrorException fit_model(
+        fx_nore_prior_dm(), NoLimits.MCMC(); penalty = (a = 1.0,))
 end
 
 @testset "MCMC fixed vector parameters" begin

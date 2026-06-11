@@ -58,33 +58,14 @@ const _PRE_CONST_RE_DF = DataFrame(
 const _PRE_CONST_RE_DM = DataModel(
     _PRE_SIMPLE_MODEL, _PRE_CONST_RE_DF; primary_id = :ID, time_col = :t)
 
-# Group 3: 1D NPF RE
-# Used by: "Laplace NormalizingPlanarFlow RE" and "MCMC NormalizingPlanarFlow RE"
-const _PRE_NPF_N = length(NPFParameter(1, 2, seed = 1, calculate_se = false).value)
-const _PRE_NPF_MODEL = @Model begin
-    @covariates begin
-        t = Covariate()
-    end
-    @fixedEffects begin
-        a = RealNumber(0.1, prior = Normal(0.0, 1.0))
-        σ = RealNumber(0.3, scale = :log, prior = LogNormal(0.0, 0.5))
-        ψ = NPFParameter(1, 2, seed = 1, calculate_se = false,
-            prior = filldist(Normal(0.0, 1.0), _PRE_NPF_N))
-    end
-    @randomEffects begin
-        η_flow = RandomEffect(NormalizingPlanarFlow(ψ); column = :ID)
-    end
-    @formulas begin
-        y ~ Normal(a + η_flow[1], σ)
-    end
-end
-const _PRE_NPF_DF = DataFrame(
-    ID = [:A, :A, :B, :B, :C, :C],
-    t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-    y = [0.1, 0.2, 0.0, -0.1, 0.15, 0.05])
-const _PRE_NPF_DM = DataModel(_PRE_NPF_MODEL, _PRE_NPF_DF; primary_id = :ID, time_col = :t)
-const _PRE_NPF_RES_LAP = fit_model(
-    _PRE_NPF_DM, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
+# NPF (1D and 2D) models and fits come from the shared fixtures
+# (fx_npf_*/fx_npf2_* in fixtures.jl), shared with random_effect_new_plots and
+# estimation tests.
+
+# One MCMC fit of _PRE_NORM_DM with enough samples for the draws/warmup kwargs,
+# shared by both MCMC testsets below.
+const _PRE_NORM_RES_MCMC = fit_model(_PRE_NORM_DM,
+    NoLimits.MCMC(; turing_kwargs = (n_samples = 10, n_adapt = 5, progress = false)))
 
 @testset "plot_random_effects Laplace" begin
     dm = _PRE_NORM_DM
@@ -306,9 +287,7 @@ end
 end
 
 @testset "plot_random_effects MCMC" begin
-    dm = _PRE_NORM_DM
-    res = fit_model(
-        dm, NoLimits.MCMC(; turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false)))
+    res = _PRE_NORM_RES_MCMC
 
     p_pit_hist = plot_random_effect_pit(
         res; mcmc_draws = 5, show_hist = true, show_kde = false, show_qq = false)
@@ -338,37 +317,8 @@ end
     @test p_pari !== nothing
 end
 
-@testset "plot_random_effects MCMC" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Uniform(0.0, 0.9))
-            σ = RealNumber(0.3, scale = :log, prior = Uniform(0.01, 1.0))
-        end
-
-        @covariates begin
-            t = Covariate()
-            Age = ConstantCovariate()
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 0.5); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 2, 2, 3, 3, 4, 4],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        Age = [30.0, 30.0, 40.0, 40.0, 35.0, 35.0, 45.0, 45.0],
-        y = [0.1, 0.2, 0.0, 0.1, 0.15, 0.25, -0.05, 0.05]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(
-        dm, MCMC(; turing_kwargs = (n_samples = 10, n_adapt = 5, progress = false)))
+@testset "plot_random_effects MCMC draws and warmup kwargs" begin
+    res = _PRE_NORM_RES_MCMC
 
     p_pit_hist = plot_random_effect_pit(res; mcmc_draws = 6, mcmc_warmup = 3,
         show_hist = true, show_kde = false, show_qq = false)
@@ -408,8 +358,7 @@ end
 end
 
 @testset "plot_random_effects Laplace NormalizingPlanarFlow RE" begin
-    dm = _PRE_NPF_DM
-    res = _PRE_NPF_RES_LAP
+    res = fx_npf_laplace()
 
     p_dist = plot_random_effect_distributions(res; flow_plot = :kde, flow_samples = 50)
     @test p_dist !== nothing
@@ -427,39 +376,7 @@ end
 end
 
 @testset "plot_random_effects MCMC multivariate NormalizingPlanarFlow RE" begin
-    npf0 = NPFParameter(2, 2, seed = 1, calculate_se = false)
-    n_npf = length(npf0.value)
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Normal(0.0, 1.0))
-            σ = RealNumber(0.3, scale = :log, prior = LogNormal(0.0, 0.5))
-            ψ = NPFParameter(2, 2, seed = 1, calculate_se = false,
-                prior = filldist(Normal(0.0, 1.0), n_npf))
-        end
-
-        @randomEffects begin
-            η_flow = RandomEffect(NormalizingPlanarFlow(ψ); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η_flow[1] + η_flow[2], σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B, :C, :C],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1, 0.15, 0.05]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
-        NoLimits.MCMC(; sampler = NUTS(5, 0.3),
-            turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false)))
+    res = fx_npf2_mcmc()
 
     p_dist = plot_random_effect_distributions(
         res; flow_plot = :kde, flow_samples = 50, mcmc_draws = 5)
@@ -470,36 +387,7 @@ end
 end
 
 @testset "plot_random_effects Laplace RE with constant covariates" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Uniform(0.0, 0.9))
-            b = RealNumber(0.02, prior = Uniform(-0.5, 0.5))
-            σ = RealNumber(0.3, scale = :log, prior = Uniform(0.01, 1.0))
-        end
-
-        @covariates begin
-            t = Covariate()
-            Age = ConstantCovariate()
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(b * Age, 0.5); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1, 2, 2, 3, 3, 4, 4],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        Age = [30.0, 30.0, 40.0, 40.0, 35.0, 35.0, 45.0, 45.0],
-        y = [0.1, 0.2, 0.0, 0.1, 0.15, 0.25, -0.05, 0.05]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm, NoLimits.Laplace(; optim_kwargs = (maxiters = 2,)))
+    res = fx_recov_laplace()
 
     p_dist = plot_random_effect_distributions(res)
     @test p_dist !== nothing
@@ -509,37 +397,7 @@ end
 end
 
 @testset "plot_random_effects MCMC RE with constant covariates" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1, prior = Normal(0.0, 1.0))
-            b = RealNumber(0.02, prior = Normal(0.0, 0.5))
-            σ = RealNumber(0.3, scale = :log, prior = LogNormal(0.0, 0.5))
-        end
-
-        @covariates begin
-            t = Covariate()
-            Age = ConstantCovariate()
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(b * Age, 0.5); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B, :C, :C, :D, :D],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        Age = [30.0, 30.0, 40.0, 40.0, 35.0, 35.0, 45.0, 45.0],
-        y = [0.1, 0.2, 0.0, 0.1, 0.15, 0.25, -0.05, 0.05]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(
-        dm, NoLimits.MCMC(; turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false)))
+    res = fx_recov_mcmc()
 
     p_dist = plot_random_effect_distributions(res)
     @test p_dist !== nothing
@@ -549,10 +407,7 @@ end
 end
 
 @testset "plot_random_effects MCMC NormalizingPlanarFlow RE" begin
-    dm = _PRE_NPF_DM
-    res = fit_model(dm,
-        MCMC(; sampler = NUTS(5, 0.3),
-            turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false)))
+    res = fx_npf_mcmc()
 
     p_dist = plot_random_effect_distributions(
         res; flow_plot = :kde, flow_samples = 50, mcmc_draws = 5)
@@ -582,28 +437,5 @@ end
 end
 
 @testset "plot_random_effects MLE error" begin
-    model = @Model begin
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            σ = RealNumber(0.3, scale = :log)
-        end
-
-        @covariates begin
-            t = Covariate()
-        end
-
-        @formulas begin
-            y ~ Normal(a, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1],
-        t = [0.0, 1.0],
-        y = [0.1, 0.2]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm, NoLimits.MLE())
-    @test_throws ErrorException plot_random_effect_distributions(res)
+    @test_throws ErrorException plot_random_effect_distributions(fx_mle())
 end

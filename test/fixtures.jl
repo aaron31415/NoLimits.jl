@@ -21,10 +21,10 @@ using DataFrames
 using Distributions
 using LinearAlgebra
 using Random
-# Import ONLY the sampler symbol we need — a bare `using Turing` here would put
+# Import ONLY the symbols we need — a bare `using Turing` here would put
 # Turing's exports (e.g. `logprior`, ambiguous with NoLimits') into Main before
 # the unit-test files run, breaking their unqualified references.
-using Turing: MH
+using Turing: MH, NUTS, filldist
 
 const _FX = Dict{Symbol, Any}()
 _fx(key::Symbol, build) = get!(build, _FX, key)
@@ -295,6 +295,146 @@ function fx_bern_dm()
         () -> DataModel(fx_bern_model(), fx_bern_df(); primary_id = :ID, time_col = :t))
 end
 
+# ── 1-d planar-flow RE (priors on all FEs: serves Laplace, MCMC, GHQ) ────────
+function fx_npf_df()
+    _fx(:npf_df,
+        () -> DataFrame(
+            ID = [:A, :A, :B, :B, :C, :C],
+            t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            y = [0.1, 0.2, 0.0, -0.1, 0.15, 0.05]
+        ))
+end
+
+function fx_npf_model()
+    _fx(:npf_model,
+        () -> begin
+            n_npf = length(NPFParameter(1, 2, seed = 1, calculate_se = false).value)
+            @Model begin
+                @covariates begin
+                    t = Covariate()
+                end
+                @fixedEffects begin
+                    a = RealNumber(0.1, prior = Normal(0.0, 1.0))
+                    σ = RealNumber(0.3, scale = :log, prior = LogNormal(0.0, 0.5))
+                    ψ = NPFParameter(1, 2, seed = 1, calculate_se = false,
+                        prior = filldist(Normal(0.0, 1.0), n_npf))
+                end
+                @randomEffects begin
+                    η_flow = RandomEffect(NormalizingPlanarFlow(ψ); column = :ID)
+                end
+                @formulas begin
+                    y ~ Normal(a + η_flow[1], σ)
+                end
+            end
+        end)
+end
+
+function fx_npf_dm()
+    _fx(:npf_dm,
+        () -> DataModel(fx_npf_model(), fx_npf_df(); primary_id = :ID, time_col = :t))
+end
+
+# ── 2-d planar-flow RE ───────────────────────────────────────────────────────
+function fx_npf2_model()
+    _fx(:npf2_model,
+        () -> begin
+            n_npf = length(NPFParameter(2, 2, seed = 1, calculate_se = false).value)
+            @Model begin
+                @covariates begin
+                    t = Covariate()
+                end
+                @fixedEffects begin
+                    a = RealNumber(0.1, prior = Normal(0.0, 1.0))
+                    σ = RealNumber(0.3, scale = :log, prior = LogNormal(0.0, 0.5))
+                    ψ = NPFParameter(2, 2, seed = 1, calculate_se = false,
+                        prior = filldist(Normal(0.0, 1.0), n_npf))
+                end
+                @randomEffects begin
+                    η_flow = RandomEffect(NormalizingPlanarFlow(ψ); column = :ID)
+                end
+                @formulas begin
+                    y ~ Normal(a + η_flow[1] + η_flow[2], σ)
+                end
+            end
+        end)
+end
+
+function fx_npf2_dm()
+    _fx(:npf2_dm,
+        () -> DataModel(fx_npf2_model(), fx_npf_df(); primary_id = :ID, time_col = :t))
+end
+
+# ── MvNormal(2) RE on :ID (priors on FEs; symbol IDs for constants_re) ───────
+function fx_mvnp_df()
+    _fx(:mvnp_df,
+        () -> DataFrame(
+            ID = [:A, :A, :B, :B],
+            t = [0.0, 1.0, 0.0, 1.0],
+            y = [0.1, 0.2, 0.0, -0.1]
+        ))
+end
+
+function fx_mvnp_model()
+    _fx(:mvnp_model,
+        () -> @Model begin
+            @covariates begin
+                t = Covariate()
+            end
+            @fixedEffects begin
+                a = RealNumber(0.1, prior = Normal(0.0, 1.0))
+                σ = RealNumber(0.4, scale = :log, prior = LogNormal(0.0, 0.5))
+            end
+            @randomEffects begin
+                η = RandomEffect(MvNormal([0.0, 0.0], LinearAlgebra.I(2)); column = :ID)
+            end
+            @formulas begin
+                y ~ Normal(a + η[1], σ)
+            end
+        end)
+end
+
+function fx_mvnp_dm()
+    _fx(:mvnp_dm,
+        () -> DataModel(fx_mvnp_model(), fx_mvnp_df(); primary_id = :ID, time_col = :t))
+end
+
+# ── Scalar Normal RE with constant-covariate-dependent mean (priors) ─────────
+function fx_recov_df()
+    _fx(:recov_df,
+        () -> DataFrame(
+            ID = [:A, :A, :B, :B, :C, :C, :D, :D],
+            t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            Age = [30.0, 30.0, 40.0, 40.0, 35.0, 35.0, 45.0, 45.0],
+            y = [0.1, 0.2, 0.0, 0.1, 0.15, 0.25, -0.05, 0.05]
+        ))
+end
+
+function fx_recov_model()
+    _fx(:recov_model,
+        () -> @Model begin
+            @covariates begin
+                t = Covariate()
+                Age = ConstantCovariate()
+            end
+            @fixedEffects begin
+                a = RealNumber(0.1, prior = Normal(0.0, 1.0))
+                b = RealNumber(0.02, prior = Normal(0.0, 0.5))
+                σ = RealNumber(0.3, scale = :log, prior = LogNormal(0.0, 0.5))
+            end
+            @randomEffects begin
+                η = RandomEffect(Normal(b * Age, 0.5); column = :ID)
+            end
+            @formulas begin
+                y ~ Normal(a + η, σ)
+            end
+        end)
+end
+
+function fx_recov_dm()
+    _fx(:recov_dm,
+        () -> DataModel(fx_recov_model(), fx_recov_df(); primary_id = :ID, time_col = :t))
+end
+
 # ── Fits: one per (archetype, method), built once and reused everywhere ───────
 # Fixed-effects-only methods on the no-RE archetype:
 function fx_mle()
@@ -398,6 +538,50 @@ function fx_vi()
         () -> fit_model(fx_nore_prior_dm(),
             NoLimits.VI(; turing_kwargs = (max_iter = 30, progress = false));
             rng = Random.Xoshiro(3)))
+end
+
+# Planar-flow / MvNormal / covariate-RE fits shared by plotting + estimation tests:
+function fx_npf_laplace()
+    _fx(:npf_laplace,
+        () -> fit_model(fx_npf_dm(), NoLimits.Laplace(; optim_kwargs = (maxiters = 2,));
+            serialization = _SER))
+end
+function fx_npf_mcmc()
+    _fx(:npf_mcmc,
+        () -> fit_model(fx_npf_dm(),
+            NoLimits.MCMC(; sampler = NUTS(5, 0.3),
+                turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false));
+            rng = Random.Xoshiro(21)))
+end
+function fx_npf2_laplace()
+    _fx(:npf2_laplace,
+        () -> fit_model(fx_npf2_dm(), NoLimits.Laplace(; optim_kwargs = (maxiters = 2,));
+            serialization = _SER))
+end
+function fx_npf2_mcmc()
+    _fx(:npf2_mcmc,
+        () -> fit_model(fx_npf2_dm(),
+            NoLimits.MCMC(; sampler = NUTS(5, 0.3),
+                turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false));
+            rng = Random.Xoshiro(22)))
+end
+function fx_mvnp_mcmc()
+    _fx(:mvnp_mcmc,
+        () -> fit_model(fx_mvnp_dm(),
+            NoLimits.MCMC(; sampler = MH(),
+                turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false));
+            rng = Random.Xoshiro(23)))
+end
+function fx_recov_laplace()
+    _fx(:recov_laplace,
+        () -> fit_model(fx_recov_dm(), NoLimits.Laplace(; optim_kwargs = (maxiters = 2,));
+            serialization = _SER))
+end
+function fx_recov_mcmc()
+    _fx(:recov_mcmc,
+        () -> fit_model(fx_recov_dm(),
+            NoLimits.MCMC(; turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false));
+            rng = Random.Xoshiro(24)))
 end
 
 # UQ results, computed once with a small n_draws (UQ tests assert structure, not

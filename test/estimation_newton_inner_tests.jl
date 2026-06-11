@@ -78,9 +78,11 @@ end
             serialization = EnsembleSerial(), rng = Xoshiro(3))
         @test isfinite(get_objective(res_new))
         @test get_objective(res_new)≈get_objective(res_def) rtol=1e-6 atol=1e-6
-        @test collect(get_params(res_new;
+        # Qualified: MCMCChains (loaded by earlier files in the same batch
+        # subprocess) also exports a `get_params`, making the bare name ambiguous.
+        @test collect(NoLimits.get_params(res_new;
             scale = :transformed))≈
-        collect(get_params(res_def; scale = :transformed)) rtol=1e-3 atol=1e-3
+        collect(NoLimits.get_params(res_def; scale = :transformed)) rtol=1e-3 atol=1e-3
         eta_def = get_random_effects(dm, res_def, :η)
         eta_new = get_random_effects(dm, res_new, :η)
         @test eta_new≈eta_def atol=1e-4

@@ -55,6 +55,71 @@ const _SAEM_DM_M = DataModel(
     end),
     _SAEM_DF_M; primary_id = :ID, time_col = :t)
 
+# Diagonal-MvNormal RE with parameterized means/variances — shared by the
+# builtin_stats diagonal testsets (closed-form fit, variance-target unit test,
+# autodetect).
+const _SAEM_DIAG_MODEL = @Model begin
+    @covariates begin
+        t = Covariate()
+    end
+    @fixedEffects begin
+        μ1 = RealNumber(0.1)
+        μ2 = RealNumber(0.2)
+        ω1 = RealNumber(0.5, scale = :log)
+        ω2 = RealNumber(0.4, scale = :log)
+        σ = RealNumber(0.3, scale = :log)
+    end
+    @randomEffects begin
+        η = RandomEffect(
+            MvNormal([μ1, μ2], LinearAlgebra.Diagonal([ω1, ω2])); column = :ID)
+    end
+    @formulas begin
+        y ~ Normal(η[1], σ)
+    end
+end
+const _SAEM_DIAG_DM = DataModel(_SAEM_DIAG_MODEL,
+    DataFrame(
+        ID = [:A, :A, :B, :B, :C, :C],
+        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        y = [0.10, 0.15, 0.20, 0.25, 0.05, 0.10]);
+    primary_id = :ID, time_col = :t)
+
+# Two Normal outcomes with separate residual σs — shared by the separate-σ
+# builtin_stats testsets (plain, missing-data regression, glm+builtin_stats).
+const _SAEM_SEP_MODEL = @Model begin
+    @covariates begin
+        t = Covariate()
+    end
+    @fixedEffects begin
+        a = RealNumber(0.1)
+        b = RealNumber(0.2)
+        σ1 = RealNumber(0.4, scale = :log)
+        σ2 = RealNumber(0.3, scale = :log)
+        τ = RealNumber(0.3, scale = :log)
+    end
+    @randomEffects begin
+        η = RandomEffect(Normal(0.0, τ); column = :ID)
+    end
+    @formulas begin
+        y1 ~ Normal(a + η, σ1)
+        y2 ~ Normal(b + η, σ2)
+    end
+end
+const _SAEM_SEP_DM = DataModel(_SAEM_SEP_MODEL,
+    DataFrame(
+        ID = [:A, :A, :B, :B],
+        t = [0.0, 1.0, 0.0, 1.0],
+        y1 = [0.1, 0.2, 0.0, -0.1],
+        y2 = [0.2, 0.25, 0.05, -0.05]);
+    primary_id = :ID, time_col = :t)
+const _SAEM_SEP_DM_MISSING = DataModel(_SAEM_SEP_MODEL,
+    DataFrame(
+        ID = [:A, :A, :B, :B],
+        t = [0.0, 1.0, 0.0, 1.0],
+        y1 = Union{Missing, Float64}[0.1, missing, 0.0, -0.1],
+        y2 = Union{Missing, Float64}[missing, 0.25, 0.05, missing]);
+    primary_id = :ID, time_col = :t)
+
 function _saem_test_create_trans_pi0(eta_hmm, eta_initial)
     n_states = length(eta_initial) + 1
     @assert length(eta_hmm) == n_states * (n_states - 1)
@@ -334,34 +399,7 @@ end
 end
 
 @testset "SAEM multiple RE groups" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            σ = RealNumber(0.4, scale = :log)
-        end
-
-        @randomEffects begin
-            η_id = RandomEffect(Normal(0.0, 1.0); column = :ID)
-            η_site = RandomEffect(Normal(0.0, 1.0); column = :SITE)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η_id + η_site, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B, :C, :C, :D, :D],
-        SITE = [:X, :X, :X, :X, :Y, :Y, :Y, :Y],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1, 0.05, 0.0, -0.05, 0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    dm = fx_mg_dm()
     res = fit_model(dm,
         NoLimits.SAEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
@@ -435,37 +473,8 @@ end
 end
 
 @testset "SAEM RE distribution with constant covariates" begin
-    model = @Model begin
-        @fixedEffects begin
-            μ0 = RealNumber(0.0)
-            β = RealNumber(0.5)
-            σ = RealNumber(0.3, scale = :log)
-            τ = RealNumber(0.4, scale = :log)
-        end
-
-        @covariates begin
-            t = Covariate()
-            x = ConstantCovariate(constant_on = :ID)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(μ0 + β * x, τ); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        x = [1.0, 1.0, 2.0, 2.0],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    # fx_recov: η ~ Normal(b * Age, 0.5) with Age a ConstantCovariate.
+    res = fit_model(fx_recov_dm(),
         NoLimits.SAEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             SAEM_FAST...))
@@ -473,40 +482,14 @@ end
 end
 
 @testset "SAEM builtin_stats gaussian_re (scalar RE)" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.2)
-            σ = RealNumber(0.5, scale = :log)
-            τ = RealNumber(0.4, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, τ); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    # fx_re_model: η ~ Normal(0, ω) with ω a fixed effect → re_cov_params = (; η = :ω).
+    res = fit_model(fx_re_dm(),
         NoLimits.SAEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             SAEM_FAST...,
             builtin_stats = :closed_form,
             resid_var_param = :σ,
-            re_cov_params = (; η = :τ)))
+            re_cov_params = (; η = :ω)))
     @test res isa FitResult
 end
 
@@ -549,37 +532,7 @@ end
 end
 
 @testset "SAEM builtin_stats gaussian_re (multivariate diagonal + means)" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            μ1 = RealNumber(0.1)
-            μ2 = RealNumber(0.2)
-            ω1 = RealNumber(0.5, scale = :log)
-            ω2 = RealNumber(0.4, scale = :log)
-            σ = RealNumber(0.3, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(
-                MvNormal([μ1, μ2], LinearAlgebra.Diagonal([ω1, ω2])); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(η[1], σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B, :C, :C],
-        t = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        y = [0.10, 0.15, 0.20, 0.25, 0.05, 0.10]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(_SAEM_DIAG_DM,
         NoLimits.SAEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             q_store_max = 2,
@@ -593,37 +546,8 @@ end
 end
 
 @testset "SAEM builtin_stats uses variance for MvNormal diagonal targets" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            μ1 = RealNumber(0.1)
-            μ2 = RealNumber(0.2)
-            ω1 = RealNumber(0.5, scale = :log)
-            ω2 = RealNumber(0.4, scale = :log)
-            σ = RealNumber(0.3, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(
-                MvNormal([μ1, μ2], LinearAlgebra.Diagonal([ω1, ω2])); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(η[1], σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.10, 0.15, 0.20, 0.25]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    θ = NoLimits.get_θ0_untransformed(model.fixed.fixed)
+    dm = _SAEM_DIAG_DM
+    θ = NoLimits.get_θ0_untransformed(_SAEM_DIAG_MODEL.fixed.fixed)
     stats = (;
         re = (;
             η = (family = :mvnormal, mean = [0.0, 0.0],
@@ -769,38 +693,7 @@ end
 end
 
 @testset "SAEM builtin_stats gaussian_re (multiple normal outcomes, separate σ)" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            b = RealNumber(0.2)
-            σ1 = RealNumber(0.4, scale = :log)
-            σ2 = RealNumber(0.3, scale = :log)
-            τ = RealNumber(0.3, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, τ); column = :ID)
-        end
-
-        @formulas begin
-            y1 ~ Normal(a + η, σ1)
-            y2 ~ Normal(b + η, σ2)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y1 = [0.1, 0.2, 0.0, -0.1],
-        y2 = [0.2, 0.25, 0.05, -0.05]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(_SAEM_SEP_DM,
         NoLimits.SAEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             SAEM_FAST...,
@@ -811,38 +704,7 @@ end
 end
 
 @testset "SAEM builtin_stats skips missing normal outcomes (regression)" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            b = RealNumber(0.2)
-            σ1 = RealNumber(0.4, scale = :log)
-            σ2 = RealNumber(0.3, scale = :log)
-            τ = RealNumber(0.3, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, τ); column = :ID)
-        end
-
-        @formulas begin
-            y1 ~ Normal(a + η, σ1)
-            y2 ~ Normal(b + η, σ2)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y1 = Union{Missing, Float64}[0.1, missing, 0.0, -0.1],
-        y2 = Union{Missing, Float64}[missing, 0.25, 0.05, missing]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(_SAEM_SEP_DM_MISSING,
         NoLimits.SAEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             q_store_max = 2,
@@ -858,39 +720,13 @@ end
 end
 
 @testset "SAEM builtin_stats gaussian_re falls back for non-Normal outcomes" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.0)
-            τ = RealNumber(0.4, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, τ); column = :ID)
-        end
-
-        @formulas begin
-            p = 1 / (1 + exp(-(a + η)))
-            y ~ Bernoulli(p)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0, 1, 1, 0]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    # fx_bern_model: y ~ Bernoulli(logistic(a + η)), η ~ Normal(0, ω).
+    res = fit_model(fx_bern_dm(),
         NoLimits.SAEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             SAEM_FAST...,
             builtin_stats = :closed_form,
-            re_cov_params = (; η = :τ)))
+            re_cov_params = (; η = :ω)))
     @test res isa FitResult
 end
 
@@ -939,37 +775,9 @@ end
 end
 
 @testset "SAEM builtin_stats auto detects gaussian_re (MvNormal diagonal + means)" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            μ1 = RealNumber(0.1)
-            μ2 = RealNumber(-0.2)
-            ω1 = RealNumber(0.5, scale = :log)
-            ω2 = RealNumber(0.7, scale = :log)
-            σ = RealNumber(0.3, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(MvNormal([μ1, μ2], Diagonal([ω1, ω2])); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(η[1], σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.2, 0.15, -0.1, -0.2]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
+    dm = _SAEM_DIAG_DM
     auto_cfg = NoLimits._saem_autodetect_gaussian_re(
-        dm, NoLimits.get_names(model.fixed.fixed))
+        dm, NoLimits.get_names(_SAEM_DIAG_MODEL.fixed.fixed))
     @test auto_cfg !== nothing
     @test auto_cfg.re_cov_params == (; η = (:ω1, :ω2))
     @test auto_cfg.re_mean_params == (; η = (:μ1, :μ2))
@@ -984,40 +792,8 @@ end
     @test res isa FitResult
 end
 
-@testset "SAEM builtin_stats auto detects MvNormal symbol mean with fixed diagonal expression" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            z = RealVector([0.0, 0.0])
-            σ = RealNumber(0.3, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(MvNormal(z, Diagonal(ones(length(z)))); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(η[1], σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.2, 0.15, -0.1, -0.2]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    auto_cfg = NoLimits._saem_autodetect_gaussian_re(
-        dm, NoLimits.get_names(model.fixed.fixed))
-    @test auto_cfg !== nothing
-    @test auto_cfg.re_cov_params == NamedTuple()
-    @test auto_cfg.re_mean_params == (; η = :z)
-    @test auto_cfg.resid_var_param == :σ
-end
+# NOTE: "auto detects MvNormal symbol mean with fixed diagonal expression" lives in
+# estimation_saem_autodetect_tests.jl (identical model + assertions; was duplicated here).
 
 @testset "SAEM builtin_stats auto detects LogNormal/Exponential RE + outcomes" begin
     model = @Model begin
@@ -1418,43 +1194,7 @@ end
 end
 
 @testset "SAEM builtin_mean glm (ODE Normal)" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            k = RealNumber(0.2)
-            σ = RealNumber(0.3, scale = :log)
-            τ = RealNumber(0.4, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, τ); column = :ID)
-        end
-
-        @initialDE begin
-            x1 = exp(a + η)
-        end
-
-        @DifferentialEquation begin
-            D(x1) ~ -exp(k) * x1
-        end
-
-        @formulas begin
-            y ~ Normal(x1(t), σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [1.0, 0.8, 1.05, 0.85]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(fx_ode_dm(),
         NoLimits.SAEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             q_store_max = 2,
@@ -1464,77 +1204,19 @@ end
 end
 
 @testset "SAEM builtin_mean glm + builtin_stats (Normal)" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            σ = RealNumber(0.4, scale = :log)
-            τ = RealNumber(0.3, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, τ); column = :ID)
-        end
-
-        @formulas begin
-            y ~ Normal(a + η, σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y = [0.1, 0.2, 0.0, -0.1]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(fx_re_dm(),
         NoLimits.SAEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             SAEM_FAST...,
             builtin_mean = :glm,
             builtin_stats = :closed_form,
             resid_var_param = :σ,
-            re_cov_params = (; η = :τ)))
+            re_cov_params = (; η = :ω)))
     @test res isa FitResult
 end
 
 @testset "SAEM builtin_mean glm + builtin_stats (Normal outcomes, separate σ)" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.1)
-            b = RealNumber(0.2)
-            σ1 = RealNumber(0.4, scale = :log)
-            σ2 = RealNumber(0.3, scale = :log)
-            τ = RealNumber(0.3, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, τ); column = :ID)
-        end
-
-        @formulas begin
-            y1 ~ Normal(a + η, σ1)
-            y2 ~ Normal(b + η, σ2)
-        end
-    end
-
-    df = DataFrame(
-        ID = [:A, :A, :B, :B],
-        t = [0.0, 1.0, 0.0, 1.0],
-        y1 = [0.1, 0.2, 0.0, -0.1],
-        y2 = [0.2, 0.25, 0.05, -0.05]
-    )
-
-    dm = DataModel(model, df; primary_id = :ID, time_col = :t)
-    res = fit_model(dm,
+    res = fit_model(_SAEM_SEP_DM,
         NoLimits.SAEM(;
             sampler = MH(), turing_kwargs = (n_samples = 2, n_adapt = 2, progress = false),
             SAEM_FAST...,
@@ -1546,41 +1228,8 @@ end
 end
 
 @testset "SAEM threaded helper cache preserves ODE options" begin
-    model = @Model begin
-        @covariates begin
-            t = Covariate()
-        end
-
-        @fixedEffects begin
-            a = RealNumber(0.3)
-            σ = RealNumber(0.4, scale = :log)
-        end
-
-        @randomEffects begin
-            η = RandomEffect(Normal(0.0, 1.0); column = :ID)
-        end
-
-        @DifferentialEquation begin
-            D(x1) ~ -a * x1 + η
-        end
-
-        @initialDE begin
-            x1 = 1.0
-        end
-
-        @formulas begin
-            y ~ Normal(x1(t), σ)
-        end
-    end
-
-    df = DataFrame(
-        ID = [1, 1],
-        t = [0.0, 1.0],
-        y = [0.9, 0.7]
-    )
-
-    model_saveat = set_solver_config(model; saveat_mode = :saveat)
-    dm = DataModel(model_saveat, df; primary_id = :ID, time_col = :t)
+    # fx_ode_model already has saveat_mode = :saveat in its solver config.
+    dm = fx_ode_dm()
     ll_cache = build_ll_cache(dm; ode_kwargs = (abstol = 1e-8, reltol = 1e-7))
     threaded = NoLimits._saem_thread_caches(dm, ll_cache, 2)
     @test length(threaded) == 2
