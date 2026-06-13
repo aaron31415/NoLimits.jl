@@ -618,6 +618,20 @@ function _re_dataframes_from_bstars(dm::DataModel,
     return NamedTuple(out_pairs)
 end
 
+"""
+    get_laplace_random_effects(dm::DataModel, res::FitResult; constants_re = NamedTuple(),
+                               flatten = true, include_constants = true)
+    get_laplace_random_effects(res::FitResult; kwargs...)
+
+Empirical-Bayes (EB) random-effects estimates from a `Laplace` or `GHQuadrature` fit,
+returned as a `NamedTuple` of `DataFrame`s (one per random effect). The single-argument
+form uses the `DataModel` stored on `res`.
+
+# Keyword Arguments
+- `constants_re::NamedTuple = NamedTuple()`: random-effect levels held fixed during fitting.
+- `flatten::Bool = true`: split vector-valued random effects into one row per component.
+- `include_constants::Bool = true`: include levels fixed via `constants_re` in the output.
+"""
 function get_laplace_random_effects(dm::DataModel,
         res::FitResult;
         constants_re::NamedTuple = NamedTuple(),

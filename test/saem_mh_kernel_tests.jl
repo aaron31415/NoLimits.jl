@@ -3,6 +3,7 @@
 # same scalar-RE model repeatedly; it is shared as _MH_SCALAR_MODEL below.)
 using Test
 using NoLimits
+using Plots
 using DataFrames
 using Distributions
 using ComponentArrays

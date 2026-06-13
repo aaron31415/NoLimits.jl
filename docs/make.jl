@@ -4,6 +4,12 @@ using DocumenterCitations
 
 push!(LOAD_PATH, joinpath(@__DIR__, ".."))
 using NoLimits
+# Load the Plots extension so its plot_* method docstrings resolve for the @docs
+# blocks in api.md (the drawing functions live in ext/NoLimitsPlotsExt.jl).
+using Plots
+const NoLimitsPlotsExt = Base.get_extension(NoLimits, :NoLimitsPlotsExt)
+NoLimitsPlotsExt === nothing &&
+    error("NoLimitsPlotsExt failed to load; ensure Plots.jl is available")
 
 bib = CitationBibliography(
     joinpath(@__DIR__, "src", "references.bib");
@@ -13,7 +19,7 @@ bib = CitationBibliography(
 makedocs(;
     sitename = "NoLimits.jl",
     authors = "Manuel Huth, Jonas Arruda, Clemens Peiter, Roy Gusinow, Nina Schmid, Jan Hasenauer",
-    modules = [NoLimits],
+    modules = [NoLimits, NoLimitsPlotsExt],
     checkdocs = :none,
     plugins = [bib],
     format = DocumenterVitepress.MarkdownVitepress(;

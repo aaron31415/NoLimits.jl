@@ -22,6 +22,7 @@ We load Theophylline (twelve subjects) and reshape it so each subject receives o
 
 ```julia
 using NoLimits
+using Plots
 using CSV
 using DataFrames
 using Distributions
