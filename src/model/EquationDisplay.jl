@@ -225,6 +225,13 @@ function get_equation_lines(m::Model)
     return [_eq_clean_expr(ex) for ex in lines]
 end
 
+"""
+    show_equations([io::IO], m::Model; latex::Bool = true, numbered::Bool = false)
+
+Display a model's equations - preDE assignments, differential equations, and formula
+nodes. With `latex = true` (default) they are rendered as LaTeX via Latexify; otherwise
+they are printed as plain text. Set `numbered = true` to number the equations.
+"""
 function show_equations(io::IO, m::Model; latex::Bool = true, numbered::Bool = false)
     lines = get_equation_lines(m)
     isempty(lines) && return nothing

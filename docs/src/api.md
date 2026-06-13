@@ -294,6 +294,8 @@ plot_random_effect_standardized_scatter
 
 ```@docs
 plot_observation_distributions
+plot_hidden_states
+plot_emission_distributions
 ```
 
 ### Uncertainty Quantification Plots
@@ -401,6 +403,7 @@ get_loglikelihood_quadrature
 compute_shrinkage
 compare_parameters
 MCIntegrator
+get_laplace_random_effects
 ```
 
 ### Serialization
@@ -408,4 +411,10 @@ MCIntegrator
 ```@docs
 save_fit
 load_fit
+```
+
+### Model Display
+
+```@docs
+show_equations
 ```

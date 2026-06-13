@@ -772,6 +772,22 @@ function _plot_hidden_states_impl(dm::DataModel,
     return _save_plot!(p, save_path)
 end
 
+"""
+    plot_hidden_states(res::FitResult; kwargs...)
+    plot_hidden_states(dm::DataModel; kwargs...)
+
+Plot the filtered posterior probability of each hidden state over time for a
+hidden-Markov-model outcome, as a multi-panel figure (one panel per individual).
+
+# Keyword Arguments
+- `dm::Union{Nothing, DataModel} = nothing`: data model (inferred from `res` by default).
+- `observable = nothing`: HMM observable to plot; defaults to the first one.
+- `individuals_idx`: indices or IDs of individuals to include, or `nothing` for all.
+- `x_axis_feature::Union{Nothing, Symbol} = nothing`: covariate for the x-axis; defaults to time.
+- `ncols::Int = 3`, `figure_layout::Symbol = :single`: panel layout.
+- `style::PlotStyle = PlotStyle()`: visual style configuration.
+- `save_path::Union{Nothing, String} = nothing`: file path to save the plot.
+"""
 function plot_hidden_states(res::FitResult;
         dm::Union{Nothing, DataModel} = nothing,
         observable = nothing,
@@ -1065,6 +1081,23 @@ function _plot_emission_impl(dm::DataModel,
     return _save_plot!(p, save_path)
 end
 
+"""
+    plot_emission_distributions(res::FitResult; kwargs...)
+    plot_emission_distributions(dm::DataModel; kwargs...)
+
+Plot the per-state emission (observation) distributions of a hidden-Markov-model outcome
+at a chosen time point, as a multi-panel figure.
+
+# Keyword Arguments
+- `dm::Union{Nothing, DataModel} = nothing`: data model (inferred from `res` by default).
+- `observable = nothing`: HMM observable to plot; defaults to the first one.
+- `individuals_idx`: indices or IDs of individuals to include, or `nothing` for all.
+- `time_idx::Union{Nothing, Int} = nothing`, `time_point = nothing`: time at which to evaluate
+  the emission distributions (by observation index or by value).
+- `ncols::Int = 3`, `figure_layout::Symbol = :single`: panel layout.
+- `style::PlotStyle = PlotStyle()`: visual style configuration.
+- `save_path::Union{Nothing, String} = nothing`: file path to save the plot.
+"""
 function plot_emission_distributions(res::FitResult;
         dm::Union{Nothing, DataModel} = nothing,
         observable = nothing,
