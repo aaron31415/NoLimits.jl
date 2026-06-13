@@ -8,7 +8,8 @@ using NoLimits
 # blocks in api.md (the drawing functions live in ext/NoLimitsPlotsExt.jl).
 using Plots
 const NoLimitsPlotsExt = Base.get_extension(NoLimits, :NoLimitsPlotsExt)
-@assert NoLimitsPlotsExt !== nothing "NoLimitsPlotsExt failed to load (needs `using Plots`)"
+NoLimitsPlotsExt === nothing &&
+    error("NoLimitsPlotsExt failed to load; ensure Plots.jl is available")
 
 bib = CitationBibliography(
     joinpath(@__DIR__, "src", "references.bib");
