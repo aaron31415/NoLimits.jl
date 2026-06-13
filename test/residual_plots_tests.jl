@@ -1,5 +1,6 @@
 using Test
 using NoLimits
+using Plots
 using DataFrames
 using Distributions
 

@@ -87,7 +87,8 @@ using NoLimits: COLOR_ACCENT, COLOR_CI, COLOR_PRIMARY, COLOR_REFERENCE, COLOR_SE
                 get_re_groups,
                 get_residuals, get_uq_backend, get_uq_draws, get_uq_estimates,
                 get_uq_intervals,
-                get_uq_parameter_names, get_uq_vcov, posterior_hidden_states,
+                get_uq_parameter_names, get_uq_vcov, get_θ0_untransformed,
+                posterior_hidden_states,
                 probabilities_hidden_states, transform
 
 include("plotting/plotting.jl")

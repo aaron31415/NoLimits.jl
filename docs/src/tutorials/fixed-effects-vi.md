@@ -13,6 +13,7 @@ This tutorial shows a complete fixed-effects Bayesian workflow with `VI` in NoLi
 
 ```julia
 using NoLimits
+using Plots
 using DataFrames
 using Distributions
 using Random

@@ -268,7 +268,7 @@ end
     expected_nres = nrow(get_residuals(res))
 
     script = """
-    using NoLimits, Distributions, DataFrames
+    using NoLimits, Distributions, DataFrames, Plots
     model = @Model begin
         @fixedEffects begin
             a = RealNumber(1.0)
@@ -316,7 +316,7 @@ end
     expected_n_ids = nrow(expected_re.η)
 
     script = """
-    using NoLimits, Distributions, DataFrames
+    using NoLimits, Distributions, DataFrames, Plots
     model = @Model begin
         @fixedEffects begin
             a = RealNumber(1.0)
