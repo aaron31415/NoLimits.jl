@@ -1,97 +1,293 @@
-function create_styled_plot(;
-        title = "", xlabel = "", ylabel = "", style::PlotStyle = PlotStyle(), kwargs...)
-    return plot(; title = title, xlabel = xlabel, ylabel = ylabel,
-        default_plot_kwargs(style)..., kwargs...)
+# Makie panel model + helper layer shared by every drawing file in this extension.
+#
+# A `MakiePanel` records the intent of a subplot (axis attributes + a list of drawing
+# closures + limits/legend state) without touching Makie until `combine_plots`
+# materializes the whole figure at once. Downstream drawing files build panels through
+# the `create_styled_*!` / `add_*!` helpers and never call `Axis`/`Figure` directly.
+
+mutable struct MakiePanel
+    axis_kwargs::Vector{Pair{Symbol, Any}}  # title/xlabel/ylabel + user Axis kwargs (later wins)
+    commands::Vector{Any}                    # callables: ax::Axis -> plot object
+    xlim::Union{Nothing, Tuple{Float64, Float64}}
+    ylim::Union{Nothing, Tuple{Float64, Float64}}
+    legend_position::Union{Symbol, Nothing}  # nothing => auto (:rt) when has_labels; :none => suppress
+    has_labels::Bool
 end
 
-function create_styled_scatter!(p, x, y; label = "", color = COLOR_PRIMARY,
+# A nested grid of panels placed into a single figure cell (used by grouped layouts
+# such as plot_emission_distributions).
+struct MakiePanelGroup
+    panels::Vector{MakiePanel}
+    ncols::Int
+end
+
+# --- Panel construction / mutation -----------------------------------------------------
+
+"""
+    create_styled_plot(; title, xlabel, ylabel, style, kwargs...) -> MakiePanel
+
+Start a new subplot. `kwargs...` are Makie `Axis` attributes (this is where a caller's
+`kwargs_subplot` flows). Nothing is drawn until [`combine_plots`](@ref) materializes it.
+"""
+function create_styled_plot(; title = "", xlabel = "", ylabel = "",
         style::PlotStyle = PlotStyle(), kwargs...)
-    return scatter!(p, x, y;
-        label = label,
-        color = color,
-        markersize = style.marker_size,
-        markeralpha = style.marker_alpha,
-        markerstrokewidth = style.marker_stroke_width,
-        kwargs...)
+    axis_kwargs = Pair{Symbol, Any}[:title => title, :xlabel => xlabel, :ylabel => ylabel]
+    for (k, v) in kwargs
+        push!(axis_kwargs, k => v)
+    end
+    return MakiePanel(axis_kwargs, Any[], nothing, nothing, nothing, false)
 end
 
-function create_styled_line!(p, x, y; label = "", color = COLOR_SECONDARY,
-        style::PlotStyle = PlotStyle(), kwargs...)
-    return plot!(p, x, y;
-        label = label,
-        color = color,
-        linewidth = style.line_width_primary,
-        kwargs...)
-end
+# Push a drawing closure `f(ax::Axis)` onto the panel.
+_record!(p::MakiePanel, f) = (push!(p.commands, f); p)
 
-function add_reference_line!(
-        p, value; orientation = :horizontal, color = COLOR_REFERENCE, kwargs...)
-    if orientation == :horizontal
-        hline!(p, [value]; color = color, linestyle = :dash, kwargs...)
-    else
-        vline!(p, [value]; color = color, linestyle = :dash, kwargs...)
+"""
+    _axis_attrs!(p; kwargs...) -> MakiePanel
+
+Append Makie `Axis` attributes mid-build (replaces the old `plot!(p; ...)` for axis
+tweaks). Later entries win over earlier ones. Translate Plots names when calling:
+`yflip=true` -> `yreversed=true`; `yticks`/`xticks` pass through unchanged as
+`(positions, labels)` or a positions vector.
+"""
+function _axis_attrs!(p::MakiePanel; kwargs...)
+    for (k, v) in kwargs
+        push!(p.axis_kwargs, k => v)
     end
     return p
 end
 
-function add_annotation!(p, x, y, text; fontsize = 7, halign = :right)
-    annotate!(p, x, y, text, halign = halign, fontsize = fontsize)
-    return p
-end
-
-function combine_plots(plots::Vector; ncols::Int = DEFAULT_PLOT_COLS,
-        style::PlotStyle = PlotStyle(), kwargs...)
-    nrows = ceil(Int, length(plots) / ncols)
-    font_kw = (
-        titlefontsize = style.font_size_title,
-        guidefontsize = style.font_size_label,
-        tickfontsize = style.font_size_tick,
-        legendfontsize = style.font_size_legend,
-        fontfamily = style.font_family
-    )
-    auto_kw = merge(font_kw,
-        (layout = (nrows, ncols), size = calculate_plot_size(length(plots), ncols, style)))
-    return plot(plots...; merge(auto_kw, NamedTuple(kwargs))...)
-end
-
-function _apply_shared_axes!(plots::AbstractVector, xlim, ylim)
-    for p in plots
-        xlim !== nothing && plot!(p; xlims = xlim)
-        ylim !== nothing && plot!(p; ylims = ylim)
-    end
-    return plots
-end
-
-function _save_plot!(p, save_path::Union{Nothing, String})
-    save_path = _ensure_save_path(save_path)
-    save_path === nothing && return p
-    _, ext = splitext(save_path)
-    if ext == ".png"
-        try
-            savefig(p, save_path; dpi = DEFAULT_DPI)
-        catch err
-            if err isa MethodError
-                savefig(p, save_path)
-            else
-                rethrow(err)
-            end
-        end
-    else
-        savefig(p, save_path)
-    end
+# Set axis limits (materialized via xlims!/ylims!). Also see `_apply_shared_axes!`.
+function _set_limits!(p::MakiePanel; xlim = nothing, ylim = nothing)
+    xlim !== nothing && (p.xlim = xlim)
+    ylim !== nothing && (p.ylim = ylim)
     return p
 end
 
 """
+    _label(p, label) -> Union{String, Nothing}
+
+Normalize a legend label. `""`/`nothing` -> `nothing` (no legend entry); a non-empty
+String flips `p.has_labels` and is returned. ALL label handling routes through here so a
+figure only gains a legend when something is actually labeled.
+"""
+function _label(p::MakiePanel, label)
+    (label === nothing || (label isa AbstractString && isempty(label))) && return nothing
+    p.has_labels = true
+    return String(label)
+end
+
+# --- Styled drawing primitives ---------------------------------------------------------
+
+"""
+    create_styled_scatter!(p, x, y; label, color, style, kwargs...) -> MakiePanel
+
+Record a styled `scatter!`. A scalar `color` is drawn with the style's marker alpha; a
+vector/tuple `color` (e.g. a per-point colormap) is used verbatim. Any Makie scatter
+attribute passed via `kwargs...` (`markersize`, `marker`, `colormap`, `colorrange`, a
+`color` override, ...) wins over the styled defaults.
+"""
+function create_styled_scatter!(p::MakiePanel, x, y; label = "", color = COLOR_PRIMARY,
+        style::PlotStyle = PlotStyle(), kwargs...)
+    lbl = _label(p, label)
+    kw = NamedTuple(kwargs)
+    col = haskey(kw, :color) ? kw.color : color
+    styled_col = col isa Union{AbstractVector, Tuple} ? col : (col, style.marker_alpha)
+    defaults = (; color = styled_col, markersize = style.marker_size,
+        strokewidth = style.marker_stroke_width, strokecolor = :black)
+    attrs = merge(defaults, Base.structdiff(kw, NamedTuple{(:color,)}))
+    _record!(p, ax -> scatter!(ax, x, y; label = lbl, attrs...))
+    return p
+end
+
+"""
+    create_styled_line!(p, x, y; label, color, style, kwargs...) -> MakiePanel
+
+Record a styled `lines!`. `kwargs...` (`linewidth`, `linestyle`, a `color` override, ...)
+win over the styled defaults.
+"""
+function create_styled_line!(p::MakiePanel, x, y; label = "", color = COLOR_SECONDARY,
+        style::PlotStyle = PlotStyle(), kwargs...)
+    lbl = _label(p, label)
+    defaults = (; color = color, linewidth = style.line_width_primary)
+    attrs = merge(defaults, NamedTuple(kwargs))
+    _record!(p, ax -> lines!(ax, x, y; label = lbl, attrs...))
+    return p
+end
+
+"""
+    add_reference_line!(p, value; orientation, color, kwargs...) -> MakiePanel
+
+Record a dashed reference line (`hlines!` for `:horizontal`, `vlines!` for `:vertical`).
+A `label` kwarg is routed through [`_label`](@ref); other kwargs pass through.
+"""
+function add_reference_line!(p::MakiePanel, value; orientation = :horizontal,
+        color = COLOR_REFERENCE, kwargs...)
+    kw = NamedTuple(kwargs)
+    lbl = haskey(kw, :label) ? _label(p, kw.label) : nothing
+    rest = Base.structdiff(kw, NamedTuple{(:label,)})
+    draw = orientation == :horizontal ? hlines! : vlines!
+    _record!(p,
+        ax -> draw(ax, value; color = color, linestyle = :dash, label = lbl, rest...))
+    return p
+end
+
+"""
+    add_annotation!(p, x, y, txt; fontsize, halign) -> MakiePanel
+
+Record a text annotation at data coordinates `(x, y)`. `halign` (`:right`/`:left`/
+`:center`) is the horizontal text alignment.
+"""
+function add_annotation!(p::MakiePanel, x, y, txt; fontsize = 7, halign = :right)
+    _record!(p,
+        ax -> text!(ax, [float(x)], [float(y)];
+            text = [string(txt)], align = (halign, :center), fontsize = fontsize))
+    return p
+end
+
+"""
+    _hist!(p, vals; bins, normalization, color, label, style, kwargs...) -> MakiePanel
+
+Draw a histogram as a touching `barplot!` from uniform bins (via `_histogram_xy`). This
+is the mechanical replacement for the old `histogram!(p, vals; bins, normalize, fillcolor,
+linecolor)` call. `normalization ∈ (:probability, :pdf, :none)`. Map old `fillcolor` to
+`color` and old `linecolor` to `strokecolor` (passed via `kwargs...`).
+"""
+function _hist!(p::MakiePanel, vals; bins::Int = 30, normalization::Symbol = :probability,
+        color = COLOR_PRIMARY, label = "", style::PlotStyle = PlotStyle(), kwargs...)
+    lbl = _label(p, label)
+    h = _histogram_xy(collect(float.(vals)); bins = bins, normalization = normalization)
+    defaults = (; color = color, strokewidth = 0, gap = 0, width = h.width)
+    attrs = merge(defaults, NamedTuple(kwargs))
+    _record!(p, ax -> barplot!(ax, h.centers, h.heights; label = lbl, attrs...))
+    return p
+end
+
+# --- Materialization -------------------------------------------------------------------
+
+# Merge the style defaults with the panel's accumulated axis attributes so that later
+# panel entries win over both the defaults and earlier entries (Makie does not dedup
+# duplicate keyword arguments, so we dedup here).
+function _merged_axis_kwargs(style::PlotStyle, panel_kwargs::Vector{Pair{Symbol, Any}})
+    merged = Dict{Symbol, Any}()
+    for (k, v) in Base.pairs(default_axis_kwargs(style))
+        merged[k] = v
+    end
+    for (k, v) in panel_kwargs
+        merged[k] = v
+    end
+    return merged
+end
+
+# Build one Axis at grid position `pos`, run its drawing commands, apply limits, and add
+# a legend when the panel has labeled series and legends are not suppressed.
+function _materialize!(pos, p::MakiePanel, style::PlotStyle)
+    ax = Axis(pos; _merged_axis_kwargs(style, p.axis_kwargs)...)
+    for cmd in p.commands
+        cmd(ax)
+    end
+    p.xlim !== nothing && xlims!(ax, p.xlim...)
+    p.ylim !== nothing && ylims!(ax, p.ylim...)
+    if p.has_labels && p.legend_position !== :none
+        # has_labels guards the "no labeled plots" case Makie errors on; the try/catch is
+        # a defensive backstop (e.g. only reference lines were labeled).
+        try
+            axislegend(ax; position = something(p.legend_position, :rt),
+                unique = true, labelsize = style.font_size_legend)
+        catch
+        end
+    end
+    return ax
+end
+
+# Materialize a nested panel group as a sub-GridLayout in a single figure cell.
+function _materialize!(pos, g::MakiePanelGroup, style::PlotStyle)
+    gl = GridLayout(pos)
+    ncols_use = min(g.ncols, max(length(g.panels), 1))
+    for (i, panel) in enumerate(g.panels)
+        row, col = fldmod1(i, ncols_use)
+        _materialize!(gl[row, col], panel, style)
+    end
+    return gl
+end
+
+"""
+    combine_plots(panels::Vector; ncols, style, kwargs...) -> Makie.Figure
+
+The single materialization point: lay `panels` (MakiePanel and/or MakiePanelGroup) into a
+`Figure` on a `ncols`-wide grid and return it. `kwargs...` are Makie `Figure` attributes
+(this is where a caller's `kwargs_layout` flows); a caller `size`/`figure_padding`/... wins
+over the computed defaults.
+"""
+function combine_plots(panels::Vector; ncols::Int = DEFAULT_PLOT_COLS,
+        style::PlotStyle = PlotStyle(), kwargs...)
+    n = length(panels)
+    ncols_use = min(ncols, max(n, 1))
+    fig_defaults = (; size = calculate_plot_size(max(n, 1), ncols_use, style),
+        fonts = (; regular = style.font_family, bold = style.font_family),
+        figure_padding = style.figure_padding)
+    fig = Figure(; merge(fig_defaults, NamedTuple(kwargs))...)
+    for (i, panel) in enumerate(panels)
+        row, col = fldmod1(i, ncols_use)
+        _materialize!(fig[row, col], panel, style)
+    end
+    return fig
+end
+
+# Set shared x/y limits across panels (recursing into groups) before materialization.
+function _apply_shared_axes!(panels::AbstractVector, xlim, ylim)
+    for panel in panels
+        _apply_shared_axes_one!(panel, xlim, ylim)
+    end
+    return panels
+end
+
+function _apply_shared_axes_one!(p::MakiePanel, xlim, ylim)
+    _set_limits!(p; xlim = xlim, ylim = ylim)
+end
+
+function _apply_shared_axes_one!(g::MakiePanelGroup, xlim, ylim)
+    for p in g.panels
+        _set_limits!(p; xlim = xlim, ylim = ylim)
+    end
+    return g
+end
+
+"""
+    _save_plot!(fig::Figure, save_path) -> Figure
+
+Save `fig` to `save_path` (a `.png` uses `px_per_unit = DEFAULT_DPI/100`). Saving needs a
+rasterizing Makie backend loaded (e.g. `using CairoMakie`); a clearer error is raised if
+none is available.
+"""
+function _save_plot!(fig::Figure, save_path::Union{Nothing, String})
+    save_path = _ensure_save_path(save_path)
+    save_path === nothing && return fig
+    _, ext = splitext(save_path)
+    try
+        if ext == ".png"
+            Makie.save(save_path, fig; px_per_unit = DEFAULT_DPI / 100)
+        else
+            Makie.save(save_path, fig)
+        end
+    catch err
+        error("Saving figures requires a rasterizing Makie backend. Load one first, " *
+              "e.g. `using CairoMakie`. Underlying error: $(err)")
+    end
+    return fig
+end
+
+# --- Public plotting functions ---------------------------------------------------------
+
+"""
     plot_multistart_waterfall(res::MultistartFitResult; style, kwargs_subplot, save_path)
-    -> Plots.Plot
+    -> Makie.Figure
 
 Plot the objective values of all successful multistart runs in ascending order
 (waterfall plot), highlighting the best run.
 
 # Keyword Arguments
 - `style::PlotStyle = PlotStyle()`: visual style configuration.
-- `kwargs_subplot`: additional keyword arguments forwarded to the subplot.
+- `kwargs_subplot`: additional Makie `Axis` attributes forwarded to the subplot.
 - `save_path::Union{Nothing, String} = nothing`: file path to save the plot, or `nothing`.
 """
 function plot_multistart_waterfall(res::MultistartFitResult;
@@ -130,21 +326,22 @@ function plot_multistart_waterfall(res::MultistartFitResult;
     )
     create_styled_scatter!(
         p, ranks, objectives; label = "", color = style.color_primary, style = style)
-    plot!(p; xticks = collect(1:length(objectives)))
+    _axis_attrs!(p; xticks = collect(1:length(objectives)))
 
     if n_failed > 0
         add_annotation!(
             p, maximum(ranks), maximum(objectives), "Failed starts omitted: $(n_failed)";
             fontsize = style.font_size_annotation)
     end
-    return _save_plot!(p, save_path)
+    fig = combine_plots([p]; ncols = 1, style = style)
+    return _save_plot!(fig, save_path)
 end
 
 """
     plot_multistart_fixed_effect_variability(res::MultistartFitResult; dm, k_best, mode,
                                              quantiles, scale, include_parameters,
                                              exclude_parameters, style, kwargs_subplot,
-                                             save_path) -> Plots.Plot
+                                             save_path) -> Makie.Figure
 
 Plot the variation of fixed-effect estimates across the `k_best` multistart runs with
 the lowest objective values.
@@ -158,7 +355,8 @@ the lowest objective values.
 - `scale::Symbol = :untransformed`: `:untransformed` or `:transformed`.
 - `include_parameters`, `exclude_parameters`: parameter name filters.
 - `style::PlotStyle = PlotStyle()`: visual style configuration.
-- `kwargs_subplot`: additional keyword arguments forwarded to each subplot.
+- `kwargs_subplot`: additional Makie `Axis` attributes forwarded to the subplot (a `size`
+  entry, if given, sets the figure size instead).
 - `save_path::Union{Nothing, String} = nothing`: file path to save the plot.
 """
 function plot_multistart_fixed_effect_variability(res::MultistartFitResult;
@@ -286,21 +484,18 @@ function plot_multistart_fixed_effect_variability(res::MultistartFitResult;
 
     y = collect(1:length(labels))
     plot_height = clamp(200 + 22 * length(labels), MIN_FIGURE_HEIGHT, MAX_FIGURE_HEIGHT)
-    local subplot_kwargs = kwargs_subplot
-    haskey(subplot_kwargs, :size) ||
-        (subplot_kwargs = merge((size = (900, plot_height),), subplot_kwargs))
-    haskey(subplot_kwargs, :left_margin) ||
-        (subplot_kwargs = merge((left_margin = 18mm,), subplot_kwargs))
-    haskey(subplot_kwargs, :legend) ||
-        (subplot_kwargs = merge((legend = false,), subplot_kwargs))
+    subplot_kwargs = NamedTuple(kwargs_subplot)
+    fig_size = get(subplot_kwargs, :size, (900, plot_height))
+    axis_kwargs = Base.structdiff(subplot_kwargs, NamedTuple{(:size,)})
 
     p = create_styled_plot(;
         title = "Fixed-Effect Variability Across Top-$(k_use) Multistarts",
         xlabel = "Z-score",
         ylabel = "Parameter",
         style = style,
-        subplot_kwargs...
+        axis_kwargs...
     )
+    p.legend_position = :none
     add_reference_line!(
         p, 0.0; orientation = :vertical, color = style.color_dark, alpha = 0.7, label = "")
 
@@ -336,14 +531,16 @@ function plot_multistart_fixed_effect_variability(res::MultistartFitResult;
         zmin -= pad
         zmax += pad
     end
-    plot!(p; yticks = (y, labels), ylims = (0.5, length(labels) + 0.5),
-        yflip = true, xlims = (zmin, zmax))
-    return _save_plot!(p, save_path)
+    _axis_attrs!(p; yticks = (y, labels), yreversed = true)
+    _set_limits!(p; xlim = (zmin, zmax), ylim = (0.5, length(labels) + 0.5))
+    fig = combine_plots([p]; ncols = 1, style = style, size = fig_size)
+    return _save_plot!(fig, save_path)
 end
 
 """
     plot_em_trajectories(res::FitResult; dm, scale, include_parameters, exclude_parameters,
-                         ncols, style, kwargs_subplot, kwargs_layout, save_path) -> Plots.Plot
+                         ncols, style, kwargs_subplot, kwargs_layout, save_path)
+    -> Makie.Figure
 
 Plot the Q-function and fixed-effect parameter trajectories over EM iterations for a
 [`SAEM`](@ref) or [`MCEM`](@ref) fit result.
@@ -363,8 +560,8 @@ parameter element (e.g. `β[1]`, `β[2]`, `Ω[1,1]`, ...).
   are removed from the selection. Applied after `include_parameters`.
 - `ncols::Int = $(DEFAULT_PLOT_COLS)`: number of subplot columns.
 - `style::PlotStyle = PlotStyle()`: visual style configuration.
-- `kwargs_subplot`: additional keyword arguments forwarded to each individual subplot.
-- `kwargs_layout`: additional keyword arguments forwarded to the combined layout.
+- `kwargs_subplot`: additional Makie `Axis` attributes forwarded to each individual subplot.
+- `kwargs_layout`: additional Makie `Figure` attributes forwarded to the combined layout.
 - `save_path::Union{Nothing, String} = nothing`: file path to save the plot.
 """
 function plot_em_trajectories(res::FitResult;
@@ -448,7 +645,7 @@ function plot_em_trajectories(res::FitResult;
     x_label = diagnostics_every == 1 ? "EM Iteration" :
               "EM Iteration (×$(diagnostics_every))"
 
-    plots = Plots.Plot[]
+    panels = MakiePanel[]
 
     # Q-function panel (always uses all iterations, not just stored ones).
     # Plot index 1 is always in column 1, so it gets the ylabel.
@@ -456,27 +653,27 @@ function plot_em_trajectories(res::FitResult;
         ylabel = "Value", style = style, kwargs_subplot...)
     create_styled_line!(q_plot, collect(1:length(diag.Q_hist)), Float64.(diag.Q_hist);
         label = "", color = style.color_primary, style = style)
-    push!(plots, q_plot)
+    push!(panels, q_plot)
 
     # One panel per scalar element of each selected parameter block.
     for pname in selected_order
         first_val = getproperty(θ_vals[1], pname)
         if first_val isa Number
             traj = Float64[float(getproperty(θ, pname)) for θ in θ_vals]
-            push!(plots,
+            push!(panels,
                 create_styled_plot(; title = string(pname), xlabel = x_label,
                     ylabel = "", style = style, kwargs_subplot...))
-            create_styled_line!(plots[end], stored_iters, traj;
+            create_styled_line!(panels[end], stored_iters, traj;
                 label = "", color = style.color_primary, style = style)
         elseif first_val isa AbstractVector
             n_elem = length(first_val)
             for j in eachindex(first_val)
                 traj = Float64[float(getproperty(θ, pname)[j]) for θ in θ_vals]
                 label = n_elem == 1 ? string(pname) : string(pname, "[", j, "]")
-                push!(plots,
+                push!(panels,
                     create_styled_plot(; title = label, xlabel = x_label,
                         ylabel = "", style = style, kwargs_subplot...))
-                create_styled_line!(plots[end], stored_iters, traj;
+                create_styled_line!(panels[end], stored_iters, traj;
                     label = "", color = style.color_primary, style = style)
             end
         elseif first_val isa AbstractMatrix
@@ -484,10 +681,10 @@ function plot_em_trajectories(res::FitResult;
                 for c in axes(first_val, 2)
                     traj = Float64[float(getproperty(θ, pname)[r, c]) for θ in θ_vals]
                     label = string(pname, "[", r, ",", c, "]")
-                    push!(plots,
+                    push!(panels,
                         create_styled_plot(; title = label, xlabel = x_label,
                             ylabel = "", style = style, kwargs_subplot...))
-                    create_styled_line!(plots[end], stored_iters, traj;
+                    create_styled_line!(panels[end], stored_iters, traj;
                         label = "", color = style.color_primary, style = style)
                 end
             end
@@ -495,12 +692,12 @@ function plot_em_trajectories(res::FitResult;
     end
 
     # Apply "Value" ylabel only to panels in the first column.
-    for i in eachindex(plots)
+    for i in eachindex(panels)
         if (i - 1) % ncols == 0
-            plot!(plots[i]; ylabel = "Value")
+            _axis_attrs!(panels[i]; ylabel = "Value")
         end
     end
 
-    result = combine_plots(plots; ncols = ncols, style = style, kwargs_layout...)
+    result = combine_plots(panels; ncols = ncols, style = style, kwargs_layout...)
     return _save_plot!(result, save_path)
 end

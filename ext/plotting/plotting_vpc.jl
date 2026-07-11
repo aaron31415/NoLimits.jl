@@ -1,9 +1,9 @@
 """
     plot_vpc(res::FitResult; dm, n_simulations, n_sim, percentiles, show_obs_points,
              show_obs_percentiles, n_bins, seed, observables, x_axis_feature, ncols,
-             kwargs_plot, save_path, obs_percentiles_mode, bandwidth,
+             kwargs_subplot, kwargs_plot, save_path, obs_percentiles_mode, bandwidth,
              obs_percentiles_method, constants_re, mcmc_draws, mcmc_warmup, style)
-             -> Plots.Plot
+             -> Makie.Figure
 
 Visual Predictive Check (VPC): compares observed percentile bands to simulated
 predictive percentile bands stratified by x-axis bins.
@@ -20,7 +20,8 @@ predictive percentile bands stratified by x-axis bins.
 - `x_axis_feature::Union{Nothing, Symbol} = nothing`: covariate for the x-axis; defaults
   to time.
 - `ncols::Int = 3`: number of subplot columns.
-- `kwargs_plot`: extra keyword arguments forwarded to the plot.
+- `kwargs_subplot`: additional Makie `Axis` attributes forwarded to each subplot.
+- `kwargs_plot`: additional Makie `Figure` attributes forwarded to the combined layout.
 - `save_path::Union{Nothing, String} = nothing`: file path to save the plot.
 - `obs_percentiles_mode::Symbol = :pooled`: `:pooled` or `:individual` percentile
   computation.
@@ -150,9 +151,8 @@ function plot_vpc(res::FitResult;
         _kw_vpc = merge((xlabel = x_label, ylabel = _axis_label(obs_name)), kwargs_subplot)
         p = create_styled_plot(; title = "", style = style, _kw_vpc...)
         if show_obs_points && !isempty(all_y)
-            scatter!(p, all_x, all_y; color = style.color_primary, alpha = 0.3,
-                markersize = style.marker_size, markerstrokewidth = style.marker_stroke_width,
-                label = "obs")
+            create_styled_scatter!(p, all_x, all_y; color = (style.color_primary, 0.3),
+                label = "obs", style = style)
         end
 
         if show_obs_percentiles && !is_discrete && !isempty(all_y)
@@ -164,9 +164,9 @@ function plot_vpc(res::FitResult;
                 xgrid = sort(unique(all_x))
                 sm = _kernel_quantiles(all_x, all_y, xgrid, bw, percentiles)
                 for pctl in percentiles
-                    plot!(p, xgrid, sm[pctl]; color = COLOR_ACCENT,
+                    create_styled_line!(p, xgrid, sm[pctl]; color = COLOR_ACCENT,
                         linestyle = pctl == median(percentiles) ? :solid : :dot,
-                        label = "")
+                        label = "", style = style)
                 end
             elseif obs_percentiles_method == :quantile
                 bins = _assign_bins(all_x, edges)
@@ -205,9 +205,9 @@ function plot_vpc(res::FitResult;
                 for pctl in percentiles
                     x_plot, y_plot = _extend_bin_series(x_centers, obs_q[pctl], edges)
                     lbl = "obs $(pctl)%"
-                    plot!(p, x_plot, y_plot; color = COLOR_ACCENT,
+                    create_styled_line!(p, x_plot, y_plot; color = COLOR_ACCENT,
                         linestyle = pctl == median(percentiles) ? :solid : :dot,
-                        label = lbl)
+                        label = lbl, style = style)
                 end
             else
                 error("obs_percentiles_method must be :quantile or :kernel.")
@@ -221,10 +221,11 @@ function plot_vpc(res::FitResult;
                 if is_bern
                     p1 = [mean(sim_y_all[bins_sim .== b]) for b in 1:n_bins_eff]
                     x_plot, y_plot = _extend_bin_series(x_centers, p1, edges)
-                    scatter!(p, x_plot, y_plot; color = style.color_secondary, marker = :x,
+                    create_styled_scatter!(p, x_plot, y_plot;
+                        color = style.color_secondary, marker = :xcross,
                         markersize = style.marker_size_pmf,
-                        markerstrokewidth = style.marker_stroke_width_pmf,
-                        label = "sim P(Y=1)")
+                        strokewidth = style.marker_stroke_width_pmf,
+                        label = "sim P(Y=1)", style = style)
                 else
                     added = false
                     for b in 1:n_bins_eff
@@ -235,11 +236,11 @@ function plot_vpc(res::FitResult;
                         support = collect(lo:hi)
                         probs = [mean(vals .== v) for v in support]
                         lbl = added ? "" : "sim PMF"
-                        scatter!(p, fill(x_centers[b], length(support)), support;
-                            marker_z = probs, color = :viridis, marker = :x,
+                        create_styled_scatter!(p, fill(x_centers[b], length(support)),
+                            support; color = probs, colormap = :viridis, marker = :xcross,
                             markersize = style.marker_size_pmf,
-                            markerstrokewidth = style.marker_stroke_width_pmf,
-                            label = lbl)
+                            strokewidth = style.marker_stroke_width_pmf,
+                            label = lbl, style = style)
                         added = true
                     end
                 end
@@ -250,7 +251,8 @@ function plot_vpc(res::FitResult;
                         sim_x_all, sim_y_all, xgrid, bandwidth, percentiles)
                     for pctl in percentiles
                         lbl = "sim $(pctl)%"
-                        plot!(p, xgrid, sm_sim[pctl]; color = COLOR_SECONDARY, label = lbl)
+                        create_styled_line!(p, xgrid, sm_sim[pctl];
+                            color = COLOR_SECONDARY, label = lbl, style = style)
                     end
                 else
                     sim_q = Dict{Float64, Vector{Float64}}((p => Vector{Float64}(
@@ -266,16 +268,17 @@ function plot_vpc(res::FitResult;
                     for pctl in percentiles
                         x_plot, y_plot = _extend_bin_series(x_centers, sim_q[pctl], edges)
                         lbl = "sim $(pctl)%"
-                        plot!(p, x_plot, y_plot; color = COLOR_SECONDARY, label = lbl)
+                        create_styled_line!(p, x_plot, y_plot;
+                            color = COLOR_SECONDARY, label = lbl, style = style)
                     end
                 end
             end
         end
 
         plots[oi] = p
-        xlims!(p, _pad_limits(minimum(x_for_bins), maximum(x_for_bins)))
+        _set_limits!(p; xlim = _pad_limits(minimum(x_for_bins), maximum(x_for_bins)))
     end
 
-    p = combine_plots(plots; ncols = ncols, kwargs_plot...)
+    p = combine_plots(plots; ncols = ncols, style = style, kwargs_plot...)
     return _save_plot!(p, save_path)
 end

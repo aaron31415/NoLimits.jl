@@ -46,7 +46,7 @@ function _plot_residuals_df(df::DataFrame;
     if isempty(plots)
         p = create_styled_plot(
             title = "No residual data to plot.", style = style, kwargs_subplot...)
-        return _save_plot!(p, save_path)
+        return _save_plot!(combine_plots([p]; ncols = 1, style = style), save_path)
     end
     if shared_x_axis || shared_y_axis
         xlim_use = shared_x_axis && xlims !== nothing ? _pad_limits(xlims[1], xlims[2]) :
@@ -55,7 +55,7 @@ function _plot_residuals_df(df::DataFrame;
                    nothing
         _apply_shared_axes!(plots, xlim_use, ylim_use)
     end
-    p = combine_plots(plots; ncols = ncols, kwargs_layout...)
+    p = combine_plots(plots; ncols = ncols, style = style, kwargs_layout...)
     return _save_plot!(p, save_path)
 end
 
@@ -65,9 +65,9 @@ end
                    style, params, constants_re, cache_obs_dists, fitted_stat,
                    randomize_discrete, cdf_fallback_mc, ode_args, ode_kwargs,
                    mcmc_draws, mcmc_warmup, mcmc_quantiles, rng, save_path,
-                   kwargs_subplot, kwargs_layout) -> Plots.Plot
+                   kwargs_subplot, kwargs_layout) -> Makie.Figure
 
-    plot_residuals(dm::DataModel; ...) -> Plots.Plot
+    plot_residuals(dm::DataModel; ...) -> Makie.Figure
 
 Plot residuals versus time (or another x-axis feature) for each individual.
 
@@ -79,7 +79,8 @@ Plot residuals versus time (or another x-axis feature) for each individual.
 - `shared_x_axis::Bool = true`, `shared_y_axis::Bool = true`: share axis ranges.
 - `ncols::Int = 3`: number of subplot columns.
 - `style::PlotStyle = PlotStyle()`: visual style configuration.
-- `kwargs_subplot`, `kwargs_layout`: extra keyword arguments for subplots and layout.
+- `kwargs_subplot`, `kwargs_layout`: additional Makie `Axis`/`Figure` attributes for
+  subplots and layout.
 - `save_path::Union{Nothing, String} = nothing`: file path to save the plot.
 """
 function plot_residuals(res::FitResult;
@@ -190,12 +191,18 @@ function _plot_residual_distribution_df(df::DataFrame;
             xlabel = _residual_metric_label(metric),
             ylabel = "Probability",
             style = style, kwargs_subplot...)
-        histogram!(p, vals; bins = bins, normalize = :probability,
+        # Compute bar heights once (drawing recomputes internally) so we can size the
+        # y-axis explicitly instead of reading rendered series back.
+        h = _histogram_xy(vals; bins = bins, normalization = :probability)
+        _hist!(p, vals; bins = bins, normalization = :probability,
             color = style.color_secondary, label = "data")
+        ymax = maximum(h.heights)
         if metric == :quantile
             xs = range(minimum(vals), maximum(vals); length = 200)
-            plot!(p, xs, pdf.(Normal(), xs); color = style.color_dark,
-                linestyle = :dash, label = "N(0,1)")
+            pdf_vals = pdf.(Normal(), xs)
+            create_styled_line!(p, xs, pdf_vals; color = style.color_dark,
+                linestyle = :dash, label = "N(0,1)", style = style)
+            ymax = max(ymax, maximum(pdf_vals))
         elseif metric == :pit
             add_reference_line!(p, 1.0 / bins; orientation = :horizontal,
                 color = style.color_dark, label = "")
@@ -203,15 +210,15 @@ function _plot_residual_distribution_df(df::DataFrame;
         push!(plots, p)
         xlims = xlims === nothing ? (minimum(vals), maximum(vals)) :
                 (min(xlims[1], minimum(vals)), max(xlims[2], maximum(vals)))
-        yv = p.series_list[end][:y]
-        ymax = maximum(yv)
+        # y_max = max(histogram heights, overlay curve values) — what the old code
+        # intended; it previously read the last drawn series, i.e. the N(0,1) overlay.
         ylims = ylims === nothing ? (0.0, ymax) : (0.0, max(ylims[2], ymax))
     end
 
     if isempty(plots)
         p = create_styled_plot(
             title = "No residual data to plot.", style = style, kwargs_subplot...)
-        return _save_plot!(p, save_path)
+        return _save_plot!(combine_plots([p]; ncols = 1, style = style), save_path)
     end
     if shared_x_axis || shared_y_axis
         xlim_use = shared_x_axis && xlims !== nothing ? _pad_limits(xlims[1], xlims[2]) :
@@ -220,7 +227,7 @@ function _plot_residual_distribution_df(df::DataFrame;
                    nothing
         _apply_shared_axes!(plots, xlim_use, ylim_use)
     end
-    p = combine_plots(plots; ncols = ncols, kwargs_layout...)
+    p = combine_plots(plots; ncols = ncols, style = style, kwargs_layout...)
     return _save_plot!(p, save_path)
 end
 
@@ -232,9 +239,9 @@ end
                                randomize_discrete, cdf_fallback_mc, ode_args,
                                ode_kwargs, mcmc_draws, mcmc_warmup, mcmc_quantiles,
                                rng, save_path, kwargs_subplot, kwargs_layout)
-                               -> Plots.Plot
+                               -> Makie.Figure
 
-    plot_residual_distribution(dm::DataModel; ...) -> Plots.Plot
+    plot_residual_distribution(dm::DataModel; ...) -> Makie.Figure
 
 Plot the marginal distribution of residuals as histograms with optional density overlays.
 
@@ -355,20 +362,20 @@ function _plot_residual_qq_df(df::DataFrame;
         ylabel = string("Sample ", _residual_metric_label(metric))
         p = create_styled_plot(title = string(obs_name), xlabel = xlabel, ylabel = ylabel,
             style = style, kwargs_subplot...)
-        scatter!(p, theo, vals; color = style.color_secondary,
-            markersize = style.marker_size_small, label = "")
+        create_styled_scatter!(p, theo, vals; label = "", color = style.color_secondary,
+            markersize = style.marker_size_small, style = style)
         lo = min(minimum(theo), minimum(vals))
         hi = max(maximum(theo), maximum(vals))
-        plot!(
-            p, [lo, hi], [lo, hi]; color = style.color_dark, linestyle = :dash, label = "")
+        create_styled_line!(p, [lo, hi], [lo, hi]; label = "", color = style.color_dark,
+            linestyle = :dash, style = style)
         push!(plots, p)
     end
     if isempty(plots)
         p = create_styled_plot(
             title = "No residual data to plot.", style = style, kwargs_subplot...)
-        return _save_plot!(p, save_path)
+        return _save_plot!(combine_plots([p]; ncols = 1, style = style), save_path)
     end
-    p = combine_plots(plots; ncols = ncols, kwargs_layout...)
+    p = combine_plots(plots; ncols = ncols, style = style, kwargs_layout...)
     return _save_plot!(p, save_path)
 end
 
@@ -377,9 +384,9 @@ end
                      obs_rows, x_axis_feature, ncols, style, params, constants_re,
                      cache_obs_dists, fitted_stat, randomize_discrete, cdf_fallback_mc,
                      ode_args, ode_kwargs, mcmc_draws, mcmc_warmup, mcmc_quantiles,
-                     rng, save_path, kwargs_subplot, kwargs_layout) -> Plots.Plot
+                     rng, save_path, kwargs_subplot, kwargs_layout) -> Makie.Figure
 
-    plot_residual_qq(dm::DataModel; ...) -> Plots.Plot
+    plot_residual_qq(dm::DataModel; ...) -> Makie.Figure
 
 Quantile-quantile plot of residuals against the theoretical distribution
 (Uniform for `:pit`, Normal for other metrics).
@@ -489,7 +496,7 @@ function _plot_residual_pit_df(df::DataFrame;
             p = create_styled_plot(title = string(obs_name, " | PIT Histogram"),
                 xlabel = "PIT", ylabel = "Probability",
                 style = style, kwargs_subplot...)
-            histogram!(p, pits; bins = 20, normalize = :probability,
+            _hist!(p, pits; bins = 20, normalization = :probability,
                 color = style.color_secondary, label = "")
             push!(plots, p)
         elseif show_kde
@@ -497,7 +504,8 @@ function _plot_residual_pit_df(df::DataFrame;
                 xlabel = "PIT", ylabel = "Density",
                 style = style, kwargs_subplot...)
             xk, yk = _kde_xy(pits; bandwidth = kde_bandwidth)
-            plot!(p, xk, yk; color = style.color_secondary, label = "")
+            create_styled_line!(p, xk, yk; color = style.color_secondary, label = "",
+                style = style)
             push!(plots, p)
         else
             p = create_styled_plot(title = string(obs_name, " | PIT QQ"),
@@ -506,18 +514,20 @@ function _plot_residual_pit_df(df::DataFrame;
                 style = style, kwargs_subplot...)
             q = sort(pits)
             u = range(0.0, 1.0; length = length(q))
-            scatter!(p, u, q; color = style.color_secondary, label = "")
-            plot!(p, u, u; color = style.color_dark, linestyle = :dash, label = "")
+            create_styled_scatter!(
+                p, u, q; color = style.color_secondary, label = "", style = style)
+            create_styled_line!(p, u, u; color = style.color_dark, linestyle = :dash,
+                label = "", style = style)
             push!(plots, p)
         end
     end
     if isempty(plots)
         p = create_styled_plot(
             title = "No PIT data to plot.", style = style, kwargs_subplot...)
-        return _save_plot!(p, save_path)
+        return _save_plot!(combine_plots([p]; ncols = 1, style = style), save_path)
     end
     _apply_shared_axes!(plots, (0.0, 1.0), nothing)
-    p = combine_plots(plots; ncols = ncols, kwargs_layout...)
+    p = combine_plots(plots; ncols = ncols, style = style, kwargs_layout...)
     return _save_plot!(p, save_path)
 end
 
@@ -527,9 +537,9 @@ end
                       kde_bandwidth, params, constants_re, cache_obs_dists,
                       randomize_discrete, cdf_fallback_mc, ode_args, ode_kwargs,
                       mcmc_draws, mcmc_warmup, rng, save_path, kwargs_subplot,
-                      kwargs_layout) -> Plots.Plot
+                      kwargs_layout) -> Makie.Figure
 
-    plot_residual_pit(dm::DataModel; ...) -> Plots.Plot
+    plot_residual_pit(dm::DataModel; ...) -> Makie.Figure
 
 Plot the probability integral transform (PIT) values as histograms and/or KDE curves.
 Uniform PIT values indicate a well-calibrated model.
@@ -658,8 +668,11 @@ function _plot_residual_acf_df(df::DataFrame;
         p = create_styled_plot(title = string(obs_name), xlabel = "Lag",
             ylabel = string(_residual_metric_label(metric), " Autocorrelation"),
             style = style, kwargs_subplot...)
-        plot!(
-            p, lags, acf_mean; color = style.color_secondary, marker = :circle, label = "")
+        # Old `plot!(...; marker=:circle)` == line + markers; Makie's equivalent is
+        # `scatterlines!` (no `marker` kwarg on `lines!`).
+        _record!(p,
+            ax -> Makie.scatterlines!(ax, lags, acf_mean; color = style.color_secondary,
+                linewidth = style.line_width_primary, markersize = style.marker_size))
         add_reference_line!(
             p, 0.0; orientation = :horizontal, color = style.color_dark, label = "")
         push!(plots, p)
@@ -667,9 +680,9 @@ function _plot_residual_acf_df(df::DataFrame;
     if isempty(plots)
         p = create_styled_plot(
             title = "No residual data to plot.", style = style, kwargs_subplot...)
-        return _save_plot!(p, save_path)
+        return _save_plot!(combine_plots([p]; ncols = 1, style = style), save_path)
     end
-    p = combine_plots(plots; ncols = ncols, kwargs_layout...)
+    p = combine_plots(plots; ncols = ncols, style = style, kwargs_layout...)
     return _save_plot!(p, save_path)
 end
 
@@ -679,9 +692,9 @@ end
                       constants_re, cache_obs_dists, fitted_stat, randomize_discrete,
                       cdf_fallback_mc, ode_args, ode_kwargs, mcmc_draws, mcmc_warmup,
                       mcmc_quantiles, rng, save_path, kwargs_subplot, kwargs_layout)
-                      -> Plots.Plot
+                      -> Makie.Figure
 
-    plot_residual_acf(dm::DataModel; ...) -> Plots.Plot
+    plot_residual_acf(dm::DataModel; ...) -> Makie.Figure
 
 Plot the autocorrelation function (ACF) of residuals across time lags for each outcome.
 

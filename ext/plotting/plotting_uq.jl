@@ -9,13 +9,10 @@ function _plot_density_interval_fill!(p,
     sliced = _density_interval_slice(x, y, lo, hi)
     sliced === nothing && return false
     xs, ys = sliced
-    plot!(p, xs, ys;
-        fillrange = 0.0,
-        fillcolor = COLOR_CI,
-        fillalpha = interval_alpha,
-        linealpha = 0.0,
-        linewidth = 0.0,
-        label = show_legend ? "$(round(Int, 100 * level))% Interval" : "")
+    lbl = _label(p, show_legend ? "$(round(Int, 100 * level))% Interval" : "")
+    _record!(p,
+        ax -> band!(ax, xs, zeros(length(xs)), ys;
+            color = (COLOR_CI, interval_alpha), label = lbl))
     return true
 end
 
@@ -61,12 +58,12 @@ intervals are overlaid as vertical lines and shaded regions.
   selection (default).
 - `ncols::Int` - Number of subplot columns (default: `3`).
 - `style::PlotStyle` - Visual style configuration.
-- `kwargs_subplot` - Extra keyword arguments forwarded to each subplot.
-- `kwargs_layout` - Extra keyword arguments forwarded to the layout call.
+- `kwargs_subplot` - additional Makie `Axis` attributes forwarded to each subplot.
+- `kwargs_layout` - additional Makie `Figure` attributes forwarded to the combined layout.
 - `save_path::Union{Nothing, String}` - File path to save the plot, or `nothing`.
 
 # Returns
-A `Plots.jl` plot object showing one panel per selected parameter.
+A `Makie.Figure` showing one panel per selected parameter.
 """
 function plot_uq_distributions(uq::UQResult;
         scale::Symbol = :natural,
@@ -123,12 +120,12 @@ function plot_uq_distributions(uq::UQResult;
     kde_fallback_params = Symbol[]
     for (k, j) in enumerate(idx)
         pname = _uq_param_label(names[j])
-        p = create_styled_plot(title = pname,
+        p = create_styled_plot(; title = pname,
             xlabel = pname,
             ylabel = y_label,
             style = style,
-            legend = show_legend ? :best : false,
             kwargs_subplot...)
+        p.legend_position = show_legend ? nothing : :none
         xlims_param = nothing
 
         if plot_type == :histogram
@@ -138,22 +135,25 @@ function plot_uq_distributions(uq::UQResult;
                 lo = ints.lower[j]
                 hi = ints.upper[j]
                 if isfinite(lo) && isfinite(hi)
-                    vspan!(p, [lo, hi];
-                        color = COLOR_CI,
-                        alpha = interval_alpha,
-                        label = show_legend ? "$(round(Int, 100 * ints.level))% Interval" :
-                                "")
+                    lbl = _label(p,
+                        show_legend ? "$(round(Int, 100 * ints.level))% Interval" : "")
+                    _record!(p,
+                        ax -> vspan!(ax, lo, hi; color = (COLOR_CI, interval_alpha),
+                            label = lbl))
                     xlims_param = _uq_merge_limits(xlims_param, lo, hi)
                 end
             end
-            histogram!(p, x;
-                normalize = :pdf,
-                bins = bins,
-                color = style.color_primary,
-                alpha = histogram_alpha,
-                linecolor = style.color_primary,
-                linewidth = 0.5,
-                label = show_legend ? "Histogram" : "")
+            # Resolve :auto to a Sturges bin count (Plots' former default engine).
+            bins_int = bins === :auto ?
+                       max(1, ceil(Int, log2(max(length(x), 2))) + 1) : Int(bins)
+            _hist!(p, x;
+                bins = bins_int,
+                normalization = :pdf,
+                color = (style.color_primary, histogram_alpha),
+                strokecolor = style.color_primary,
+                strokewidth = 0.5,
+                label = show_legend ? "Histogram" : "",
+                style = style)
         else
             kind = closed_form_kinds[k]
             if kind == :normal || kind == :lognormal || kind == :logitnormal
@@ -168,16 +168,16 @@ function plot_uq_distributions(uq::UQResult;
                     end
                 end
                 if xy === nothing
-                    vline!(p, [est[j]];
-                        color = style.color_primary,
-                        linewidth = style.line_width_primary,
-                        label = show_legend ? "Approx. Density" : "")
+                    lbl = _label(p, show_legend ? "Approx. Density" : "")
+                    _record!(p,
+                        ax -> vlines!(ax, est[j]; color = style.color_primary,
+                            linewidth = style.line_width_primary, label = lbl))
                     xlims_param = _uq_merge_limits(xlims_param, est[j], est[j])
                 else
-                    plot!(p, xy[1], xy[2];
+                    create_styled_line!(p, xy[1], xy[2];
                         color = style.color_primary,
                         linewidth = style.line_width_primary,
-                        label = show_legend ? "Approx. Density" : "")
+                        label = show_legend ? "Approx. Density" : "", style = style)
                     xlims_param = _uq_merge_limits(
                         xlims_param, minimum(xy[1]), maximum(xy[1]))
                 end
@@ -194,26 +194,25 @@ function plot_uq_distributions(uq::UQResult;
                         xlims_param = _uq_merge_limits(xlims_param, lo, hi)
                     end
                 end
-                plot!(p, xk, yk;
+                create_styled_line!(p, xk, yk;
                     color = style.color_primary,
                     linewidth = style.line_width_primary,
                     alpha = 1.0,
-                    label = show_legend ? "KDE" : "")
+                    label = show_legend ? "KDE" : "", style = style)
                 push!(kde_fallback_params, names[j])
             end
         end
 
         if show_estimate
-            vline!(p, [est[j]];
+            add_reference_line!(p, est[j]; orientation = :vertical,
                 color = style.color_dark,
                 linewidth = style.line_width_secondary,
-                linestyle = :dash,
                 label = show_legend ? "Estimate" : "")
             xlims_param = _uq_merge_limits(xlims_param, est[j], est[j])
         end
 
         if xlims_param !== nothing
-            plot!(p; xlims = _pad_limits(xlims_param[1], xlims_param[2]))
+            _set_limits!(p; xlim = _pad_limits(xlims_param[1], xlims_param[2]))
         end
 
         plots[k] = p
@@ -222,6 +221,6 @@ function plot_uq_distributions(uq::UQResult;
         @info "plot_uq_distributions used sampling + KDE because no closed-form density is available." backend=backend scale=scale parameters=kde_fallback_params
     end
 
-    p = combine_plots(plots; ncols = ncols, kwargs_layout...)
+    p = combine_plots(plots; ncols = ncols, style = style, kwargs_layout...)
     return _save_plot!(p, save_path)
 end

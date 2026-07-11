@@ -1,12 +1,15 @@
-module NoLimitsPlotsExt
+module NoLimitsMakieExt
 
-# Plots-dependent drawing layer for NoLimits.jl. Activated automatically when
-# both NoLimits and Plots are loaded (see [weakdeps]/[extensions] in Project.toml).
-# The Plots-free core (PlotStyle, PlotCache, get_residuals, build_plot_cache and
-# their helpers) lives in NoLimits proper; this module only adds the plot_* methods.
+# Makie-dependent drawing layer. Loads when NoLimits and Makie are both present;
+# users get it via `using CairoMakie` (any Makie backend pulls in Makie).
+# This extension may only reference Makie — never a specific backend.
+# The Makie-free core (PlotStyle, PlotCache, get_residuals, build_plot_cache and their
+# helpers) lives in NoLimits proper; this module only adds the plot_* methods plus the
+# panel model / styled-drawing layer in plotting/plotting.jl.
 
-using Plots
-using Measures
+using Makie: Makie, Figure, Axis, GridLayout, lines!, scatter!, barplot!, heatmap!,
+             poly!, band!, hlines!, vlines!, vspan!, text!, axislegend, xlims!,
+             ylims!, Rect2f
 using KernelDensity
 using Distributions
 using Random
@@ -31,7 +34,7 @@ import NoLimits: plot_data, plot_dv_ipred, plot_dv_pred, plot_em_trajectories,
                  plot_residuals, plot_shrinkage, plot_uq_distributions, plot_vpc,
                  plot_wres_pred
 
-# Plots-free helpers/types/accessors/consts the drawing code reads from core.
+# Makie-free helpers/types/accessors/consts the drawing code reads from core.
 using NoLimits: COLOR_ACCENT, COLOR_CI, COLOR_PRIMARY, COLOR_REFERENCE, COLOR_SECONDARY,
                 DEFAULT_DPI, DEFAULT_PLOT_COLS, DataModel, FitDiagnostics, FitParameters,
                 FitResult,
@@ -52,7 +55,7 @@ using NoLimits: COLOR_ACCENT, COLOR_CI, COLOR_PRIMARY, COLOR_REFERENCE, COLOR_SE
                 _filter_re_without_covariates, _fit_constants_re, _fit_curve_from_cache,
                 _flatten_param_with_labels, _float_if_real, _get_dm, _get_observable,
                 _get_x_values,
-                _hmm_with_prior, _interp_linear, _is_bernoulli, _is_discrete,
+                _histogram_xy, _hmm_with_prior, _interp_linear, _is_bernoulli, _is_discrete,
                 _is_posterior_draw_fit,
                 _kde_xy, _kernel_quantiles, _level_to_individual, _marginal_colors,
                 _marginal_label,
@@ -77,7 +80,7 @@ using NoLimits: COLOR_ACCENT, COLOR_CI, COLOR_PRIMARY, COLOR_REFERENCE, COLOR_SE
                 build_plot_cache,
                 calculate_formulas_obs, calculate_plot_size, calculate_prede,
                 compute_shrinkage,
-                compute_uq, default_plot_kwargs, flatten_re_names,
+                compute_uq, default_axis_kwargs, flatten_re_names,
                 get_create_random_effect_distribution, get_data_model,
                 get_de_accessors_builder,
                 get_de_compiler, get_formulas_meta, get_helper_funs, get_inverse_transform,
@@ -98,4 +101,4 @@ include("plotting/plotting_residuals.jl")
 include("plotting/plotting_random_effects.jl")
 include("plotting/plotting_uq.jl")
 
-end # module NoLimitsPlotsExt
+end # module NoLimitsMakieExt

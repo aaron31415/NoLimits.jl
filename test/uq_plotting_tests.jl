@@ -1,9 +1,21 @@
 using Test
 using NoLimits
 using LinearAlgebra
-using Plots
+using CairoMakie
 using Random
 using Statistics
+
+# Qualified: ComponentArrays (loaded by sibling test files in the same batch) also
+# exports Axis.
+_first_axis(fig) = first(a for a in fig.content if a isa CairoMakie.Axis)
+function _axis_xlims(fig)
+    ax = _first_axis(fig)
+    lims = CairoMakie.Makie.to_value(ax.limits)[1]
+    lims !== nothing && return lims
+    CairoMakie.Makie.update_state_before_display!(fig)
+    r = ax.finallimits[]
+    return (r.origin[1], r.origin[1] + r.widths[1])
+end
 
 # Hand-built UQResults below differ in only a few slots; override just those.
 # Transformed-scale values default onto the natural-scale slots (and vice versa
@@ -59,7 +71,7 @@ end
         draws_t = draws)
     p_hist = plot_uq_distributions(uq; plot_type = :histogram, scale = :natural, ncols = 1)
     @test p_hist !== nothing
-    @test p_hist.subplots[1][:yaxis][:guide] == "Wald Histogram Density"
+    @test _first_axis(p_hist).ylabel[] == "Wald Histogram Density"
     @test_throws ErrorException plot_uq_distributions(uq; plot_type = :unknown)
 end
 
@@ -72,8 +84,8 @@ end
     uq = make_uq(; names = [:a, :β_1], est_t = est, ints_t = ints, vcov_t = V,
         draws_t = draws)
     p = plot_uq_distributions(uq; scale = :natural, parameters = [:a], ncols = 1)
-    @test p.subplots[1][:xaxis][:guide] == "a"
-    @test p.subplots[1][:title] == "a"
+    @test _first_axis(p).xlabel[] == "a"
+    @test _first_axis(p).title[] == "a"
 end
 
 @testset "UQ distribution plotting uses analytic Wald density on transformed scale" begin
@@ -81,7 +93,7 @@ end
     uq = make_uq(; est_t = [0.1], ints_t = ints, vcov_t = reshape([0.25], 1, 1))
     p = plot_uq_distributions(uq; scale = :transformed, ncols = 1)
     @test p !== nothing
-    @test p.subplots[1][:yaxis][:guide] == "Wald Approximate Density"
+    @test _first_axis(p).ylabel[] == "Wald Approximate Density"
 end
 
 @testset "UQ distribution plotting uses analytic Wald densities on natural scale for identity/log transforms" begin
@@ -90,7 +102,7 @@ end
         diagnostics = (; vcov = :hessian, coordinate_transforms = [:identity, :log]))
     p = plot_uq_distributions(uq; scale = :natural, ncols = 1)
     @test p !== nothing
-    @test p.subplots[1][:yaxis][:guide] == "Wald Approximate Density"
+    @test _first_axis(p).ylabel[] == "Wald Approximate Density"
 end
 
 @testset "UQ distribution plotting fallback line uses current plot scale" begin
@@ -106,8 +118,10 @@ end
         show_interval = false,
         show_legend = false)
     @test p !== nothing
-    xs = p.subplots[1].series_list[1][:x]
-    @test all(x -> isapprox(x, σ_n; atol = 1e-12), xs)
+    plt = first(_first_axis(p).scene.plots)
+    xs = [pt[1] for pt in plt[1][]]
+    # Makie stores plot coordinates as Float32, so the old 1e-12 tolerance is too tight.
+    @test all(x -> isapprox(x, σ_n; atol = 1e-6), xs)
 end
 
 @testset "UQ distribution plotting uses KDE for Wald natural scale and logs fallback" begin
@@ -119,7 +133,7 @@ end
     p = @test_logs (:info, r"sampling \+ KDE") plot_uq_distributions(
         uq; scale = :natural, ncols = 1)
     @test p !== nothing
-    @test p.subplots[1][:yaxis][:guide] == "Wald KDE Density"
+    @test _first_axis(p).ylabel[] == "Wald KDE Density"
 end
 
 @testset "UQ distribution plotting errors when draws are unavailable" begin
@@ -140,12 +154,12 @@ end
 
     p_density = @test_logs (:info, r"sampling \+ KDE") plot_uq_distributions(
         uq; scale = :natural, ncols = 1)
-    xl_density = xlims(p_density.subplots[1])
+    xl_density = _axis_xlims(p_density)
     @test xl_density[1] <= minimum(draws)
     @test xl_density[2] >= est[1]
 
     p_hist = plot_uq_distributions(uq; scale = :natural, plot_type = :histogram, ncols = 1)
-    xl_hist = xlims(p_hist.subplots[1])
+    xl_hist = _axis_xlims(p_hist)
     @test xl_hist[1] <= minimum(draws)
     @test xl_hist[2] >= est[1]
 end

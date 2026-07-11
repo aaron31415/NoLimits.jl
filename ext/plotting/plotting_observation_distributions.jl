@@ -4,7 +4,7 @@
                                    shared_y_axis, ncols, style, cache, cache_obs_dists,
                                    constants_re, mcmc_quantiles, mcmc_quantiles_alpha,
                                    mcmc_draws, mcmc_warmup, rng, save_path,
-                                   kwargs_subplot, kwargs_layout) -> Plots.Plot
+                                   kwargs_subplot, kwargs_layout) -> Makie.Figure
 
 Plot the predictive observation distributions at each time point as density or PMF
 curves overlaid on the observed data, providing a detailed look at model calibration.
@@ -24,7 +24,8 @@ curves overlaid on the observed data, providing a detailed look at model calibra
 - `mcmc_quantiles`, `mcmc_quantiles_alpha`, `mcmc_draws`, `mcmc_warmup`: MCMC settings.
 - `rng::AbstractRNG = Random.default_rng()`: random-number generator.
 - `save_path::Union{Nothing, String} = nothing`: file path to save the plot.
-- `kwargs_subplot`, `kwargs_layout`: extra keyword arguments.
+- `kwargs_subplot`: additional Makie `Axis` attributes forwarded to each subplot.
+- `kwargs_layout`: additional Makie `Figure` attributes forwarded to the combined layout.
 """
 function plot_observation_distributions(res::FitResult;
         dm::Union{Nothing, DataModel} = nothing,
@@ -91,7 +92,7 @@ function plot_observation_distributions(res::FitResult;
                 y_obs = getfield(ind.series.obs, obs_name)[j]
                 has_obs_val = y_obs isa Number && isfinite(float(y_obs))
                 tval = dm.df[row, dm.config.time_col]
-                p = create_styled_plot(
+                p = create_styled_plot(;
                     title = string(
                         dm.config.primary_id, ": ", dm.df[row, dm.config.primary_id], ", ",
                         dm.config.time_col, ": ", tval),
@@ -142,18 +143,20 @@ function plot_observation_distributions(res::FitResult;
                             probs_all; dims = 1)
                         qlo = vec(qlo)
                         qhi = vec(qhi)
-                        bar!(p, vals, probs; color = style.color_secondary,
-                            label = "posterior mean PMF")
-                        plot!(p, vals, qlo; color = style.color_secondary,
+                        lbl = _label(p, "posterior mean PMF")
+                        _record!(p,
+                            ax -> barplot!(
+                                ax, vals, probs; color = style.color_secondary, label = lbl))
+                        create_styled_line!(p, vals, qlo; color = style.color_secondary,
                             alpha = mcmc_quantiles_alpha, linestyle = :dash,
-                            label = "$(mcmc_quantiles[1])%")
-                        plot!(p, vals, qhi; color = style.color_secondary,
+                            label = "$(mcmc_quantiles[1])%", style = style)
+                        create_styled_line!(p, vals, qhi; color = style.color_secondary,
                             alpha = mcmc_quantiles_alpha, linestyle = :dash,
-                            label = "$(mcmc_quantiles[end])%")
-                        ylabel!(p, "Probability Mass")
+                            label = "$(mcmc_quantiles[end])%", style = style)
+                        _axis_attrs!(p; ylabel = "Probability Mass")
                         if has_obs_val
-                            vline!(
-                                p, [y_obs]; color = style.color_primary, label = "observed")
+                            add_reference_line!(p, y_obs; orientation = :vertical,
+                                color = style.color_primary, label = "observed")
                         end
                         xlim = (minimum(vals), maximum(vals))
                         if has_obs_val
@@ -178,17 +181,18 @@ function plot_observation_distributions(res::FitResult;
                             grid.z; dims = 2)
                         qlo = vec(qlo)
                         qhi = vec(qhi)
-                        plot!(p, grid.y, pdf_mean; color = style.color_secondary,
-                            label = "posterior mean PDF")
-                        plot!(p, grid.y, qlo; color = style.color_secondary,
+                        create_styled_line!(p, grid.y, pdf_mean;
+                            color = style.color_secondary,
+                            label = "posterior mean PDF", style = style)
+                        create_styled_line!(p, grid.y, qlo; color = style.color_secondary,
                             alpha = mcmc_quantiles_alpha, linestyle = :dash,
-                            label = "$(mcmc_quantiles[1])%")
-                        plot!(p, grid.y, qhi; color = style.color_secondary,
+                            label = "$(mcmc_quantiles[1])%", style = style)
+                        create_styled_line!(p, grid.y, qhi; color = style.color_secondary,
                             alpha = mcmc_quantiles_alpha, linestyle = :dash,
-                            label = "$(mcmc_quantiles[end])%")
+                            label = "$(mcmc_quantiles[end])%", style = style)
                         if has_obs_val
-                            vline!(
-                                p, [y_obs]; color = style.color_primary, label = "observed")
+                            add_reference_line!(p, y_obs; orientation = :vertical,
+                                color = style.color_primary, label = "observed")
                         end
                         xlim = (minimum(grid.y), maximum(grid.y))
                         if has_obs_val
@@ -246,11 +250,14 @@ function plot_observation_distributions(res::FitResult;
                             vals = grid.vals
                         end
                         probs = pdf.(Ref(dist), vals)
-                        bar!(p, vals, probs; color = style.color_secondary, label = "PMF")
-                        ylabel!(p, "Probability Mass")
+                        lbl = _label(p, "PMF")
+                        _record!(p,
+                            ax -> barplot!(
+                                ax, vals, probs; color = style.color_secondary, label = lbl))
+                        _axis_attrs!(p; ylabel = "Probability Mass")
                         if has_obs_val
-                            vline!(
-                                p, [y_obs]; color = style.color_primary, label = "observed")
+                            add_reference_line!(p, y_obs; orientation = :vertical,
+                                color = style.color_primary, label = "observed")
                         end
                         xlim = (minimum(vals), maximum(vals))
                         if has_obs_val
@@ -270,11 +277,11 @@ function plot_observation_distributions(res::FitResult;
                         grid === nothing &&
                             error("Unable to build PDF grid for $(obs_name).")
                         pdf_vals = vec(grid.z[:, 1])
-                        plot!(p, grid.y, pdf_vals;
-                            color = style.color_secondary, label = "PDF")
+                        create_styled_line!(p, grid.y, pdf_vals;
+                            color = style.color_secondary, label = "PDF", style = style)
                         if has_obs_val
-                            vline!(
-                                p, [y_obs]; color = style.color_primary, label = "observed")
+                            add_reference_line!(p, y_obs; orientation = :vertical,
+                                color = style.color_primary, label = "observed")
                         end
                         xlim = (minimum(grid.y), maximum(grid.y))
                         if has_obs_val
@@ -301,16 +308,16 @@ function plot_observation_distributions(res::FitResult;
     if shared_x_axis
         for (p, key) in zip(plots, plot_groups)
             lims = xlims_by_group[key]
-            plot!(p; xlims = _pad_limits(lims[1], lims[2]))
+            _set_limits!(p; xlim = _pad_limits(lims[1], lims[2]))
         end
     end
     if shared_y_axis && ylims !== nothing
         for p in plots
-            plot!(p; ylims = _pad_limits(ylims[1], ylims[2]))
+            _set_limits!(p; ylim = _pad_limits(ylims[1], ylims[2]))
         end
     end
 
-    p = combine_plots(plots; ncols = ncols, kwargs_layout...)
+    p = combine_plots(plots; ncols = ncols, style = style, kwargs_layout...)
     return _save_plot!(p, save_path)
 end
 

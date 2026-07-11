@@ -2,12 +2,21 @@ using Test
 using NoLimits
 using DataFrames
 using Distributions
-using Plots
+using CairoMakie
 using Random
 using Turing: MH
 
 # Note: "plot_data and plot_fits basic", "plot_fits MCMC", "plot_fits VI"
 # have been moved to integration_plotting.jl (shared fixtures).
+
+# Qualified: ComponentArrays (loaded by sibling test files in the same batch) also
+# exports Axis.
+_first_axis(fig) = first(a for a in fig.content if a isa CairoMakie.Axis)
+function _series_labels(fig)
+    plots = _first_axis(fig).scene.plots
+    raw = [CairoMakie.Makie.to_value(get(plt.attributes, :label, nothing)) for plt in plots]
+    return [l isa AbstractString ? String(l) : "" for l in raw]
+end
 
 @testset "plot_fits supports non-:t time_col" begin
     model = @Model begin
@@ -172,8 +181,7 @@ end
 
     p_vec = plot_fits_comparison([res1, res2]; individuals_idx = 1:2)
     @test p_vec !== nothing
-    labels_vec = [String(get(s.plotattributes, :label, ""))
-                  for s in p_vec.subplots[1].series_list]
+    labels_vec = _series_labels(p_vec)
     @test "data" in labels_vec
     @test "Model 1" in labels_vec
     @test "Model 2" in labels_vec
@@ -181,8 +189,7 @@ end
     p_nt = plot_fits_comparison(
         (baseline = res1, constrained = res2); individuals_idx = 1:2)
     @test p_nt !== nothing
-    labels_nt = [String(get(s.plotattributes, :label, ""))
-                 for s in p_nt.subplots[1].series_list]
+    labels_nt = _series_labels(p_nt)
     @test "baseline" in labels_nt
     @test "constrained" in labels_nt
 
@@ -190,19 +197,17 @@ end
     p_nt_style = plot_fits_comparison(
         (baseline = res1, constrained = res2); individuals_idx = 1:2, style = styled)
     @test p_nt_style !== nothing
-    idx_base = findfirst(==("baseline"),
-        [String(get(s.plotattributes, :label, ""))
-         for s in p_nt_style.subplots[1].series_list])
+    idx_base = findfirst(==("baseline"), _series_labels(p_nt_style))
     @test idx_base !== nothing
-    @test get(
-        p_nt_style.subplots[1].series_list[idx_base].plotattributes, :linestyle, :solid) ==
-          :dash
+    baseline_plt = _first_axis(p_nt_style).scene.plots[idx_base]
+    # Makie stores linestyles converted (:dash -> dash pattern vector, :solid -> nothing).
+    @test CairoMakie.Makie.to_value(baseline_plt.linestyle) ==
+          CairoMakie.Makie.convert_attribute(:dash, CairoMakie.Makie.key"linestyle"())
 
     p_dict = plot_fits_comparison(
         Dict("first" => res1, "second" => res2); individuals_idx = 1:2)
     @test p_dict !== nothing
-    labels_dict = [String(get(s.plotattributes, :label, ""))
-                   for s in p_dict.subplots[1].series_list]
+    labels_dict = _series_labels(p_dict)
     @test "first" in labels_dict
     @test "second" in labels_dict
 
@@ -255,12 +260,12 @@ end
 
     @test plot_data(res; marginal_layout = :single) !== nothing
     p_data_vector = plot_data(res; marginal_layout = :vector)
-    @test isa(p_data_vector, Vector{Plots.Plot})
+    @test isa(p_data_vector, Vector{CairoMakie.Figure})
     @test length(p_data_vector) == n_marginals
 
     @test plot_fits(res; marginal_layout = :single) !== nothing
     p_fits_vector = plot_fits(res; marginal_layout = :vector)
-    @test isa(p_fits_vector, Vector{Plots.Plot})
+    @test isa(p_fits_vector, Vector{CairoMakie.Figure})
     @test length(p_fits_vector) == n_marginals
 
     n_inds = length(unique(df.ID))
@@ -268,19 +273,20 @@ end
     @test plot_hidden_states(dm) !== nothing
 
     p_hidden_vector = plot_hidden_states(res; figure_layout = :vector)
-    @test isa(p_hidden_vector, Vector{Plots.Plot})
+    @test isa(p_hidden_vector, Vector{CairoMakie.Figure})
     @test length(p_hidden_vector) == n_inds
     @test length(plot_hidden_states(res; figure_layout = :vector, individuals_idx = 1)) == 1
-    @test isa(plot_hidden_states(dm; figure_layout = :vector), Vector{Plots.Plot})
+    @test isa(plot_hidden_states(dm; figure_layout = :vector), Vector{CairoMakie.Figure})
 
     @test plot_emission_distributions(res, time_idx = 1, ncols = 1) !== nothing
     @test plot_emission_distributions(res; time_idx = 2) !== nothing
     @test plot_emission_distributions(res; time_point = 1.0) !== nothing
     p_emission_vector = plot_emission_distributions(res; figure_layout = :vector)
-    @test isa(p_emission_vector, Vector{Plots.Plot})
+    @test isa(p_emission_vector, Vector{CairoMakie.Figure})
     @test length(p_emission_vector) == n_inds
     @test plot_emission_distributions(dm) !== nothing
-    @test isa(plot_emission_distributions(dm; figure_layout = :vector), Vector{Plots.Plot})
+    @test isa(
+        plot_emission_distributions(dm; figure_layout = :vector), Vector{CairoMakie.Figure})
 end
 
 @testset "plot_fits supports varying non-ODE random-effect groups" begin

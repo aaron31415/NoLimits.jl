@@ -1,3 +1,6 @@
+# Fit/data/diagnostic plotting on the Makie panel layer (see plotting.jl). Ported 1:1
+# from the Plots.jl extension; Plots draw calls translated to panel-layer helpers.
+
 function _plot_data_dm(dm::DataModel;
         x_axis_feature::Union{Symbol, Nothing} = nothing,
         individuals_idx = nothing,
@@ -74,11 +77,11 @@ end
 """
     plot_data(res::FitResult; dm, x_axis_feature, individuals_idx, shared_x_axis,
               shared_y_axis, ncols, style, kwargs_subplot, kwargs_layout,
-              save_path, plot_path, marginal_layout) -> Plots.Plot | Vector{Plots.Plot}
+              save_path, plot_path, marginal_layout) -> Makie.Figure | Vector{Makie.Figure}
 
     plot_data(dm::DataModel; x_axis_feature, individuals_idx, shared_x_axis,
               shared_y_axis, ncols, style, kwargs_subplot, kwargs_layout,
-              save_path, plot_path, marginal_layout) -> Plots.Plot | Vector{Plots.Plot}
+              save_path, plot_path, marginal_layout) -> Makie.Figure | Vector{Makie.Figure}
 
 Plot raw observed data for each individual as a multi-panel figure.
 
@@ -92,7 +95,8 @@ Plot raw observed data for each individual as a multi-panel figure.
 - `ncols::Int = 3`: number of subplot columns.
 - `marginal_layout::Symbol = :single`: `:single` keeps one figure with every marginal overlaid per individual; `:vector` returns a figure per marginal (only valid for vector-valued observables and requires `save_path`/`plot_path` to be `nothing`).
 - `style::PlotStyle = PlotStyle()`: visual style configuration.
-- `kwargs_subplot`, `kwargs_layout`: extra keyword arguments for subplots and layout.
+- `kwargs_subplot`: additional Makie `Axis` attributes forwarded to each subplot.
+- `kwargs_layout`: additional Makie `Figure` attributes forwarded to the combined layout.
 - `save_path::Union{Nothing, String} = nothing`: file path to save the plot (ignored for `:vector` mode).
 """
 function plot_data(res::FitResult;
@@ -116,7 +120,7 @@ function plot_data(res::FitResult;
     if is_mv && marginal_layout == :vector
         (save_path === nothing && plot_path === nothing) ||
             error("save_path/plot_path are not supported when returning multiple marginal figures.")
-        plots = Vector{Plots.Plot}(undef, n_marginals)
+        plots = Vector{Figure}(undef, n_marginals)
         for m in 1:n_marginals
             plots[m] = _plot_data_dm(dm;
                 x_axis_feature = x_axis_feature,
@@ -164,7 +168,7 @@ function plot_data(dm::DataModel;
     if is_mv && marginal_layout == :vector
         (save_path === nothing && plot_path === nothing) ||
             error("save_path/plot_path are not supported when returning multiple marginal figures.")
-        plots = Vector{Plots.Plot}(undef, n_marginals)
+        plots = Vector{Figure}(undef, n_marginals)
         for m in 1:n_marginals
             plots[m] = _plot_data_dm(dm;
                 x_axis_feature = x_axis_feature,
@@ -198,11 +202,11 @@ end
               individuals_idx, x_axis_feature, shared_x_axis, shared_y_axis, ncols,
               style, kwargs_subplot, kwargs_layout, save_path, cache, params,
               constants_re, cache_obs_dists, plot_mcmc_quantiles, mcmc_quantiles,
-              mcmc_quantiles_alpha, mcmc_draws, mcmc_warmup, rng) -> Plots.Plot
+              mcmc_quantiles_alpha, mcmc_draws, mcmc_warmup, rng) -> Makie.Figure
 
     plot_fits(dm::DataModel; params, constants_re, observable, individuals_idx,
               x_axis_feature, shared_x_axis, shared_y_axis, ncols, plot_data_points,
-              style, kwargs_subplot, kwargs_layout, save_path, cache) -> Plots.Plot
+              style, kwargs_subplot, kwargs_layout, save_path, cache) -> Makie.Figure
 
 Plot model predictions against observed data for each individual as a multi-panel figure.
 
@@ -218,7 +222,8 @@ Plot model predictions against observed data for each individual as a multi-pane
 - `shared_x_axis::Bool = true`, `shared_y_axis::Bool = true`: share axis ranges.
 - `ncols::Int = 3`: number of subplot columns.
 - `style::PlotStyle = PlotStyle()`: visual style configuration.
-- `kwargs_subplot`, `kwargs_layout`: extra keyword arguments for subplots and layout.
+- `kwargs_subplot`: additional Makie `Axis` attributes forwarded to each subplot.
+- `kwargs_layout`: additional Makie `Figure` attributes forwarded to the combined layout.
 - `save_path::Union{Nothing, String} = nothing`: file path to save the plot.
 - `cache::Union{Nothing, PlotCache} = nothing`: pre-computed plot cache.
 - `params::NamedTuple = NamedTuple()`: fixed-effect overrides.
@@ -286,7 +291,7 @@ function plot_fits(res::FitResult;
     if is_mv && marginal_layout == :vector && marginal_idx === nothing
         (save_path === nothing && plot_path === nothing) ||
             error("save_path/plot_path are not supported when returning multiple marginal figures.")
-        plots_vector = Vector{Plots.Plot}(undef, n_marginals)
+        plots_vector = Vector{Figure}(undef, n_marginals)
         for m in 1:n_marginals
             plots_vector[m] = plot_fits(res;
                 dm = dm,
@@ -368,6 +373,7 @@ function plot_fits(res::FitResult;
             dm.config.primary_id, ": ", dm.df[obs_rows[1], dm.config.primary_id])
         is_leftmost = (k - 1) % ncols == 0
         _ylabel = is_leftmost ? _default_ylabel : ""
+        # computed ylabel wins over kwargs_subplot (leftmost-column override); merge dedups.
         _kw574 = merge((xlabel = _default_xlabel,), kwargs_subplot, (ylabel = _ylabel,))
         p = create_styled_plot(; title = title_id, style = style, _kw574...)
         xs_per_margin = nothing
@@ -453,9 +459,9 @@ function plot_fits(res::FitResult;
                 for q in mcmc_quantiles
                     qvals = mapslices(x -> quantile(vec(x), q / 100), preds; dims = 1)
                     qvals = vec(qvals)
-                    plot!(p, x_fit, qvals; color = style.color_secondary,
+                    create_styled_line!(p, x_fit, qvals; color = style.color_secondary,
                         alpha = mcmc_quantiles_alpha,
-                        linestyle = :dash, label = "$(q)%")
+                        linestyle = :dash, label = "$(q)%", style = style)
                     ylims = (min(ylims[1], minimum(qvals)), max(ylims[2], maximum(qvals)))
                 end
             end
@@ -473,10 +479,11 @@ function plot_fits(res::FitResult;
                             probs .+= pdf.(Ref(dists_for_density[d][j]), grid.vals)
                         end
                         probs ./= n_draws
-                        scatter!(p, fill(x_density[j], length(grid.vals)), grid.vals;
-                            marker_z = probs, color = :viridis, marker = :x,
-                            markersize = style.marker_size_pmf, markerstrokewidth = style.marker_stroke_width_pmf,
-                            label = "")
+                        create_styled_scatter!(
+                            p, fill(x_density[j], length(grid.vals)), grid.vals;
+                            color = probs, colormap = :viridis, marker = :xcross,
+                            markersize = style.marker_size_pmf,
+                            strokewidth = style.marker_stroke_width_pmf, label = "")
                     end
                 else
                     dists = dists_for_density[1]
@@ -489,8 +496,10 @@ function plot_fits(res::FitResult;
                             end
                         end
                         z ./= n_draws
-                        heatmap!(p, x_density, grid.y, z; color = :viridis,
-                            alpha = 0.5, label = "")
+                        # z is (ny, nx); Makie heatmap wants (nx, ny) -> permutedims.
+                        _record!(p,
+                            ax -> heatmap!(ax, x_density, grid.y, permutedims(z);
+                                colormap = (:viridis, 0.5)))
                     end
                 end
             end
@@ -602,16 +611,19 @@ function plot_fits(res::FitResult;
                     for j in eachindex(dists)
                         grid = _density_grid_discrete(dists[j], 0.995)
                         grid === nothing && continue
-                        scatter!(p, fill(x_density[j], length(grid.vals)), grid.vals;
-                            marker_z = grid.probs, color = :viridis, marker = :x,
-                            markersize = style.marker_size_pmf, markerstrokewidth = style.marker_stroke_width_pmf,
-                            label = "")
+                        create_styled_scatter!(
+                            p, fill(x_density[j], length(grid.vals)), grid.vals;
+                            color = grid.probs, colormap = :viridis, marker = :xcross,
+                            markersize = style.marker_size_pmf,
+                            strokewidth = style.marker_stroke_width_pmf, label = "")
                     end
                 else
                     grid = _density_grid_continuous(dists, 0.995, 100)
                     if grid !== nothing
-                        heatmap!(p, x_density, grid.y, grid.z;
-                            color = :viridis, alpha = 0.5, label = "")
+                        # grid.z is (ny, nx); Makie heatmap wants (nx, ny) -> permutedims.
+                        _record!(p,
+                            ax -> heatmap!(ax, x_density, grid.y, permutedims(grid.z);
+                                colormap = (:viridis, 0.5)))
                     end
                 end
             end
@@ -734,25 +746,21 @@ function _plot_hidden_states_impl(dm::DataModel,
             end
             bottom = zeros(Float64, length(times))
             for m in 1:n_states
-                x_poly = Float64[]
-                y_poly = Float64[]
+                # One stacked-bar rectangle per time with nonzero probability for state m.
+                rects = Rect2f[]
                 for (idx, t) in enumerate(times)
                     if prob_mat[m, idx] == 0
                         continue
                     end
                     x_left = t - half_width
-                    x_right = t + half_width
                     y_bot = bottom[idx]
-                    y_top = y_bot + prob_mat[m, idx]
-                    append!(x_poly, (x_left, x_right, x_right, x_left, NaN))
-                    append!(y_poly, (y_bot, y_bot, y_top, y_top, NaN))
+                    push!(rects, Rect2f(x_left, y_bot, bar_width, prob_mat[m, idx]))
                 end
-                isempty(x_poly) && continue
-                plot!(p, x_poly, y_poly;
-                    seriestype = :shape,
-                    fillcolor = state_colors[m],
-                    linecolor = :transparent,
-                    label = state_labels[m])
+                isempty(rects) && continue
+                lbl = _label(p, state_labels[m])
+                _record!(p,
+                    ax -> poly!(
+                        ax, rects; color = state_colors[m], strokewidth = 0, label = lbl))
                 bottom .+= prob_mat[m, :]
             end
             ylims = _merge_limits(ylims, [0.0, 1.0])
@@ -831,7 +839,7 @@ function plot_hidden_states(res::FitResult;
            collect(individuals_idx)
 
     if figure_layout == :vector
-        plots = Vector{Plots.Plot}(undef, length(inds))
+        plots = Vector{Figure}(undef, length(inds))
         for (k, idx) in enumerate(inds)
             plots[k] = _plot_hidden_states_impl(dm,
                 obs_name,
@@ -899,7 +907,7 @@ function plot_hidden_states(dm::DataModel;
            collect(individuals_idx)
 
     if figure_layout == :vector
-        plots = Vector{Plots.Plot}(undef, length(inds))
+        plots = Vector{Figure}(undef, length(inds))
         for (k, idx) in enumerate(inds)
             plots[k] = _plot_hidden_states_impl(dm,
                 obs_name,
@@ -980,7 +988,7 @@ function _plot_emission_for_individual(dm::DataModel,
 
     n_states = dist.n_states
     n_marginals = _mv_n_outcomes(dist.emission_dists[1])
-    state_plots = Vector{Plots.Plot}(undef, n_states)
+    state_plots = Vector{MakiePanel}(undef, n_states)
     marginal_colors = _marginal_colors(n_marginals, style)
     overall_xlim = nothing
     overall_ylim = nothing
@@ -1025,8 +1033,9 @@ function _plot_emission_for_individual(dm::DataModel,
         state_plots[s] = p_state
     end
 
-    combined = combine_plots(state_plots; ncols = min(state_ncols, n_states), style = style)
-    return (plot = combined, xlims = overall_xlim, ylims = overall_ylim)
+    # Inner per-individual grid is a nested panel group; combined by the caller.
+    group = MakiePanelGroup(state_plots, min(state_ncols, n_states))
+    return (plot = group, xlims = overall_xlim, ylims = overall_ylim)
 end
 
 function _plot_emission_impl(dm::DataModel,
@@ -1046,7 +1055,7 @@ function _plot_emission_impl(dm::DataModel,
         figure_layout::Symbol)
     inds = individuals_idx === nothing ? collect(eachindex(dm.individuals)) :
            collect(individuals_idx)
-    plots = Vector{Plots.Plot}(undef, length(inds))
+    groups = Vector{MakiePanelGroup}(undef, length(inds))
     xlims = nothing
     ylims = nothing
     time_col_use = time_col === nothing ? dm.config.time_col : time_col
@@ -1069,19 +1078,19 @@ function _plot_emission_impl(dm::DataModel,
             style,
             kwargs_subplot,
             state_ncols)
-        plots[k] = record.plot
+        groups[k] = record.plot
         xlims = _merge_limits(xlims, record.xlims === nothing ? () : record.xlims)
         ylims = _merge_limits(ylims, record.ylims === nothing ? () : record.ylims)
     end
 
     if shared_y_axis && ylims !== nothing
-        _apply_shared_axes!(plots, nothing, _pad_limits(ylims[1], ylims[2]))
+        _apply_shared_axes!(groups, nothing, _pad_limits(ylims[1], ylims[2]))
     end
 
     if figure_layout == :vector
-        return plots
+        return [combine_plots(g.panels; ncols = g.ncols, style = style) for g in groups]
     end
-    p = combine_plots(plots; ncols = ncols, style = style, kwargs_layout...)
+    p = combine_plots(groups; ncols = ncols, style = style, kwargs_layout...)
     return _save_plot!(p, save_path)
 end
 
@@ -1355,13 +1364,13 @@ end
 
 """
     plot_fits_comparison(res::Union{FitResult, MultistartFitResult}; kwargs...)
-                         -> Plots.Plot
+                         -> Makie.Figure
 
-    plot_fits_comparison(results::AbstractVector; kwargs...) -> Plots.Plot
+    plot_fits_comparison(results::AbstractVector; kwargs...) -> Makie.Figure
 
-    plot_fits_comparison(results::NamedTuple; kwargs...) -> Plots.Plot
+    plot_fits_comparison(results::NamedTuple; kwargs...) -> Makie.Figure
 
-    plot_fits_comparison(results::AbstractDict; kwargs...) -> Plots.Plot
+    plot_fits_comparison(results::AbstractDict; kwargs...) -> Makie.Figure
 
 Plot predictions from one or more fitted models side-by-side for visual comparison.
 
@@ -1407,11 +1416,11 @@ end
 """
     plot_observed_profiles(dm::DataModel; observable, individuals_idx, x_axis_feature,
                            style, kwargs_subplot, kwargs_layout, save_path, plot_path)
-                           -> Plots.Plot
+                           -> Makie.Figure
 
     plot_observed_profiles(res::FitResult; dm, observable, individuals_idx,
                            x_axis_feature, style, kwargs_subplot, kwargs_layout,
-                           save_path, plot_path) -> Plots.Plot
+                           save_path, plot_path) -> Makie.Figure
 
 Plot observed trajectories for all (or selected) individuals overlaid on a single panel
 (spaghetti plot). Each individual's time series is drawn as a connected line with
@@ -1424,8 +1433,8 @@ scatter points at the observed time points.
 - `x_axis_feature::Union{Symbol, Nothing} = nothing`: covariate for the x-axis;
   defaults to the time column.
 - `style::PlotStyle = PlotStyle()`: visual style configuration.
-- `kwargs_subplot`: extra keyword arguments forwarded to the single panel.
-- `kwargs_layout`: extra keyword arguments forwarded to the layout call.
+- `kwargs_subplot`: additional Makie `Axis` attributes forwarded to the single panel.
+- `kwargs_layout`: additional Makie `Figure` attributes forwarded to the layout call.
 - `save_path::Union{Nothing, String} = nothing`: file path to save the plot.
 - `plot_path::Union{Nothing, String} = nothing`: alias for `save_path`.
 """
@@ -1445,9 +1454,10 @@ function plot_observed_profiles(dm::DataModel;
 
     _kw_op = merge(
         (xlabel = x_axis_feature === nothing ? "Time" : _axis_label(x_axis_feature),
-            ylabel = _axis_label(obs_name), legend = false),
+            ylabel = _axis_label(obs_name)),
         kwargs_subplot)
     p = create_styled_plot(; title = "Observed profiles", style = style, _kw_op...)
+    p.legend_position = :none
 
     for i in inds
         ind = dm.individuals[i]
@@ -1465,7 +1475,8 @@ function plot_observed_profiles(dm::DataModel;
             p, xs_sorted, ys_sorted; label = "", color = style.color_primary, style = style)
     end
 
-    return _save_plot!(p, save_path)
+    fig = combine_plots([p]; ncols = 1, style = style, kwargs_layout...)
+    return _save_plot!(fig, save_path)
 end
 
 function plot_observed_profiles(res::FitResult;
@@ -1495,7 +1506,7 @@ end
 # constant covariates, so weight-based covariate shifts are preserved.
 """
     plot_dv_pred(res::FitResult; dm, observable, style, kwargs_subplot,
-                 kwargs_layout, save_path, plot_path) -> Plots.Plot
+                 kwargs_layout, save_path, plot_path) -> Makie.Figure
 
 Goodness-of-fit scatter plot of observed values (DV) against population
 predictions (PRED). PRED is the model prediction evaluated at each
@@ -1507,7 +1518,8 @@ weight scaling. An identity line is overlaid for reference.
 - `dm::Union{Nothing, DataModel} = nothing`: data model (inferred from `res` by default).
 - `observable`: name of the outcome variable, or `nothing` for the first.
 - `style::PlotStyle = PlotStyle()`: visual style configuration.
-- `kwargs_subplot`, `kwargs_layout`: extra keyword arguments for the subplot and layout.
+- `kwargs_subplot`: additional Makie `Axis` attributes forwarded to the subplot.
+- `kwargs_layout`: additional Makie `Figure` attributes forwarded to the layout.
 - `save_path::Union{Nothing, String} = nothing`: file path to save the plot.
 - `plot_path::Union{Nothing, String} = nothing`: alias for `save_path`.
 """
@@ -1537,17 +1549,18 @@ function plot_dv_pred(res::FitResult;
     p = create_styled_plot(; style = style, _kw_dvp...)
     create_styled_scatter!(
         p, pred, dv; label = "", color = style.color_primary, style = style)
-    plot!(p, collect(lims), collect(lims);
+    create_styled_line!(p, collect(lims), collect(lims);
         color = style.color_reference, linestyle = :dash,
-        linewidth = style.line_width_secondary, label = "")
-    plot!(p; xlims = lims, ylims = lims)
+        linewidth = style.line_width_secondary, label = "", style = style)
+    _set_limits!(p; xlim = lims, ylim = lims)
 
-    return _save_plot!(p, save_path)
+    fig = combine_plots([p]; ncols = 1, style = style, kwargs_layout...)
+    return _save_plot!(fig, save_path)
 end
 
 """
     plot_dv_ipred(res::FitResult; dm, observable, style, kwargs_subplot,
-                  kwargs_layout, save_path, plot_path) -> Plots.Plot
+                  kwargs_layout, save_path, plot_path) -> Makie.Figure
 
 Goodness-of-fit scatter plot of observed values (DV) against individual
 predictions (IPRED). IPRED is the model prediction evaluated at each
@@ -1558,7 +1571,8 @@ line is overlaid for reference.
 - `dm::Union{Nothing, DataModel} = nothing`: data model (inferred from `res` by default).
 - `observable`: name of the outcome variable, or `nothing` for the first.
 - `style::PlotStyle = PlotStyle()`: visual style configuration.
-- `kwargs_subplot`, `kwargs_layout`: extra keyword arguments for the subplot and layout.
+- `kwargs_subplot`: additional Makie `Axis` attributes forwarded to the subplot.
+- `kwargs_layout`: additional Makie `Figure` attributes forwarded to the layout.
 - `save_path::Union{Nothing, String} = nothing`: file path to save the plot.
 - `plot_path::Union{Nothing, String} = nothing`: alias for `save_path`.
 """
@@ -1589,17 +1603,18 @@ function plot_dv_ipred(res::FitResult;
     p = create_styled_plot(; style = style, _kw_dvi...)
     create_styled_scatter!(
         p, ipred, dv; label = "", color = style.color_primary, style = style)
-    plot!(p, collect(lims), collect(lims);
+    create_styled_line!(p, collect(lims), collect(lims);
         color = style.color_reference, linestyle = :dash,
-        linewidth = style.line_width_secondary, label = "")
-    plot!(p; xlims = lims, ylims = lims)
+        linewidth = style.line_width_secondary, label = "", style = style)
+    _set_limits!(p; xlim = lims, ylim = lims)
 
-    return _save_plot!(p, save_path)
+    fig = combine_plots([p]; ncols = 1, style = style, kwargs_layout...)
+    return _save_plot!(fig, save_path)
 end
 
 """
     plot_wres_pred(res::FitResult; dm, observable, style, kwargs_subplot,
-                   kwargs_layout, save_path, plot_path) -> Plots.Plot
+                   kwargs_layout, save_path, plot_path) -> Makie.Figure
 
 Population residual diagnostic plot: weighted population residuals (WRES)
 against population predictions (PRED). WRES is defined as
@@ -1611,7 +1626,8 @@ zero reference line is overlaid.
 - `dm::Union{Nothing, DataModel} = nothing`: data model (inferred from `res` by default).
 - `observable`: name of the outcome variable, or `nothing` for the first.
 - `style::PlotStyle = PlotStyle()`: visual style configuration.
-- `kwargs_subplot`, `kwargs_layout`: extra keyword arguments for the subplot and layout.
+- `kwargs_subplot`: additional Makie `Axis` attributes forwarded to the subplot.
+- `kwargs_layout`: additional Makie `Figure` attributes forwarded to the layout.
 - `save_path::Union{Nothing, String} = nothing`: file path to save the plot.
 - `plot_path::Union{Nothing, String} = nothing`: alias for `save_path`.
 """
@@ -1643,17 +1659,17 @@ function plot_wres_pred(res::FitResult;
     p = create_styled_plot(; style = style, _kw_wres...)
     create_styled_scatter!(
         p, pred, wres; label = "", color = style.color_primary, style = style)
-    hline!(p, [0.0];
-        color = style.color_reference, linestyle = :dash,
-        linewidth = style.line_width_secondary, label = "")
-    plot!(p; xlims = (pred_lo, pred_hi), ylims = (wres_lo, wres_hi))
+    add_reference_line!(p, 0.0; orientation = :horizontal,
+        color = style.color_reference, linewidth = style.line_width_secondary, label = "")
+    _set_limits!(p; xlim = (pred_lo, pred_hi), ylim = (wres_lo, wres_hi))
 
-    return _save_plot!(p, save_path)
+    fig = combine_plots([p]; ncols = 1, style = style, kwargs_layout...)
+    return _save_plot!(fig, save_path)
 end
 
 """
     plot_shrinkage(res::FitResult; dm, constants_re, threshold, style,
-                   kwargs_subplot, save_path, plot_path) -> Plots.Plot
+                   kwargs_subplot, save_path, plot_path) -> Makie.Figure
 
 Horizontal bar chart of eta shrinkage for all scalar random effects, with a
 vertical reference line at `threshold` (default 30 %).
@@ -1667,7 +1683,7 @@ and 50 % (orange), above 50 % (red). Shrinkage is computed via
 - `constants_re::NamedTuple = NamedTuple()`: random effects fixed at given values.
 - `threshold::Real = 0.30`: reference line position (fraction, not percent).
 - `style::PlotStyle = PlotStyle()`: visual style configuration.
-- `kwargs_subplot`: extra keyword arguments passed to the subplot.
+- `kwargs_subplot`: additional Makie `Axis` attributes passed to the subplot.
 - `save_path::Union{Nothing, String} = nothing`: file path to save the plot.
 - `plot_path::Union{Nothing, String} = nothing`: alias for `save_path`.
 """
@@ -1706,27 +1722,25 @@ function plot_shrinkage(res::FitResult;
         kwargs_subplot...)
 
     yticks_pos = collect(1:n)
+    bar_vals = max.(values_pct, 0.0)
+    _record!(p,
+        ax -> barplot!(ax, yticks_pos, bar_vals;
+            direction = :x, color = bar_colors, width = 0.6))
     for i in 1:n
-        bar_val = max(values_pct[i], 0.0)
-        plot!(p, [0.0, bar_val], [yticks_pos[i], yticks_pos[i]];
-            seriestype = :path,
-            linewidth = 18,
-            color = bar_colors[i],
-            label = "")
-        annotate!(p, bar_val + 1.5, yticks_pos[i],
-            text(string(round(values_pct[i]; digits = 1), "%"),
-                font("Helvetica", 9), :left, :vcenter))
+        add_annotation!(p, bar_vals[i] + 1.5, yticks_pos[i],
+            string(round(values_pct[i]; digits = 1), "%"); fontsize = 9, halign = :left)
     end
 
-    vline!(p, [threshold * 100];
-        color = style.color_reference, linestyle = :dash,
-        linewidth = style.line_width_secondary, label = "$(round(Int, threshold*100))%")
+    add_reference_line!(p, threshold * 100; orientation = :vertical,
+        color = style.color_reference, linewidth = style.line_width_secondary,
+        label = "$(round(Int, threshold*100))%")
 
-    plot!(p;
-        yticks = (yticks_pos, re_labels),
-        xlims = (-2.0, max(maximum(values_pct) * 1.25 + 5.0, threshold * 100 * 1.5)),
-        ylims = (0.5, n + 0.5),
-        legend = :bottomright)
+    _axis_attrs!(p; yticks = (yticks_pos, re_labels))
+    _set_limits!(p;
+        xlim = (-2.0, max(maximum(values_pct) * 1.25 + 5.0, threshold * 100 * 1.5)),
+        ylim = (0.5, n + 0.5))
+    p.legend_position = :rb
 
-    return _save_plot!(p, save_path)
+    fig = combine_plots([p]; ncols = 1, style = style)
+    return _save_plot!(fig, save_path)
 end
