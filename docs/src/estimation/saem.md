@@ -89,7 +89,7 @@ method = NoLimits.SAEM(;
 
     # SA schedule
     sa_schedule=:robbins_monro,
-    sa_burnin_iters=0,
+    sa_burnin_iters=6,
     maxiters=300,
     t0=maxiters ÷ 2,
     kappa=0.65,
@@ -105,8 +105,8 @@ method = NoLimits.SAEM(;
     # SA variance annealing
     sa_anneal_targets=NamedTuple(),
     sa_anneal_schedule=:exponential,
-    sa_anneal_iters=0,
-    sa_anneal_alpha=0.9,
+    sa_anneal_iters=nothing,   # resolves to t0
+    sa_anneal_alpha=0.95,
     sa_anneal_fn=nothing,
 
     # Variance lower bound
@@ -114,11 +114,12 @@ method = NoLimits.SAEM(;
     var_lb_value=1e-5,
 
     # Convergence and stopping
-    rtol_theta=5e-5,
-    atol_theta=5e-7,
-    rtol_Q=5e-5,
-    atol_Q=5e-7,
+    rtol_theta=1e-3,
+    atol_theta=1e-4,
+    rtol_Q=1e-3,
+    atol_Q=1e-4,
     consecutive_params=4,
+    convergence_window=50,
 
     # Adaptive Q memory policy
     q_store_max=50,
@@ -187,7 +188,7 @@ The constructor arguments are organized into the following functional groups.
 | Multi-chain | `n_chains`, `auto_small_n_chains`, `small_n_chain_target` | Number of parallel MCMC chains per batch. |
 | SA variance annealing | `sa_anneal_targets`, `sa_anneal_schedule`, `sa_anneal_iters`, `sa_anneal_alpha`, `sa_anneal_fn` | Post-M-step variance floor that decays over iterations to prevent early collapse. |
 | Variance lower bound | `auto_var_lb`, `var_lb_value` | Hard permanent floor on variance / SD parameters. |
-| Convergence and stopping | `maxiters`, `rtol_theta`, `atol_theta`, `rtol_Q`, `atol_Q`, `consecutive_params` | Stopping criteria. |
+| Convergence and stopping | `maxiters`, `rtol_theta`, `atol_theta`, `rtol_Q`, `atol_Q`, `consecutive_params`, `convergence_window` | Windowed drift test for early stopping (see [Convergence and Early Stopping](#convergence-and-early-stopping)). |
 | Adaptive Q memory | `q_store_max`, `q_store_epsilon`, `q_store_min` | Ring buffer capacity and adaptive pruning policy for the numerical Q path. |
 | Custom statistics hooks | `suffstats`, `q_from_stats`, `mstep_closed_form` | User-defined sufficient statistics and optional closed-form M-step. |
 | Built-in statistics hooks | `builtin_stats`, `builtin_mean`, `resid_var_param`, `re_cov_params`, `re_mean_params` | Automatic closed-form parameter updates for supported distribution structures. |
@@ -270,7 +271,7 @@ The SA gain sequence `γ_t ∈ [0, 1]` controls how aggressively new samples upd
 
 where `phase3_total = maxiters - sa_burnin_iters - t0` and `k3 = iter - sa_burnin_iters - t0`.
 
-- `sa_burnin_iters::Int = 0`: iterations before SA updates begin. During burn-in no SA smoothing is performed and no samples are stored.
+- `sa_burnin_iters::Int = 6`: iterations before SA updates begin. During burn-in no SA smoothing is performed and no samples are stored.
 - `t0::Int = maxiters ÷ 2`: length of the stabilization phase (γ = 1). Defaults to `nothing`, which resolves to `maxiters ÷ 2` (i.e. `150` at the default `maxiters=300`).
 - `kappa::Float64 = 0.65`: decay exponent controlling how quickly γ falls off after stabilization.
 
@@ -303,14 +304,14 @@ Running multiple independent MCMC chains per batch and averaging their samples b
 
 After each M-step, scalar variance and SD parameters for RE distributions can be clamped to a decaying lower floor. This prevents variance parameters from collapsing to near-zero too early in the run (when the E-step is still mixing poorly), while allowing them to reach their optimal value once the chain has warmed up.
 
-The floor starts at `alpha × initial_value` and decays to zero over `sa_anneal_iters` iterations.
+The floor starts at `alpha × initial_value` and decays to zero over `sa_anneal_iters` iterations, which by default matches the SA stabilization length `t0`.
 
-- `sa_anneal_targets::NamedTuple = NamedTuple()`: explicit mapping of fixed-effect name to `alpha` value, e.g., `(; τ = 0.9)`. When empty, targets are auto-detected from `re_cov_params` for Normal and LogNormal RE families.
+- `sa_anneal_targets::NamedTuple = NamedTuple()`: explicit mapping of fixed-effect name to `alpha` value, e.g., `(; τ = 0.9)`. When empty, targets are auto-detected from `re_cov_params` for the Gaussian RE families (Normal, LogNormal, and their multivariate diagonal-covariance forms MvNormal, MvLogNormal, MvLogitNormal). For multivariate covariances the floor is applied per diagonal entry.
 - `sa_anneal_schedule::Symbol = :exponential`: shape of the floor decay.
   - `:exponential`: `floor = alpha × init × exp(-3 × frac)`.
   - `:linear`: `floor = alpha × init × (1 - frac)`.
-- `sa_anneal_iters::Int = 0`: number of iterations over which the floor is active. If zero, defaults to `0.3 × maxiters`.
-- `sa_anneal_alpha::Float64 = 0.9`: fraction of the initial parameter value used as the starting floor (auto-detection mode only; explicit `sa_anneal_targets` carry their own alpha per entry).
+- `sa_anneal_iters = nothing`: number of iterations over which the floor is active. Defaults to `nothing`, which resolves to `t0` (the SA stabilization length). Pass an explicit `0` to fall back to `0.3 × maxiters`.
+- `sa_anneal_alpha::Float64 = 0.95`: fraction of the initial parameter value used as the starting floor (auto-detection mode only; explicit `sa_anneal_targets` carry their own alpha per entry).
 - `sa_anneal_fn`: reserved for future use (not active).
 
 SA variance annealing is distinct from `anneal_to_fixed`. The latter collapses an RE entirely into a fixed effect by shrinking its prior SD to zero; SA variance annealing only prevents its estimated variance from hitting zero prematurely during optimization.
@@ -321,6 +322,26 @@ A hard, permanent lower bound is applied to scalar RE covariance and residual SD
 
 - `auto_var_lb::Bool = true`: when `true`, automatically applies the lower bound to all scalar RE cov params (Normal, LogNormal, MvNormal scalar covariance) and the residual variance parameter.
 - `var_lb_value::Float64 = 1e-5`: minimum value enforced for the targeted parameters on the natural (untransformed) scale.
+
+### Convergence and Early Stopping
+
+SAEM stops before `maxiters` when both the fixed effects and the Q-function have been stationary for several consecutive iterations. Because single-iteration changes are dominated by Monte Carlo noise, stationarity is measured on a sliding window of recent iterates: the window is split in half and the drift between the two half-window means must stay within tolerance.
+
+At each iteration past the SA stabilization phase (and outside any active SA variance annealing floor), the current transformed fixed-effect vector and the Q value are appended to a window of length `convergence_window`. Once the window is full, two tests run every iteration:
+
+- θ test: every coordinate's drift between the half-window means (transformed scale) must satisfy `drift ≤ max(atol_theta, rtol_theta * scale_θ, 2 * mc_se)`, where `scale_θ = max(1, ‖older-half mean‖∞)` and `mc_se` is the Monte-Carlo standard error of the half-mean difference estimated from the within-half variance of the window.
+- Q test: the same rule applied to the Q history. Any non-finite Q value in the window fails the test.
+
+The `2 * mc_se` term is what makes the test fire in practice: both the θ trajectory and the per-iteration Q value fluctuate at Monte-Carlo noise scale that never fully decays, so a drift that is statistically indistinguishable from that noise counts as stationary, while a genuine trend (drift well above the noise level) blocks the stop. The absolute and relative tolerances act as deterministic floors on top of the statistical criterion.
+
+Each passing test increments its streak counter; a failing test resets it to zero. The fit stops with `converged = true` once both streaks reach `consecutive_params`. Iterations whose M-step was skipped (non-finite optimizer result) fail both tests, so a frozen parameter vector cannot register as converged.
+
+- `convergence_window::Int = 50`: window length (must be ≥ 4; the compared halves have length `convergence_window ÷ 2`). The earliest possible stop is `convergence_window + consecutive_params` iterations after stabilization ends.
+- `rtol_theta = 1e-3`, `atol_theta = 1e-4`: tolerances for the θ drift test.
+- `rtol_Q = 1e-3`, `atol_Q = 1e-4`: tolerances for the Q drift test.
+- `consecutive_params::Int = 4`: consecutive passing iterations required of both tests.
+
+Set `rtol_theta = atol_theta = 0` (or the Q pair) to disable early stopping and always run the full `maxiters` iterations. The per-iteration drift values are recorded in the fit diagnostics as `drift_θ` and `drift_Q` (`NaN` until the window first fills) and are shown in the `verbose` per-iteration log.
 
 ### Custom Statistics Inputs
 
